@@ -1,0 +1,17 @@
+# Node modules
+node_modules/
+
+# Next.js build
+.next/
+out/
+build/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage / testing
+coverage/
