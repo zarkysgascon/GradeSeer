@@ -1,50 +1,44 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db"; // Drizzle DB instance
-import { users } from "@/lib/schema"; // Drizzle schema
-import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { db } from "@/lib/drizzle";
+import { users } from "@/lib/schema";
+import { eq } from "drizzle-orm"; // <-- import eq
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password, provider, provider_id, image } = await req.json();
+    const { email, password } = await req.json();
 
-    // Default name if not provided
-    const username = name || email.split("@")[0];
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
 
     // Check if user already exists
     const existingUser = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
-      .limit(1)
-      .then(res => res[0]);
+      .where(eq(users.email, email)); // <-- use eq correctly
 
-    if (existingUser) {
-      return NextResponse.json({ error: "User already exists" }, { status: 409 });
+    if (existingUser.length > 0) {
+      return NextResponse.json(
+        { error: "User already exists" },
+        { status: 400 }
+      );
     }
 
-    // Hash password if provided
-    let hashedPassword: string | null = null;
-    if (password) {
-      hashedPassword = await bcrypt.hash(password, 10);
-    }
+    // Insert user
+    await db.insert(users).values({ email, password });
 
-    // Insert new user
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        name: username,
-        email,
-        password: hashedPassword,
-        provider: provider || "credentials",
-        provider_id: provider_id || null,
-        image: image || null,
-      })
-      .returning({ id: users.id, email: users.email, provider: users.provider });
-
-    return NextResponse.json({ message: "User created", user: newUser });
-  } catch (err: any) {
-    console.error("Signup route error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { message: "User created successfully" },
+      { status: 201 }
+    );
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { error: "Failed to create user" },
+      { status: 500 }
+    );
   }
 }
