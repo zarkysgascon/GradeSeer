@@ -29,7 +29,7 @@ export default function SignUpPage() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }), // send plain password
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
@@ -40,10 +40,9 @@ export default function SignUpPage() {
         return;
       }
 
-      // ✅ Success
       setSuccess("Account created successfully! Redirecting...");
       setTimeout(() => {
-        router.push("/login"); // Redirect to login page after success
+        router.push("/login");
       }, 1500);
     } catch (err) {
       console.error("Signup error:", err);
@@ -54,26 +53,47 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-purple-700 via-indigo-600 to-indigo-400 relative overflow-hidden">
-      {/* Decorative waves */}
-      <div className="absolute bottom-0 w-full">
-        <Image
-          src="/waves.svg"
-          alt="waves"
-          width={1920}
-          height={200}
-          className="w-full object-cover"
-        />
+    <div className="flex h-screen bg-white relative overflow-hidden">
+      {/* LEFT PANEL */}
+      <div
+        className="hidden md:flex w-1/2 items-center justify-center relative bg-gradient-to-br from-indigo-700 via-indigo-600 to-purple-600 overflow-visible z-20 shadow-[20px_0_80px_-10px_rgba(0,0,0,0.6)]"
+      >
+        {/* Outer glow shadow (gives elevation illusion) */}
+        <div className="absolute inset-0 shadow-[30px_0_100px_rgba(0,0,0,0.3)] pointer-events-none"></div>
+
+        {/* Soft right-side highlight (adds glassy rim) */}
+        <div className="absolute inset-y-0 right-0 w-[6px] bg-white/70 blur-[3px] opacity-20 rounded-full"></div>
+
+       {/* Glassy surface overlay */}
+        <div className="absolute inset-0 rounded-r-[60px] bg-gradient-to-tr from-white/20 via-transparent to-white/10 opacity-40 pointer-events-none"></div> 
+
+        {/* Floating Icons */}
+        <div className="absolute inset-0 opacity-70 pointer-events-none z-0">
+          <div className="absolute text-white text-[60px] animate-float-slow top-10 left-16">📘</div>
+          <div className="absolute text-white text-[65px] animate-float-fast top-16 right-20">💡</div>
+          <div className="absolute text-white text-[70px] animate-float-mid top-1/3 left-12">🧠</div>
+          <div className="absolute text-white text-[65px] animate-float-slow top-1/2 right-16">📖</div>
+          <div className="absolute text-white text-[60px] animate-float-mid bottom-1/3 left-1/3">🎓</div>
+          <div className="absolute text-white text-[75px] animate-float-fast bottom-16 right-24">📐</div>
+          <div className="absolute text-white text-[65px] animate-float-slow bottom-10 left-1/5">✏️</div>
+        </div>
+
+        {/* Brand Info */}
+        <div className="text-white text-center px-8 z-10 drop-shadow-lg">
+          <h1 className="text-5xl font-bold mb-3">Join GradeSeer</h1>
+          <p className="text-lg opacity-90 max-w-md mx-auto">
+            Predict your academic success — powered by AI insights.
+          </p>
+        </div>
       </div>
 
-      {/* Signup Card */}
-      <div className="bg-white rounded-3xl shadow-2xl flex overflow-hidden max-w-3xl w-full">
-        <div className="w-1/3 bg-gradient-to-b from-purple-700 to-indigo-500" />
-
-        <div className="w-2/3 p-10 flex flex-col justify-center">
+      {/* RIGHT PANEL (Signup Form) */}
+      <div className="flex w-full md:w-1/2 items-center justify-center bg-white relative z-10">
+        <div className="z-10 bg-white rounded-2xl shadow-xl p-10 w-full max-w-md mx-4">
+          {/* Logo */}
           <div className="flex flex-col items-center mb-6">
-            <Image src="/gslogo.png" alt="GradeSeer Logo" width={80} height={80} />
-            <h2 className="text-2xl font-bold text-gray-800 mt-2">Create Account</h2>
+            <Image src="/gslogo.png" alt="GradeSeer Logo" width={80} height={80} className="mb-2" />
+            <h1 className="text-2xl font-bold text-gray-800">Create Account</h1>
           </div>
 
           <form onSubmit={handleSignUp} className="space-y-4">
