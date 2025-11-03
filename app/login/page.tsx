@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -12,29 +11,31 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleCredentialsLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const res = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    });
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    setLoading(false);
+      const data = await res.json();
 
-    if (res?.error) {
-      setError("Invalid email or password");
-    } else {
-      router.push("/dashboard");
+      if (!res.ok) {
+        setError(data.error || "Invalid email or password");
+      } else {
+        router.push("/dashboard"); // redirect after successful login
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Login failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const handleOAuthLogin = async (provider: "google" | "facebook") => {
-    setLoading(true);
-    await signIn(provider, { callbackUrl: "/dashboard" });
   };
 
   return (
