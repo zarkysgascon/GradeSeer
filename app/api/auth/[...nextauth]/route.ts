@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { JWT } from "next-auth/jwt";
 
 // ✅ Define auth options
 export const authOptions: NextAuthOptions = {
@@ -17,7 +18,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials): Promise<any> {
+      async authorize(credentials): Promise<typeof users.$inferSelect | null> {
         if (!credentials?.email || !credentials?.password) return null;
 
         const existingUser = await db
@@ -55,13 +56,14 @@ export const authOptions: NextAuthOptions = {
 
   // ✅ Callbacks
   callbacks: {
-    async signIn({
-      user,
-      account,
-    }: {
-      user: any;
-      account: any;
+    async signIn(params: {
+      user: import("next-auth").User;
+      account: import("next-auth").Account | null;
+      profile?: import("next-auth").Profile;
+      email?: { verificationRequest?: boolean };
+      credentials?: Record<string, unknown>;
     }): Promise<boolean> {
+      const { user, account } = params;
       if (!user?.email) return false;
 
       const existingUser = await db
@@ -97,9 +99,9 @@ export const authOptions: NextAuthOptions = {
       token,
       user,
     }: {
-      token: any;
-      user?: any;
-    }): Promise<any> {
+      token: JWT;
+      user?: import("next-auth").User;
+    }): Promise<JWT> {
       if (user) {
         token.id = user.id;
       }
@@ -110,11 +112,11 @@ export const authOptions: NextAuthOptions = {
       session,
       token,
     }: {
-      session: any;
-      token: any;
-    }): Promise<any> {
+      session: import("next-auth").Session;
+      token: JWT;
+    }): Promise<import("next-auth").Session> {
       if (session.user && token.id) {
-        session.user.id = token.id;
+        (session.user as { id?: string }).id = token.id as string;
       }
       return session;
     },

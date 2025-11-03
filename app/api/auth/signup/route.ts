@@ -1,44 +1,53 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/drizzle";
+import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
-import { eq } from "drizzle-orm"; // <-- import eq
+import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email and password are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
     }
 
     // Check if user already exists
     const existingUser = await db
       .select()
       .from(users)
-      .where(eq(users.email, email)); // <-- use eq correctly
+      .where(eq(users.email, email))
+      .limit(1)
+      .then((res) => res[0]);
 
-    if (existingUser.length > 0) {
-      return NextResponse.json(
-        { error: "User already exists" },
-        { status: 400 }
-      );
+    if (existingUser) {
+      return NextResponse.json({ error: "User already exists." }, { status: 409 });
     }
 
-    // Insert user
-    await db.insert(users).values({ email, password });
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    return NextResponse.json(
-      { message: "User created successfully" },
-      { status: 201 }
-    );
+    const username = name || email.split("@")[0];
+
+    // Insert new user
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        name: username,
+        email,
+        password: hashedPassword,
+        provider: provider || "credentials",
+        provider_id: provider_id || null,
+        image: image || null,
+      })
+      .returning({ id: users.id, email: users.email });
+
+    return NextResponse.json({
+      message: "User successfully registered.",
+      user: newUser,
+    });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to create user" },
-      { status: 500 }
-    );
+    console.error("❌ Signup route error:", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
