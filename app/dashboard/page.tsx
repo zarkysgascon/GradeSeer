@@ -155,12 +155,12 @@ export default function Dashboard() {
       <nav className="bg-white shadow-md px-10 py-4 flex items-center justify-between">
         {/* Left Logo */}
         <div className="flex-1 flex justify-start">
-          <Image src="/gslogo.png" alt="Logo" width={48} height={48} />
+          <Image src="/gslogo.png" alt="Logo" width={80} height={80} />
         </div>
 
         {/* Center Tabs */}
         <div className="flex-1 flex justify-center">
-            <div className="flex gap-8">
+            <div className="flex gap-70">
             {(["subjects", "history", "notifications"] as const).map((tab) => (
               <button
                 key={tab}
