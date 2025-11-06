@@ -69,7 +69,7 @@ export default function Dashboard() {
 
     const fetchSubjects = async () => {
       try {
-        const email: string = user.email!; // TypeScript now knows this is string
+        const email: string = user.email!;
         const res = await fetch(`/api/subjects?email=${encodeURIComponent(email)}`);
         if (res.ok) {
           const data = await res.json();
@@ -93,7 +93,7 @@ export default function Dashboard() {
     if (duplicate) return alert("Priority already exists!");
 
     const updatedComponents = [...newSubject.components];
-    const idx = updatedComponents.findIndex(c => c.name === newComponent.name);
+    const idx = updatedComponents.findIndex((c) => c.name === newComponent.name);
     if (idx >= 0) updatedComponents[idx] = newComponent;
     else updatedComponents.push(newComponent);
 
@@ -107,7 +107,7 @@ export default function Dashboard() {
     setLoading(true);
 
     try {
-      const email: string = user.email; // safe string
+      const email: string = user.email;
       const res = await fetch("/api/subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -156,17 +156,20 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-        <div className="flex-1 flex justify-end relative group">
-          <button>
-            {user?.image ? <Image src={user.image} alt="Profile" width={50} height={50} className="rounded-full cursor-pointer border border-gray-300"/> :
-            <div className="w-10 h-10 bg-gray-300 rounded-full" />}
+        <div className="flex-1 flex justify-end">
+          <button onClick={() => router.push("/profile")}>
+            {user?.image ? (
+              <Image
+                src={user.image}
+                alt="Profile"
+                width={50}
+                height={50}
+                className="rounded-full cursor-pointer border border-gray-300"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-gray-300 rounded-full cursor-pointer" />
+            )}
           </button>
-          <div className="absolute right-0 mt-3 w-44 bg-white shadow-lg rounded-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
-            <div className="px-4 py-2 text-gray-700 border-b border-gray-100 font-semibold">
-              {user?.name ?? "User"}
-            </div>
-            <button onClick={() => signOut({ callbackUrl: "/" })} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 font-medium">Sign Out</button>
-          </div>
         </div>
       </nav>
 
@@ -233,7 +236,7 @@ export default function Dashboard() {
           <h3 className="font-semibold mb-2">Components</h3>
           <div className="border rounded p-2 mb-3 max-h-40 overflow-y-auto text-sm space-y-1">
             {newSubject.components.length===0 ? <p className="text-gray-400 text-center">No components yet</p> :
-              newSubject.components.map((comp,i)=>(
+              newSubject.components.map((comp,i)=>( 
                 <div key={i} className="flex gap-2 items-center">
                   <input className="flex-1 p-1 border rounded text-sm" value={comp.name}
                     onChange={e=>{ const updated=[...newSubject.components]; updated[i].name=e.target.value; setNewSubject({...newSubject,components:updated}); }} />
