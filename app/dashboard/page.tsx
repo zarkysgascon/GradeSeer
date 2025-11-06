@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
+/* ------------------------- Interfaces ------------------------- */
 interface ComponentInput {
   name: string;
   percentage: number;
@@ -27,7 +28,7 @@ interface ExtendedUser {
   image?: string | null;
 }
 
-// Generate pastel color for a new subject
+/* ---------------------- Utility Functions ---------------------- */
 const generateColor = () => {
   const hue = Math.floor(Math.random() * 360);
   return `hsl(${hue}, 70%, 85%)`;
@@ -39,9 +40,13 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState<"subjects" | "history" | "notifications">("subjects");
   const [showModal, setShowModal] = useState(false);
+
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const user = session?.user as ExtendedUser | undefined;
+
+  /* ---------------------- Modal States ---------------------- */
   const [newSubject, setNewSubject] = useState({
     name: "",
     is_major: false,
@@ -56,24 +61,20 @@ export default function Dashboard() {
     priority: 1,
   });
 
-  const user = session?.user as ExtendedUser | undefined;
-
-  // Redirect if not authenticated
+  /* ---------------------- Auth Redirect ---------------------- */
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  // Fetch subjects safely
+  /* ---------------------- Fetch Subjects ---------------------- */
   useEffect(() => {
     if (!user?.email) return;
 
     const fetchSubjects = async () => {
       try {
-        const email: string = user.email!; // TypeScript now knows this is string
-        const res = await fetch(`/api/subjects?email=${encodeURIComponent(email)}`);
+        const res = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
         if (res.ok) {
-          const data = await res.json();
-          setSubjects(data);
+          setSubjects(await res.json());
         }
       } catch (err) {
         console.error(err);
@@ -83,41 +84,47 @@ export default function Dashboard() {
     fetchSubjects();
   }, [user?.email]);
 
-  // Add or update a component
+  /* ---------------------- Add/Update Component ---------------------- */
   const handleAddOrUpdateComponent = () => {
-    if (!newComponent.name.trim()) return;
+    if (!newComponent.name.trim()) return alert("Component name required!");
 
     const duplicate = newSubject.components.some(
       (c) => c.priority === newComponent.priority && c.name !== newComponent.name
     );
-    if (duplicate) return alert("Priority already exists!");
+    if (duplicate) return alert("A component with that priority already exists.");
 
-    const updatedComponents = [...newSubject.components];
-    const idx = updatedComponents.findIndex(c => c.name === newComponent.name);
-    if (idx >= 0) updatedComponents[idx] = newComponent;
-    else updatedComponents.push(newComponent);
+    const updated = [...newSubject.components];
+    const idx = updated.findIndex((c) => c.name === newComponent.name);
 
-    setNewSubject({ ...newSubject, components: updatedComponents });
-    setNewComponent({ name: "", percentage: 0, priority: updatedComponents.length + 1 });
+    if (idx >= 0) updated[idx] = newComponent;
+    else updated.push(newComponent);
+
+    setNewSubject({ ...newSubject, components: updated });
+    setNewComponent({ name: "", percentage: 0, priority: updated.length + 1 });
   };
 
-  // Save subject
+  /* ---------------------- Save Subject ---------------------- */
   const handleSaveSubject = async () => {
-    if (!newSubject.name.trim() || !user?.email) return;
+    if (!user?.email || !newSubject.name.trim()) return;
+
     setLoading(true);
 
     try {
-      const email: string = user.email; // safe string
       const res = await fetch("/api/subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newSubject, user_email: email }),
+        body: JSON.stringify({ ...newSubject, user_email: user.email }),
       });
 
       if (res.ok) {
-        const data = await (await fetch(`/api/subjects?email=${encodeURIComponent(email)}`)).json();
-        setSubjects(data);
+        const updated = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`).then(
+          (r) => r.json()
+        );
+
+        setSubjects(updated);
         setShowModal(false);
+
+        // Reset modal
         setNewSubject({
           name: "",
           is_major: false,
@@ -126,146 +133,290 @@ export default function Dashboard() {
           components: [],
         });
       } else {
-        const err = await res.json();
-        alert(err.error || "Failed to save subject");
+        alert("Failed to save subject.");
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to save subject");
+      alert("Server error while saving.");
     }
 
     setLoading(false);
   };
 
-  if (status === "loading") return <div className="flex justify-center items-center h-screen text-lg">Loading...</div>;
+  /* ---------------------- Loading State ---------------------- */
+  if (status === "loading")
+    return <div className="flex justify-center items-center h-screen text-lg">Loading...</div>;
 
+  /* ---------------------- UI Return ---------------------- */
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Navbar */}
+
+      {/* ---------------------- Navbar ---------------------- */}
       <nav className="bg-white shadow-md px-10 py-4 flex items-center justify-between">
+        {/* Left Logo */}
         <div className="flex-1 flex justify-start">
           <Image src="/gslogo.png" alt="Logo" width={48} height={48} />
         </div>
+
+        {/* Center Tabs */}
         <div className="flex-1 flex justify-center">
-          <div className="flex gap-8">
-            {["subjects","history","notifications"].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab as any)}
-                className={`capitalize font-medium transition ${activeTab===tab?'text-blue-600 border-b-2 border-blue-600 pb-1':'text-gray-700 hover:text-blue-600'}`}>
+            <div className="flex gap-8">
+            {(["subjects", "history", "notifications"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`capitalize font-medium transition ${
+                  activeTab === tab
+                    ? "text-blue-600 border-b-2 border-blue-600 pb-1"
+                    : "text-gray-700 hover:text-blue-600"
+                }`}
+              >
                 {tab}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Profile Dropdown */}
         <div className="flex-1 flex justify-end relative group">
           <button>
-            {user?.image ? <Image src={user.image} alt="Profile" width={50} height={50} className="rounded-full cursor-pointer border border-gray-300"/> :
-            <div className="w-10 h-10 bg-gray-300 rounded-full" />}
+            {user?.image ? (
+              <Image
+                src={user.image}
+                alt="Profile"
+                width={50}
+                height={50}
+                className="rounded-full cursor-pointer border border-gray-300"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-gray-300 rounded-full" />
+            )}
           </button>
-          <div className="absolute right-0 mt-3 w-44 bg-white shadow-lg rounded-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
-            <div className="px-4 py-2 text-gray-700 border-b border-gray-100 font-semibold">
+
+          {/* Dropdown */}
+          <div className="absolute right-0 mt-3 w-44 bg-white shadow-lg rounded-lg border opacity-0 group-hover:opacity-100 transition duration-200 z-50">
+            <div className="px-4 py-2 text-gray-700 border-b font-semibold">
               {user?.name ?? "User"}
             </div>
-            <button onClick={() => signOut({ callbackUrl: "/" })} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 font-medium">Sign Out</button>
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 font-medium"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       </nav>
 
-      {/* Main */}
+      {/* ---------------------- Main Section ---------------------- */}
       <main className="p-6">
-        <h1 className="text-3xl font-bold mb-6 text-center">Welcome, {user?.name ?? "Student"} 👋</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center">
+          Welcome, {user?.name ?? "Student"} 👋
+        </h1>
 
-        {activeTab==="subjects" && (
+        {/* ---------------------- SUBJECTS TAB ---------------------- */}
+        {activeTab === "subjects" && (
           <div className="max-w-6xl mx-auto">
             <div className="flex justify-start mb-4">
-              <button onClick={()=>setShowModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">+ Add Subject</button>
+              <button
+                onClick={() => setShowModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+              >
+                + Add Subject
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {subjects.length===0 ? (
-                <p className="text-gray-600 text-center col-span-full">No subjects yet.</p>
-              ) : subjects.map(subj => (
-                <div key={subj.id} className="p-4 bg-white rounded-xl shadow-lg relative border-l-8"
-                  style={{ borderColor: subj.color }}>
-                  <div className="font-bold text-lg">{subj.name}</div>
-                  <div className="mt-1 text-sm text-gray-600">
-                    {subj.is_major ? "Major" : "Minor"} 
-                    {subj.target_grade != null && ` • Target: ${Number(subj.target_grade).toFixed(2)}`}
+              {subjects.length === 0 ? (
+                <p className="text-gray-600 text-center col-span-full">
+                  No subjects added yet.
+                </p>
+              ) : (
+                subjects.map((subj) => (
+                  <div
+                    key={subj.id}
+                    className="p-4 bg-white rounded-xl shadow-lg border-l-8"
+                    style={{ borderColor: subj.color }}
+                  >
+                    <div className="font-bold text-lg">{subj.name}</div>
+                    <div className="mt-1 text-sm text-gray-600">
+                      {subj.is_major ? "Major" : "Minor"}{" "}
+                      {subj.target_grade && `• Target: ${subj.target_grade}`}
+                    </div>
+
+                    <ul className="mt-2 text-sm text-gray-800 space-y-1">
+                      {subj.components
+                        .sort((a, b) => a.priority - b.priority)
+                        .map((c, i) => (
+                          <li key={i}>
+                            {i + 1}. {c.name} – {c.percentage}% (P{c.priority})
+                          </li>
+                        ))}
+                    </ul>
                   </div>
-                  <ul className="mt-2 text-sm text-gray-800 space-y-1">
-                    {subj.components.sort((a,b)=>a.priority-b.priority).map((c,i)=>(
-                      <li key={i}>{i+1}. {c.name} – {c.percentage.toFixed(2)} (Priority {c.priority})</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
       </main>
 
-      {/* Modal */}
-      <div className={`fixed inset-0 flex justify-center items-center bg-black/30 backdrop-blur-sm z-50 ${showModal ? "block" : "hidden"}`}>
-        <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6 relative">
-          <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
-          <h2 className="text-xl font-bold mb-4 text-center">Add New Subject</h2>
+      {/* ---------------------- ✅ ADD SUBJECT MODAL ---------------------- */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white w-[520px] rounded-3xl shadow-2xl overflow-hidden">
 
-          <input type="text" placeholder="Subject name" value={newSubject.name}
-            onChange={e=>setNewSubject({...newSubject,name:e.target.value})}
-            className="w-full p-2 border rounded mb-3" />
+            {/* Header */}
+            <div className="h-20 bg-gradient-to-r from-purple-700 to-indigo-500 flex items-center justify-center">
+              <h2 className="text-xl font-bold text-white tracking-wide">
+                Add New Subject
+              </h2>
+            </div>
 
-          <label className="flex flex-col mb-3">
-            <span className="mb-1 font-medium">Subject Type</span>
-            <select value={newSubject.is_major ? "major":"minor"}
-              onChange={e=>setNewSubject({...newSubject,is_major:e.target.value==="major"})}
-              className="p-2 border rounded">
-              <option value="major">Major</option>
-              <option value="minor">Minor</option>
-            </select>
-          </label>
+            {/* Modal Content */}
+            <div className="p-6">
+              
+              {/* Name */}
+              <label className="font-semibold text-gray-700 text-sm">Subject Name</label>
+              <input
+                type="text"
+                className="w-full p-3 border rounded-xl mb-4 focus:ring-2 focus:ring-indigo-400"
+                placeholder="Enter subject name"
+                value={newSubject.name}
+                onChange={(e) =>
+                  setNewSubject({ ...newSubject, name: e.target.value })
+                }
+              />
 
-          <label className="flex flex-col mb-3">
-            <span className="mb-1 font-medium">Target Grade (numeric, e.g., 3.00)</span>
-            <input type="number" min={0} max={100} step={0.01} value={newSubject.target_grade ?? 0}
-              onChange={e=>setNewSubject({...newSubject,target_grade: Number(e.target.value)})}
-              className="p-2 border rounded" />
-          </label>
+              {/* Type */}
+              <label className="font-semibold text-gray-700 text-sm">Course Type</label>
+              <select
+                className="w-full p-3 border rounded-xl mb-4 focus:ring-2 focus:ring-indigo-400"
+                value={newSubject.is_major ? "major" : "minor"}
+                onChange={(e) =>
+                  setNewSubject({
+                    ...newSubject,
+                    is_major: e.target.value === "major",
+                  })
+                }
+              >
+                <option value="major">Major</option>
+                <option value="minor">Minor</option>
+              </select>
 
-          <h3 className="font-semibold mb-2">Components</h3>
-          <div className="border rounded p-2 mb-3 max-h-40 overflow-y-auto text-sm space-y-1">
-            {newSubject.components.length===0 ? <p className="text-gray-400 text-center">No components yet</p> :
-              newSubject.components.map((comp,i)=>(
-                <div key={i} className="flex gap-2 items-center">
-                  <input className="flex-1 p-1 border rounded text-sm" value={comp.name}
-                    onChange={e=>{ const updated=[...newSubject.components]; updated[i].name=e.target.value; setNewSubject({...newSubject,components:updated}); }} />
-                  <input className="w-20 p-1 border rounded text-sm" type="number" step={0.01} value={comp.percentage}
-                    onChange={e=>{ const updated=[...newSubject.components]; updated[i].percentage=Number(e.target.value); setNewSubject({...newSubject,components:updated}); }} />
-                  <input className="w-20 p-1 border rounded text-sm" type="number" value={comp.priority}
-                    onChange={e=>{ const updated=[...newSubject.components]; updated[i].priority=Number(e.target.value); setNewSubject({...newSubject,components:updated}); }} />
-                </div>
-              ))
-            }
-          </div>
+              {/* Components */}
+              <h3 className="font-semibold text-gray-700 mb-2 text-sm">
+                Components (Tasks, Exams, Projects)
+              </h3>
 
-          <div className="flex gap-2 mb-4">
-            <input type="text" placeholder="Component name" value={newComponent.name}
-              onChange={e=>setNewComponent({...newComponent,name:e.target.value})}
-              className="flex-1 p-2 border rounded"/>
-            <input type="number" placeholder="Numeric" step={0.01} value={newComponent.percentage}
-              onChange={e=>setNewComponent({...newComponent,percentage:Number(e.target.value)})}
-              className="w-20 p-2 border rounded"/>
-            <input type="number" placeholder="Priority" value={newComponent.priority}
-              onChange={e=>setNewComponent({...newComponent,priority:Number(e.target.value)})}
-              className="w-20 p-2 border rounded"/>
-          </div>
+              <div className="border rounded-xl p-3 max-h-40 overflow-y-auto bg-gray-50">
+                {newSubject.components.length === 0 ? (
+                  <p className="text-gray-400 text-center text-sm py-5">
+                    No components yet.
+                  </p>
+                ) : (
+                  newSubject.components.map((c, i) => (
+                    <div key={i} className="grid grid-cols-3 gap-2 mb-2">
+                      <input
+                        className="p-2 border rounded-lg text-sm"
+                        value={c.name}
+                        onChange={(e) => {
+                          const updated = [...newSubject.components];
+                          updated[i].name = e.target.value;
+                          setNewSubject({ ...newSubject, components: updated });
+                        }}
+                      />
+                      <input
+                        type="number"
+                        className="p-2 border rounded-lg text-sm"
+                        value={c.percentage}
+                        onChange={(e) => {
+                          const updated = [...newSubject.components];
+                          updated[i].percentage = Number(e.target.value);
+                          setNewSubject({ ...newSubject, components: updated });
+                        }}
+                      />
+                      <input
+                        type="number"
+                        className="p-2 border rounded-lg text-sm"
+                        value={c.priority}
+                        onChange={(e) => {
+                          const updated = [...newSubject.components];
+                          updated[i].priority = Number(e.target.value);
+                          setNewSubject({ ...newSubject, components: updated });
+                        }}
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
 
-          <button onClick={handleAddOrUpdateComponent} className="bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded mb-4 transition">+ Add / Update Component</button>
+              {/* Add Component Row */}
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                <input
+                  type="text"
+                  placeholder="Name"
+                  className="p-2 border rounded-xl text-sm"
+                  value={newComponent.name}
+                  onChange={(e) =>
+                    setNewComponent({ ...newComponent, name: e.target.value })
+                  }
+                />
+                <input
+                  type="number"
+                  className="p-2 border rounded-xl text-sm"
+                  placeholder="%"
+                  value={newComponent.percentage}
+                  onChange={(e) =>
+                    setNewComponent({
+                      ...newComponent,
+                      percentage: Number(e.target.value),
+                    })
+                  }
+                />
+                <input
+                  type="number"
+                  className="p-2 border rounded-xl text-sm"
+                  placeholder="P"
+                  value={newComponent.priority}
+                  onChange={(e) =>
+                    setNewComponent({
+                      ...newComponent,
+                      priority: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
 
-          <div className="flex justify-between">
-            <button onClick={()=>setShowModal(false)} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition">Cancel</button>
-            <button onClick={handleSaveSubject} disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">{loading ? "Saving..." : "Save Subject"}</button>
+              {/* Add Component Button */}
+              <button
+                onClick={handleAddOrUpdateComponent}
+                className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-semibold"
+              >
+                + Add Component
+              </button>
+
+              {/* Footer Buttons */}
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleSaveSubject}
+                  disabled={loading}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700"
+                >
+                  {loading ? "Saving..." : "Save Subject"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
