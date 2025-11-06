@@ -286,6 +286,7 @@ export default function Dashboard() {
                 onChange={(e) =>
                   setNewSubject({ ...newSubject, name: e.target.value })
                 }
+          
               />
 
               {/* Type */}
