@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    "typeRoots": [
+      "./types",
+      "./node_modules/@types"
+    ],
     "target": "ES2020",
     "lib": [
       "dom",
@@ -35,6 +39,7 @@
     "**/*.tsx",
     "next-auth.d.ts",
     ".next/types/**/*.ts",
+    "app/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
