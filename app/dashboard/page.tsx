@@ -42,8 +42,26 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null); // <-- Added state
 
   const user = session?.user as ExtendedUser | undefined;
+
+  /* ---------------------- Fetch Updated Profile Image ---------------------- */
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.email) return;
+      try {
+        const res = await fetch(`/api/users?email=${encodeURIComponent(user.email)}`);
+        if (res.ok) {
+          const userData = await res.json();
+          if (userData.image) setProfileImage(userData.image);
+        }
+      } catch (err) {
+        console.error("Error fetching updated user profile:", err);
+      }
+    };
+    fetchUserProfile();
+  }, [user?.email]);
 
   /* ---------------------- Modal States ---------------------- */
   const [newSubject, setNewSubject] = useState({
@@ -179,7 +197,15 @@ export default function Dashboard() {
 
         <div className="flex-1 flex justify-end">
           <button onClick={() => router.push("/profile")}>
-            {user?.image ? (
+            {profileImage ? ( // <-- Uses the updated profile image
+              <Image
+                src={profileImage}
+                alt="Profile"
+                width={50}
+                height={50}
+                className="rounded-full cursor-pointer border border-gray-300"
+              />
+            ) : user?.image ? (
               <Image
                 src={user.image}
                 alt="Profile"
