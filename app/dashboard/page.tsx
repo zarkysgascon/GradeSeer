@@ -72,7 +72,8 @@ export default function Dashboard() {
 
     const fetchSubjects = async () => {
       try {
-        const res = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
+        const email: string = user.email!;
+        const res = await fetch(`/api/subjects?email=${encodeURIComponent(email)}`);
         if (res.ok) {
           setSubjects(await res.json());
         }
@@ -93,8 +94,10 @@ export default function Dashboard() {
     );
     if (duplicate) return alert("A component with that priority already exists.");
 
-    const updated = [...newSubject.components];
-    const idx = updated.findIndex((c) => c.name === newComponent.name);
+    const updatedComponents = [...newSubject.components];
+    const idx = updatedComponents.findIndex((c) => c.name === newComponent.name);
+    if (idx >= 0) updatedComponents[idx] = newComponent;
+    else updatedComponents.push(newComponent);
 
     if (idx >= 0) updated[idx] = newComponent;
     else updated.push(newComponent);
@@ -110,6 +113,7 @@ export default function Dashboard() {
     setLoading(true);
 
     try {
+      const email: string = user.email;
       const res = await fetch("/api/subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -176,10 +180,8 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-
-        {/* Profile Dropdown */}
-        <div className="flex-1 flex justify-end relative group">
-          <button>
+        <div className="flex-1 flex justify-end">
+          <button onClick={() => router.push("/profile")}>
             {user?.image ? (
               <Image
                 src={user.image}
@@ -189,22 +191,9 @@ export default function Dashboard() {
                 className="rounded-full cursor-pointer border border-gray-300"
               />
             ) : (
-              <div className="w-10 h-10 bg-gray-300 rounded-full" />
+              <div className="w-10 h-10 bg-gray-300 rounded-full cursor-pointer" />
             )}
           </button>
-
-          {/* Dropdown */}
-          <div className="absolute right-0 mt-3 w-44 bg-white shadow-lg rounded-lg border opacity-0 group-hover:opacity-100 transition duration-200 z-50">
-            <div className="px-4 py-2 text-gray-700 border-b font-semibold">
-              {user?.name ?? "User"}
-            </div>
-            <button
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 font-medium"
-            >
-              Sign Out
-            </button>
-          </div>
         </div>
       </nav>
 
@@ -261,10 +250,48 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* ---------------------- ✅ ADD SUBJECT MODAL ---------------------- */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-[520px] rounded-3xl shadow-2xl overflow-hidden">
+      {/* Modal */}
+      <div className={`fixed inset-0 flex justify-center items-center bg-black/30 backdrop-blur-sm z-50 ${showModal ? "block" : "hidden"}`}>
+        <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6 relative">
+          <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
+          <h2 className="text-xl font-bold mb-4 text-center">Add New Subject</h2>
+
+          <input type="text" placeholder="Subject name" value={newSubject.name}
+            onChange={e=>setNewSubject({...newSubject,name:e.target.value})}
+            className="w-full p-2 border rounded mb-3" />
+
+          <label className="flex flex-col mb-3">
+            <span className="mb-1 font-medium">Subject Type</span>
+            <select value={newSubject.is_major ? "major":"minor"}
+              onChange={e=>setNewSubject({...newSubject,is_major:e.target.value==="major"})}
+              className="p-2 border rounded">
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+            </select>
+          </label>
+
+          <label className="flex flex-col mb-3">
+            <span className="mb-1 font-medium">Target Grade (numeric, e.g., 3.00)</span>
+            <input type="number" min={0} max={100} step={0.01} value={newSubject.target_grade ?? 0}
+              onChange={e=>setNewSubject({...newSubject,target_grade: Number(e.target.value)})}
+              className="p-2 border rounded" />
+          </label>
+
+          <h3 className="font-semibold mb-2">Components</h3>
+          <div className="border rounded p-2 mb-3 max-h-40 overflow-y-auto text-sm space-y-1">
+            {newSubject.components.length===0 ? <p className="text-gray-400 text-center">No components yet</p> :
+              newSubject.components.map((comp,i)=>( 
+                <div key={i} className="flex gap-2 items-center">
+                  <input className="flex-1 p-1 border rounded text-sm" value={comp.name}
+                    onChange={e=>{ const updated=[...newSubject.components]; updated[i].name=e.target.value; setNewSubject({...newSubject,components:updated}); }} />
+                  <input className="w-20 p-1 border rounded text-sm" type="number" step={0.01} value={comp.percentage}
+                    onChange={e=>{ const updated=[...newSubject.components]; updated[i].percentage=Number(e.target.value); setNewSubject({...newSubject,components:updated}); }} />
+                  <input className="w-20 p-1 border rounded text-sm" type="number" value={comp.priority}
+                    onChange={e=>{ const updated=[...newSubject.components]; updated[i].priority=Number(e.target.value); setNewSubject({...newSubject,components:updated}); }} />
+                </div>
+              ))
+            }
+          </div>
 
             {/* Header */}
             <div className="h-20 bg-gradient-to-r from-purple-700 to-indigo-500 flex items-center justify-center">
