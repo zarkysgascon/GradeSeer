@@ -6,6 +6,7 @@ import Image from "next/image";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -29,7 +30,7 @@ export default function SignUpPage() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password, image: null }),
       });
 
       const data = await res.json();
@@ -58,16 +59,10 @@ export default function SignUpPage() {
       <div
         className="hidden md:flex w-1/2 items-center justify-center relative bg-gradient-to-br from-indigo-700 via-indigo-600 to-purple-600 overflow-visible z-20 shadow-[20px_0_80px_-10px_rgba(0,0,0,0.6)]"
       >
-        {/* Outer glow shadow (gives elevation illusion) */}
         <div className="absolute inset-0 shadow-[30px_0_100px_rgba(0,0,0,0.3)] pointer-events-none"></div>
-
-        {/* Soft right-side highlight (adds glassy rim) */}
         <div className="absolute inset-y-0 right-0 w-[6px] bg-white/70 blur-[3px] opacity-20 rounded-full"></div>
+        <div className="absolute inset-0 rounded-r-[60px] bg-gradient-to-tr from-white/20 via-transparent to-white/10 opacity-40 pointer-events-none"></div>
 
-       {/* Glassy surface overlay */}
-        <div className="absolute inset-0 rounded-r-[60px] bg-gradient-to-tr from-white/20 via-transparent to-white/10 opacity-40 pointer-events-none"></div> 
-
-        {/* Floating Icons */}
         <div className="absolute inset-0 opacity-70 pointer-events-none z-0">
           <div className="absolute text-white text-[60px] animate-float-slow top-10 left-16">📘</div>
           <div className="absolute text-white text-[65px] animate-float-fast top-16 right-20">💡</div>
@@ -78,7 +73,6 @@ export default function SignUpPage() {
           <div className="absolute text-white text-[65px] animate-float-slow bottom-10 left-1/5">✏️</div>
         </div>
 
-        {/* Brand Info */}
         <div className="text-white text-center px-8 z-10 drop-shadow-lg">
           <h1 className="text-5xl font-bold mb-3">Join GradeSeer</h1>
           <p className="text-lg opacity-90 max-w-md mx-auto">
@@ -90,13 +84,20 @@ export default function SignUpPage() {
       {/* RIGHT PANEL (Signup Form) */}
       <div className="flex w-full md:w-1/2 items-center justify-center bg-white relative z-10">
         <div className="z-10 bg-white rounded-2xl shadow-xl p-10 w-full max-w-md mx-4">
-          {/* Logo */}
           <div className="flex flex-col items-center mb-6">
             <Image src="/gslogo.png" alt="GradeSeer Logo" width={80} height={80} className="mb-2" />
             <h1 className="text-2xl font-bold text-gray-800">Create Account</h1>
           </div>
 
           <form onSubmit={handleSignUp} className="space-y-4">
+            <input
+              type="text"
+              placeholder="Username"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="border border-gray-300 p-3 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              required
+            />
             <input
               type="email"
               placeholder="Email"
