@@ -22,6 +22,16 @@ export default function SignUpPage() {
       return;
     }
 
+    if (password.length < 8 || password.length > 20) {
+      setError("Password must be between 8 and 20 characters long");
+      return;
+    }
+
+    if (!/\d/.test(password)) {
+      setError("Password must contain at least one number");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setSuccess("");
