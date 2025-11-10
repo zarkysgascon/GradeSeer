@@ -371,9 +371,34 @@ export default function Dashboard() {
                       ${belowTarget ? "border-red-600" : "border-blue-500"}`}
                   >
                     <div className="font-bold text-lg">{subj.name}</div>
-                    <p className="text-sm text-gray-600 mt-1 mb-2">
-                      Current: <b>{currentGrade.toFixed(2)}</b> • Target: <b>{targetGrade.toFixed(2)}</b>
-                    </p>
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-gray-600 mt-1 mb-2">
+                        Current: <b>{currentGrade.toFixed(2)}</b> • Target: <b>{targetGrade.toFixed(2)}</b>
+                      </p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm('Are you sure you want to delete this subject?')) {
+                            fetch(`/api/subjects/${subj.id}`, {
+                              method: 'DELETE',
+                            }).then((res) => {
+                              if (res.ok) {
+                                setSubjects(subjects.filter(s => s.id !== subj.id));
+                              } else {
+                                alert('Failed to delete subject');
+                              }
+                            });
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800 p-1 rounded"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18"></path>
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                      </button>
+                    </div>
 
                     <div className="flex justify-between text-sm mb-1">
                       <span>Progress</span>
