@@ -1,6 +1,6 @@
-import { pgTable, text, boolean, uuid, timestamp, integer, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, integer, boolean, text, uuid, timestamp } from "drizzle-orm/pg-core";
 
-// Users table
+/* ------------------ USERS TABLE ------------------ */
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name"),
@@ -13,7 +13,7 @@ export const users = pgTable("users", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
-// Subjects table
+/* ------------------ SUBJECTS TABLE ------------------ */
 export const subjects = pgTable("subjects", {
   id: uuid("id").primaryKey(),
   name: text("name").notNull(),
@@ -23,7 +23,7 @@ export const subjects = pgTable("subjects", {
   color: varchar("color", { length: 25 }).default("#3B82F6"), // now supports HEX or HSL
 });
 
-// Components table
+/* ------------------ COMPONENTS TABLE ------------------ */
 export const components = pgTable("components", {
   id: uuid("id").primaryKey(),
   name: text("name").notNull(),
@@ -31,3 +31,15 @@ export const components = pgTable("components", {
   priority: integer("priority").notNull(),
   subject_id: uuid("subject_id").notNull().references(() => subjects.id),
 });
+
+/* ------------------ ITEMS TABLE ------------------ */
+export const items = pgTable("items", {
+  id: serial("id").primaryKey(),
+  component_id: uuid("component_id").references(() => components.id),
+  name: varchar("name").notNull(),
+  score: integer("score"),
+  max: integer("max"),
+  date: varchar("date"),
+  target: integer("target"),
+});
+

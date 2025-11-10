@@ -1,87 +1,83 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { subjects, components } from "@/lib/schema";
+import { subjects, components, items } from "@/lib/schema";
 import { eq } from "drizzle-orm";
-import { randomUUID } from "crypto";
 
-// GET subjects
+// Simple UUID v4 generator (no external package needed)
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+/* -----------------------------------------------------------
+   GET SUBJECT LIST
+   GET /api/subjects?email=email@example.com
+----------------------------------------------------------- */
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get("email");
-    if (!email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
 
-    const subjList = await db.select().from(subjects).where(eq(subjects.user_email, email));
+    if (!email) {
+      return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    }
 
-    const result = await Promise.all(
-      subjList.map(async (subj) => {
-        const comps = await db.select().from(components).where(eq(components.subject_id, subj.id));
+    const result = await db
+      .select()
+      .from(subjects)
+      .where(eq(subjects.user_email, email));
 
-        // Convert percentage to number
-        const compsNumbered = comps.map((c) => ({
-          ...c,
-          percentage: Number(c.percentage),
-        }));
-
-        return { ...subj, components: compsNumbered };
-      })
-    );
-
-    return NextResponse.json(result);
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    console.error("Error fetching subjects:", error);
-    return NextResponse.json({ error: "Failed to fetch subjects" }, { status: 500 });
+    console.error("GET error:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
-// POST create a subject
+/* -----------------------------------------------------------
+   CREATE SUBJECT
+   POST /api/subjects
+----------------------------------------------------------- */
 export async function POST(req: Request) {
   try {
-    const { name, is_major, user_email, target_grade, color, components: compList } = await req.json();
+    const body = await req.json();
 
-    if (!name || !user_email) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    // Generate UUID for the new subject
+    const subjectId = generateUUID();
 
-    // Generate a unique ID for the subject
-    const subjectId = randomUUID();
+    const inserted = await db
+      .insert(subjects)
+      .values({
+        id: subjectId, // Use the generated UUID
+        user_email: body.user_email,
+        name: body.name,
+        is_major: body.is_major,
+        target_grade: body.target_grade?.toString() || null, // Handle empty target_grade
+        color: body.color,
+      })
+      .returning();
 
-    // Insert subject
-    await db.insert(subjects).values({
-      id: subjectId,
-      name,
-      is_major: is_major ?? false,
-      user_email,
-      target_grade: target_grade != null ? String(target_grade) : null, // store as string
-      color: color ?? "#3B82F6",
-    });
+    const newSubjectId = inserted[0].id;
 
-    // Insert components if any
-    if (compList?.length) {
-      await db.insert(components).values(
-        compList.map((c: any) => ({
-          id: randomUUID(),
+    // Create components if provided
+    if (body.components?.length > 0) {
+      for (const c of body.components) {
+        await db.insert(components).values({
+          id: generateUUID(), // Generate UUID for each component
+          subject_id: newSubjectId,
           name: c.name,
-          percentage: String(c.percentage), // store numeric as string
+          percentage: c.percentage.toString(),
           priority: c.priority,
-          subject_id: subjectId,
-        }))
-      );
+        });
+      }
     }
 
-    // Fetch the saved subject and components
-    const savedSubjects = await db.select().from(subjects).where(eq(subjects.id, subjectId));
-    const savedSubject = savedSubjects[0];
-
-    const savedComponentsRaw = await db.select().from(components).where(eq(components.subject_id, subjectId));
-    const savedComponents = savedComponentsRaw.map((c) => ({
-      ...c,
-      percentage: Number(c.percentage), // convert to number for frontend
-    }));
-
-    return NextResponse.json({ ...savedSubject, components: savedComponents }, { status: 201 });
+    return NextResponse.json({ success: true, id: newSubjectId });
   } catch (error) {
-    console.error("Error creating subject:", error);
+    console.error("POST error:", error);
     return NextResponse.json({ error: "Failed to create subject" }, { status: 500 });
   }
 }
