@@ -48,10 +48,99 @@ function computeProgress(current: number, target: number | null | undefined) {
   return Math.min(100, Math.max(0, Math.floor((current / target) * 100)));
 }
 
+// Convert percentage grade to 1.0-3.0 scale
+function percentageToGradeScale(percentage: number): number {
+  if (percentage >= 97) return 3.00;
+  if (percentage >= 93) return 2.75;
+  if (percentage >= 89) return 2.50;
+  if (percentage >= 85) return 2.25;
+  if (percentage >= 81) return 2.00;
+  if (percentage >= 77) return 1.75;
+  if (percentage >= 73) return 1.50;
+  if (percentage >= 69) return 1.25;
+  if (percentage >= 65) return 1.00;
+  return 0.00;
+}
+
+// Convert 1.0-3.0 scale to percentage for display
+function gradeScaleToPercentage(grade: number): number {
+  const scaleMap: { [key: number]: number } = {
+    3.00: 97,
+    2.75: 93,
+    2.50: 89,
+    2.25: 85,
+    2.00: 81,
+    1.75: 77,
+    1.50: 73,
+    1.25: 69,
+    1.00: 65,
+  };
+  return scaleMap[grade] || 0;
+}
+
 /* ---------------------- Utility Functions ---------------------- */
 const generateColor = () => {
   const hue = Math.floor(Math.random() * 360);
   return `hsl(${hue}, 70%, 85%)`;
+};
+
+/* ---------------------- Number Input Component ---------------------- */
+const NumberInput = ({ 
+  value, 
+  onChange, 
+  placeholder, 
+  className = "",
+  ...props 
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  placeholder?: string;
+  className?: string;
+} & React.InputHTMLAttributes<HTMLInputElement>) => {
+  const [displayValue, setDisplayValue] = useState(value === 0 ? "" : value.toString());
+
+  useEffect(() => {
+    setDisplayValue(value === 0 ? "" : value.toString());
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setDisplayValue(newValue);
+    
+    if (newValue === "") {
+      onChange(0);
+    } else {
+      const numValue = parseInt(newValue, 10);
+      if (!isNaN(numValue)) {
+        onChange(numValue);
+      }
+    }
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (value === 0) {
+      setDisplayValue("");
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (displayValue === "") {
+      setDisplayValue("");
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      value={displayValue}
+      onChange={handleChange}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      placeholder={placeholder || "0"}
+      className={`${className} ${value === 0 ? "text-gray-400" : "text-gray-900"}`}
+      {...props}
+    />
+  );
 };
 
 /* ---------------------- Dashboard Component ---------------------- */
@@ -69,13 +158,13 @@ export default function Dashboard() {
 
   /* ---------------------- Fetch Updated Profile Image ---------------------- */
   useEffect(() => {
+    if (!user?.email) return;
     const fetchUserProfile = async () => {
-      if (!user?.email) return;
       try {
         const res = await fetch(`/api/users?email=${encodeURIComponent(user.email)}`);
         if (res.ok) {
-          const userData = await res.json();
-          if (userData.image) setProfileImage(userData.image);
+          const data = await res.json();
+          if (data.image) setProfileImage(data.image);
         }
       } catch (err) {
         console.error("Error fetching updated user profile:", err);
@@ -163,7 +252,15 @@ export default function Dashboard() {
       const res = await fetch("/api/subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newSubject, user_email: user.email }),
+        body: JSON.stringify({ 
+          name: newSubject.name,
+          is_major: newSubject.is_major,
+          target_grade: newSubject.target_grade, // This can be 0 or null
+          color: newSubject.color,
+          components: newSubject.components,
+          user_email: user.email,
+          // NO id field here!
+        }),
       });
 
       if (res.ok) {
@@ -259,10 +356,12 @@ export default function Dashboard() {
             {/* SUBJECT CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               {subjects.map((subj) => {
-                const current = computeCurrentGrade(subj.components);
-                const target = subj.target_grade ?? 100;
-                const progress = computeProgress(current, target);
-                const belowTarget = current < target;
+                const currentPercentage = computeCurrentGrade(subj.components);
+                const currentGrade = percentageToGradeScale(currentPercentage);
+                const targetGrade = subj.target_grade ? parseFloat(subj.target_grade.toString()) : 0;
+                const targetPercentage = gradeScaleToPercentage(targetGrade);
+                const progress = computeProgress(currentPercentage, targetPercentage);
+                const belowTarget = currentGrade < targetGrade;
 
                 return (
                   <div
@@ -273,7 +372,7 @@ export default function Dashboard() {
                   >
                     <div className="font-bold text-lg">{subj.name}</div>
                     <p className="text-sm text-gray-600 mt-1 mb-2">
-                      Current: <b>{current}%</b> • Target: <b>{target}%</b>
+                      Current: <b>{currentGrade.toFixed(2)}</b> • Target: <b>{targetGrade.toFixed(2)}</b>
                     </p>
 
                     <div className="flex justify-between text-sm mb-1">
@@ -291,7 +390,9 @@ export default function Dashboard() {
                       />
                     </div>
 
-                    {belowTarget && <p className="mt-2 text-sm font-semibold text-red-600">Below target!</p>}
+                    {belowTarget && (
+                      <p className="mt-2 text-sm font-semibold text-red-600">Below target!</p>
+                    )}
                   </div>
                 );
               })}
@@ -329,15 +430,22 @@ export default function Dashboard() {
             </select>
 
             {/* Target Grade */}
-            <input
-              type="number"
-              placeholder="Target Grade"
-              value={newSubject.target_grade ?? ""}
-              onChange={(e) =>
-                setNewSubject({ ...newSubject, target_grade: Number(e.target.value) })
-              }
+            <select
+              value={newSubject.target_grade}
+              onChange={(e) => setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })}
               className="w-full p-2 border rounded mb-3"
-            />
+            >
+              <option value={0}>Select Target Grade</option>
+              <option value={1.00}>1.00</option>
+              <option value={1.25}>1.25</option>
+              <option value={1.50}>1.50</option>
+              <option value={1.75}>1.75</option>
+              <option value={2.00}>2.00</option>
+              <option value={2.25}>2.25</option>
+              <option value={2.50}>2.50</option>
+              <option value={2.75}>2.75</option>
+              <option value={3.00}>3.00</option>
+            </select>
 
             {/* Components */}
             <h3 className="font-bold mb-1">Components</h3>
@@ -357,25 +465,23 @@ export default function Dashboard() {
                       setNewSubject({ ...newSubject, components: updated });
                     }}
                   />
-                  <input
-                    type="number"
-                    className="w-20 p-1 border rounded"
+                  <NumberInput
                     value={c.percentage}
-                    onChange={(e) => {
+                    onChange={(value) => {
                       const updated = [...newSubject.components];
-                      updated[i].percentage = Number(e.target.value);
+                      updated[i].percentage = value;
                       setNewSubject({ ...newSubject, components: updated });
                     }}
-                  />
-                  <input
-                    type="number"
                     className="w-20 p-1 border rounded"
+                  />
+                  <NumberInput
                     value={c.priority}
-                    onChange={(e) => {
+                    onChange={(value) => {
                       const updated = [...newSubject.components];
-                      updated[i].priority = Number(e.target.value);
+                      updated[i].priority = value;
                       setNewSubject({ ...newSubject, components: updated });
                     }}
+                    className="w-20 p-1 border rounded"
                   />
                 </div>
               ))}
@@ -390,23 +496,17 @@ export default function Dashboard() {
                 value={newComponent.name}
                 onChange={(e) => setNewComponent({ ...newComponent, name: e.target.value })}
               />
-              <input
-                type="number"
+              <NumberInput
                 placeholder="%"
-                className="w-20 p-2 border rounded"
                 value={newComponent.percentage}
-                onChange={(e) =>
-                  setNewComponent({ ...newComponent, percentage: Number(e.target.value) })
-                }
-              />
-              <input
-                type="number"
-                placeholder="P"
+                onChange={(value) => setNewComponent({ ...newComponent, percentage: value })}
                 className="w-20 p-2 border rounded"
+              />
+              <NumberInput
+                placeholder="P"
                 value={newComponent.priority}
-                onChange={(e) =>
-                  setNewComponent({ ...newComponent, priority: Number(e.target.value) })
-                }
+                onChange={(value) => setNewComponent({ ...newComponent, priority: value })}
+                className="w-20 p-2 border rounded"
               />
             </div>
 
