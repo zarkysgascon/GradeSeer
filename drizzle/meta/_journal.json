@@ -8,6 +8,20 @@
       "when": 1762094114670,
       "tag": "0000_careless_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1762323973865,
+      "tag": "0001_nosy_big_bertha",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762341806210,
+      "tag": "0002_short_vindicator",
+      "breakpoints": true
     }
   ]
 }

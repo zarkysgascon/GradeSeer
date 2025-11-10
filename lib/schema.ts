@@ -1,21 +1,45 @@
-import { pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, integer, boolean, text, uuid, timestamp } from "drizzle-orm/pg-core";
 
+/* ------------------ USERS TABLE ------------------ */
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
-
-  // Basic info
-  name: varchar("name", { length: 100 }),
-  email: varchar("email", { length: 255 }).notNull().unique(),
+  name: text("name"),
+  email: text("email").unique(),
   image: text("image"),
-
-  // For Credentials login
   password: text("password"),
-
-  // For OAuth logins (Google/Facebook)
-  provider: varchar("provider", { length: 50 }), // e.g. 'google', 'facebook', 'credentials'
-  provider_id: varchar("provider_id", { length: 255 }),
-
-  // Metadata
+  provider: text("provider"),
+  provider_id: text("provider_id"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
+
+/* ------------------ SUBJECTS TABLE ------------------ */
+export const subjects = pgTable("subjects", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  is_major: boolean("is_major").notNull().default(false),
+  user_email: text("user_email").notNull(),
+  target_grade: text("target_grade"), // nullable
+  color: varchar("color", { length: 25 }).default("#3B82F6"), // now supports HEX or HSL
+});
+
+/* ------------------ COMPONENTS TABLE ------------------ */
+export const components = pgTable("components", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  percentage: text("percentage").notNull(), // numeric as string
+  priority: integer("priority").notNull(),
+  subject_id: uuid("subject_id").notNull().references(() => subjects.id),
+});
+
+/* ------------------ ITEMS TABLE ------------------ */
+export const items = pgTable("items", {
+  id: serial("id").primaryKey(),
+  component_id: uuid("component_id").references(() => components.id),
+  name: varchar("name").notNull(),
+  score: integer("score"),
+  max: integer("max"),
+  date: varchar("date"),
+  target: integer("target"),
+});
+
