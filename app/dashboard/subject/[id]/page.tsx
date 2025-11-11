@@ -285,7 +285,7 @@ export default function SubjectDetail() {
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-sm text-gray-500">Target</div>
-                            <div className="font-medium">{item.target ?? "—"}</div>
+                            <div className="font-medium">{item.target ?? "Not Set Yet"}</div>
                           </div>
                           <button
                             onClick={(e) => {
@@ -468,7 +468,11 @@ export default function SubjectDetail() {
                 onChange={(e) => setNewItem({ ...newItem, date: e.target.value })}
                 className="w-full p-2 border rounded"
               />
-              <input
+
+
+              {/* This is Target input in the modal Quoted out*/}
+              
+              {/* <input
                 type="number"
                 placeholder="Target"
                 value={newItem.target || ""}
@@ -476,7 +480,9 @@ export default function SubjectDetail() {
                   setNewItem({ ...newItem, target: e.target.value ? Number.parseInt(e.target.value) : null })
                 }
                 className="w-full p-2 border rounded"
-              />
+              /> */}
+
+
             </div>
 
             <div className="flex justify-between mt-6">
