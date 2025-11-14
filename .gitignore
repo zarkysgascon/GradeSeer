@@ -15,3 +15,7 @@ Thumbs.db
 
 # Coverage / testing
 coverage/
+
+# Local planning docs (not for commit)
+tasks/todo.md
+.trae/
