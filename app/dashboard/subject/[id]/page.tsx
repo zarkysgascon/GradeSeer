@@ -90,6 +90,9 @@ export default function SubjectDetail() {
     target: null,
   })
   const [savingItem, setSavingItem] = useState(false)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editingName, setEditingName] = useState("")
+  const [renamingSubject, setRenamingSubject] = useState(false)
 
   /* -------------------- Fetch Subject -------------------- */
   useEffect(() => {
@@ -108,6 +111,7 @@ export default function SubjectDetail() {
 
         const data = await res.json()
         setSubject(data)
+        setEditingName(data.name || "")
       } catch (err) {
         console.error("Subject fetch failed:", err)
         setSubject(null)
@@ -118,6 +122,46 @@ export default function SubjectDetail() {
 
     fetchSubject()
   }, [id])
+
+  useEffect(() => {
+    if (subject?.name) setEditingName(subject.name)
+  }, [subject?.name])
+
+  /* -------------------- Rename Subject -------------------- */
+  const handleRenameSubject = async () => {
+    if (!subject?.id) return
+    const trimmedName = editingName.trim()
+    if (!trimmedName) {
+      alert("Subject name is required.")
+      return
+    }
+    if (trimmedName === subject.name) {
+      setIsEditingName(false)
+      return
+    }
+
+    setRenamingSubject(true)
+    try {
+      const res = await fetch(`/api/subjects/${subject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmedName }),
+      })
+      if (!res.ok) throw new Error("Rename failed")
+
+      const updatedRes = await fetch(`/api/subjects/${subject.id}`, { cache: "no-store" })
+      if (updatedRes.ok) {
+        const updatedData = await updatedRes.json()
+        setSubject(updatedData)
+      }
+      setIsEditingName(false)
+    } catch (err) {
+      console.error("Subject rename failed:", err)
+      alert("Failed to rename subject.")
+    } finally {
+      setRenamingSubject(false)
+    }
+  }
 
   /* -------------------- Add Item -------------------- */
   const handleAddItem = async (componentId: string) => {
@@ -208,7 +252,70 @@ export default function SubjectDetail() {
       <div className="bg-white w-[1100px] rounded-3xl shadow-2xl p-8">
         {/* HEADER */}
         <div className="bg-gradient-to-r from-purple-500 to-blue-400 p-8 rounded-2xl text-white flex justify-between items-center shadow-lg">
-          <h1 className="text-3xl font-bold">{subject.name}</h1>
+          <div className="flex items-center gap-3">
+            {isEditingName ? (
+              <>
+                <input
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRenameSubject()
+                    if (e.key === "Escape") {
+                      setIsEditingName(false)
+                      setEditingName(subject?.name || "")
+                    }
+                  }}
+                  autoFocus
+                  className="text-3xl font-bold px-3 py-1 rounded-lg bg-white text-gray-900"
+                />
+                <button
+                  type="button"
+                  onClick={handleRenameSubject}
+                  disabled={renamingSubject || !editingName.trim() || editingName.trim() === subject?.name}
+                  className="px-3 py-1 bg-white/20 rounded text-sm font-semibold disabled:opacity-50"
+                >
+                  {renamingSubject ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingName(false)
+                    setEditingName(subject?.name || "")
+                  }}
+                  className="px-3 py-1 bg-white/10 rounded text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <h1 className="text-3xl font-bold">{subject.name}</h1>
+                <button
+                  type="button"
+                  aria-label="Rename subject"
+                  onClick={() => {
+                    setEditingName(subject.name)
+                    setIsEditingName(true)
+                  }}
+                  className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
 
           <div className="flex gap-12 text-center">
             <div>

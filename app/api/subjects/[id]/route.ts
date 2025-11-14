@@ -159,3 +159,28 @@ export async function DELETE(
     return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
 }
+
+/* -----------------------------------------------------------
+   PARTIAL UPDATE SUBJECT (RENAME ONLY)
+----------------------------------------------------------- */
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await req.json()
+    const nextName = body?.name?.trim()
+
+    if (!nextName) {
+      return NextResponse.json({ error: "Subject name is required" }, { status: 400 })
+    }
+
+    await db.update(subjects).set({ name: nextName }).where(eq(subjects.id, id))
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("PATCH error:", error)
+    return NextResponse.json({ error: "Failed to rename subject" }, { status: 500 })
+  }
+}
