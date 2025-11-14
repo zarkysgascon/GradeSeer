@@ -34,7 +34,8 @@ interface Subject {
 function computeComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
 
-  const validItems = items.filter((item) => item.score !== null && item.max !== null && item.max > 0)
+  // use != null to check both null and undefined
+  const validItems = items.filter((item) => item.score != null && item.max != null && item.max > 0)
   if (validItems.length === 0) return 0
 
   const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0)
@@ -434,44 +435,65 @@ export default function SubjectDetail() {
           <div className="bg-white rounded-2xl shadow-2xl w-96 p-6">
             <h2 className="text-xl font-bold mb-4 text-center">Add New Item</h2>
 
-            <div className="space-y-3">
+              <div className="space-y-3">
               <input
                 type="text"
                 placeholder="Item Name"
                 value={newItem.name}
-                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                // allow letters and spaces only, limit to 50 characters
+                onChange={(e) => {
+                  const raw = e.target.value
+                  const sanitized = raw.replace(/[^A-Za-z\s]/g, "").slice(0, 50)
+                  setNewItem({ ...newItem, name: sanitized })
+                }}
+                maxLength={50}
+                pattern="[A-Za-z ]*"
                 className="w-full p-2 border rounded"
               />
               <div className="grid grid-cols-2 gap-2">
                 <input
                   type="number"
                   placeholder="Score"
-                  value={newItem.score || ""}
-                  onChange={(e) =>
-                    setNewItem({ ...newItem, score: e.target.value ? Number.parseInt(e.target.value) : null })
-                  }
+                  value={newItem.score ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    const digits = raw.replace(/\D/g, "").slice(0, 4)
+                    setNewItem({ ...newItem, score: digits ? Number.parseInt(digits) : null })
+                  }}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min={0}
+                  max={9999}
                   className="p-2 border rounded"
                 />
                 <input
                   type="number"
                   placeholder="Max Score"
-                  value={newItem.max || ""}
-                  onChange={(e) =>
-                    setNewItem({ ...newItem, max: e.target.value ? Number.parseInt(e.target.value) : null })
-                  }
-                  className="p-2 border rounded"
+                    value={newItem.max ?? ""}
+                    // Limit input to digits only and max 4 characters (0-9999) /
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      // keep only digits
+                      const digits = raw.replace(/\D/g, "").slice(0, 5)
+                      setNewItem({ ...newItem, max: digits ? Number.parseInt(digits) : null })
+                    }}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={0}
+                    max={9999}
+                    className="p-2 border rounded"
                 />
               </div>
               <input
                 type="date"
-                value={newItem.date}
+                value={newItem.date ?? ""}
                 onChange={(e) => setNewItem({ ...newItem, date: e.target.value })}
                 className="w-full p-2 border rounded"
               />
               <input
                 type="number"
                 placeholder="Target"
-                value={newItem.target || ""}
+                value={newItem.target ?? ""}
                 onChange={(e) =>
                   setNewItem({ ...newItem, target: e.target.value ? Number.parseInt(e.target.value) : null })
                 }
