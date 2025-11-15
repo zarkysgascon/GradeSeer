@@ -34,7 +34,7 @@ interface Subject {
 function computeComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
 
-  const validItems = items.filter((item) => item.score !== null && item.max !== null && item.max > 0)
+  const validItems = items.filter((item) => item.score !== null && item.max !== null && item.max! > 0)
   if (validItems.length === 0) return 0
 
   const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0)
@@ -90,9 +90,31 @@ export default function SubjectDetail() {
     target: null,
   })
   const [savingItem, setSavingItem] = useState(false)
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [editingName, setEditingName] = useState("")
-  const [renamingSubject, setRenamingSubject] = useState(false)
+  // Inline editing state for item score/max (front-end only)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editScore, setEditScore] = useState<number | null>(null)
+  const [editMax, setEditMax] = useState<number | null>(null)
+
+  // Local storage helpers (front-only persistence)
+  const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
+
+  const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
+    try {
+      const raw = localStorage.getItem(localKey)
+      if (!raw) return {}
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === "object") return parsed
+      return {}
+    } catch {
+      return {}
+    }
+  }
+
+  const saveLocalEdit = (itemId: string, values: { score: number | null; max: number | null }) => {
+    const current = loadLocalEdits()
+    current[itemId] = values
+    localStorage.setItem(localKey, JSON.stringify(current))
+  }
 
   /* -------------------- Fetch Subject -------------------- */
   useEffect(() => {
@@ -110,8 +132,25 @@ export default function SubjectDetail() {
         }
 
         const data = await res.json()
-        setSubject(data)
-        setEditingName(data.name || "")
+        // Apply local (front-end) edits if present
+        const localEdits = loadLocalEdits()
+        const patched: Subject = {
+          ...data,
+          components: (data.components || []).map((comp: ComponentInput) => ({
+            ...comp,
+            items: (comp.items || []).map((it: ItemInput) => {
+              const key = String(it.id ?? "")
+              const override = localEdits[key]
+              if (!override) return it
+              return {
+                ...it,
+                score: override.score,
+                max: override.max ?? it.max ?? null,
+              }
+            }),
+          })),
+        }
+        setSubject(patched)
       } catch (err) {
         console.error("Subject fetch failed:", err)
         setSubject(null)
@@ -379,11 +418,228 @@ export default function SubjectDetail() {
                           <div className="text-sm text-gray-500">Name</div>
                           <div className="font-medium">{item.name || "—"}</div>
                         </div>
-                        <div>
+                        <div className="relative">
                           <div className="text-sm text-gray-500">Score</div>
-                          <div className="font-medium">
-                            {item.score ?? "—"}/{item.max ?? "—"}
+                          {/* Display like Canvas: compact pill + hover pencil */}
+                          <div className="group inline-flex items-center gap-2">
+                            <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-sm font-medium">
+                              {item.score ?? "—"} / {item.max ?? "—"}
+                            </span>
+                            <button
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-600 hover:text-blue-700"
+                              onClick={() => {
+                                setEditingItemId(String(item.id))
+                                setEditScore(item.score ?? null)
+                                setEditMax(item.max ?? null)
+                              }}
+                              title="Edit"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                              </svg>
+                            </button>
                           </div>
+
+                          {/* Popover editor anchored to the score cell */}
+                          {editingItemId === String(item.id) && (
+                            <div
+                              className="absolute z-20 mt-1 w-max min-w-[260px] p-3 rounded-md border border-gray-200 bg-white shadow-lg flex items-center gap-2"
+                              role="dialog"
+                              onBlur={(e) => {
+                                const rt = e.relatedTarget as HTMLElement | null
+                                // If focus left the popover entirely, auto-save
+                                if (!rt || !e.currentTarget.contains(rt)) {
+                                  const s = editScore ?? null
+                                  const m = editMax ?? null
+                                  if (m !== null && m <= 0) return
+                                  if (s !== null && m !== null && s > m) return
+                                  setSubject((prev) => {
+                                    if (!prev) return prev
+                                    const updated: Subject = {
+                                      ...prev,
+                                      components: prev.components.map((comp) => ({
+                                        ...comp,
+                                        items: (comp.items || []).map((it) =>
+                                          String(it.id) === String(item.id)
+                                            ? { ...it, score: s, max: m ?? it.max ?? null }
+                                            : it
+                                        ),
+                                      })),
+                                    }
+                                    return updated
+                                  })
+                                  if (item.id !== undefined && item.id !== null) {
+                                    saveLocalEdit(String(item.id), { score: editScore, max: editMax })
+                                  }
+                                  setEditingItemId(null)
+                                  setEditScore(null)
+                                  setEditMax(null)
+                                }
+                              }}
+                            >
+                              <input
+                                type="number"
+                                className="w-16 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                value={editScore ?? ""}
+                                onChange={(e) =>
+                                  setEditScore(e.target.value === "" ? null : Number.parseInt(e.target.value))
+                                }
+                                placeholder="score"
+                                min={0}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const s = editScore ?? null
+                                    const m = editMax ?? null
+                                    if (m !== null && m <= 0) {
+                                      alert("Max must be greater than 0")
+                                      return
+                                    }
+                                    if (s !== null && m !== null && s > m) {
+                                      alert("Score cannot exceed Max")
+                                      return
+                                    }
+                                    setSubject((prev) => {
+                                      if (!prev) return prev
+                                      const updated: Subject = {
+                                        ...prev,
+                                        components: prev.components.map((comp) => ({
+                                          ...comp,
+                                          items: (comp.items || []).map((it) =>
+                                            String(it.id) === String(item.id)
+                                              ? { ...it, score: s, max: m ?? it.max ?? null }
+                                              : it
+                                          ),
+                                        })),
+                                      }
+                                      return updated
+                                    })
+                                    if (item.id !== undefined && item.id !== null) {
+                                      saveLocalEdit(String(item.id), { score: editScore, max: editMax })
+                                    }
+                                    setEditingItemId(null)
+                                    setEditScore(null)
+                                    setEditMax(null)
+                                  } else if (e.key === "Escape") {
+                                    setEditingItemId(null)
+                                    setEditScore(null)
+                                    setEditMax(null)
+                                  }
+                                }}
+                              />
+                              <span className="text-gray-500">/</span>
+                              <input
+                                type="number"
+                                className="w-16 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                value={editMax ?? ""}
+                                onChange={(e) =>
+                                  setEditMax(e.target.value === "" ? null : Number.parseInt(e.target.value))
+                                }
+                                placeholder="max"
+                                min={1}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const s = editScore ?? null
+                                    const m = editMax ?? null
+                                    if (m !== null && m <= 0) {
+                                      alert("Max must be greater than 0")
+                                      return
+                                    }
+                                    if (s !== null && m !== null && s > m) {
+                                      alert("Score cannot exceed Max")
+                                      return
+                                    }
+                                    setSubject((prev) => {
+                                      if (!prev) return prev
+                                      const updated: Subject = {
+                                        ...prev,
+                                        components: prev.components.map((comp) => ({
+                                          ...comp,
+                                          items: (comp.items || []).map((it) =>
+                                            String(it.id) === String(item.id)
+                                              ? { ...it, score: s, max: m ?? it.max ?? null }
+                                              : it
+                                          ),
+                                        })),
+                                      }
+                                      return updated
+                                    })
+                                    if (item.id !== undefined && item.id !== null) {
+                                      saveLocalEdit(String(item.id), { score: editScore, max: editMax })
+                                    }
+                                    setEditingItemId(null)
+                                    setEditScore(null)
+                                    setEditMax(null)
+                                  } else if (e.key === "Escape") {
+                                    setEditingItemId(null)
+                                    setEditScore(null)
+                                    setEditMax(null)
+                                  }
+                                }}
+                              />
+                              {/* Action buttons inside popover (preferred placement) */}
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  const s = editScore ?? null
+                                  const m = editMax ?? null
+                                  if (m !== null && m <= 0) {
+                                    alert("Max must be greater than 0")
+                                    return
+                                  }
+                                  if (s !== null && m !== null && s > m) {
+                                    alert("Score cannot exceed Max")
+                                    return
+                                  }
+                                  setSubject((prev) => {
+                                    if (!prev) return prev
+                                    const updated: Subject = {
+                                      ...prev,
+                                      components: prev.components.map((comp) => ({
+                                        ...comp,
+                                        items: (comp.items || []).map((it) =>
+                                          String(it.id) === String(item.id)
+                                            ? { ...it, score: s, max: m ?? it.max ?? null }
+                                            : it
+                                        ),
+                                      })),
+                                    }
+                                    return updated
+                                  })
+                                  if (item.id !== undefined && item.id !== null) {
+                                    saveLocalEdit(String(item.id), { score: editScore, max: editMax })
+                                  }
+                                  setEditingItemId(null)
+                                  setEditScore(null)
+                                  setEditMax(null)
+                                }}
+                                className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  setEditingItemId(null)
+                                  setEditScore(null)
+                                  setEditMax(null)
+                                }}
+                                className="px-3 py-1 bg-gray-100 text-gray-800 rounded text-sm hover:bg-gray-200"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <div>
                           <div className="text-sm text-gray-500">Date</div>
@@ -408,7 +664,25 @@ export default function SubjectDetail() {
                                     })
                                     if (updatedRes.ok) {
                                       const updatedData = await updatedRes.json()
-                                      setSubject(updatedData)
+                                      // Apply local edits again after refetch
+                                      const localEditsAfterDelete = loadLocalEdits()
+                                      const patchedAfterDelete: Subject = {
+                                        ...updatedData,
+                                        components: (updatedData.components || []).map((comp: ComponentInput) => ({
+                                          ...comp,
+                                          items: (comp.items || []).map((it: ItemInput) => {
+                                            const key = String(it.id ?? "")
+                                            const override = localEditsAfterDelete[key]
+                                            if (!override) return it
+                                            return {
+                                              ...it,
+                                              score: override.score,
+                                              max: override.max ?? it.max ?? null,
+                                            }
+                                          }),
+                                        })),
+                                      }
+                                      setSubject(patchedAfterDelete)
                                     }
                                   } else {
                                     alert("Failed to delete item")
@@ -434,6 +708,7 @@ export default function SubjectDetail() {
                               <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                             </svg>
                           </button>
+                          
                         </div>
                       </div>
                     ))}
