@@ -94,26 +94,47 @@ export default function SubjectDetail() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editScore, setEditScore] = useState<number | null>(null)
   const [editMax, setEditMax] = useState<number | null>(null)
+  const [editingName, setEditingName] = useState<string>("")
+  const [isEditingName, setIsEditingName] = useState<boolean>(false)
+  const [renamingSubject, setRenamingSubject] = useState<boolean>(false)
 
-  // Local storage helpers (front-only persistence)
-  const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
-
-  const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
-    try {
-      const raw = localStorage.getItem(localKey)
-      if (!raw) return {}
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === "object") return parsed
-      return {}
-    } catch {
-      return {}
+  const persistItemEdit = async (
+    itemId: string,
+    values: { score: number | null; max: number | null }
+  ) => {
+    const s = values.score ?? null
+    const m = values.max ?? null
+    if (m !== null && m <= 0) {
+      alert("Max must be greater than 0")
+      return
     }
-  }
-
-  const saveLocalEdit = (itemId: string, values: { score: number | null; max: number | null }) => {
-    const current = loadLocalEdits()
-    current[itemId] = values
-    localStorage.setItem(localKey, JSON.stringify(current))
+    if (s !== null && m !== null && s > m) {
+      alert("Score cannot exceed Max")
+      return
+    }
+    try {
+      const res = await fetch(`/api/items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ score: s, max: m }),
+      })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        alert(e.error || "Failed to update item")
+        return
+      }
+      const updatedRes = await fetch(`/api/subjects/${id}`, { cache: "no-store" })
+      if (updatedRes.ok) {
+        const updatedData = await updatedRes.json()
+        setSubject(updatedData)
+      }
+      setEditingItemId(null)
+      setEditScore(null)
+      setEditMax(null)
+    } catch (err) {
+      console.error("Update item failed:", err)
+      alert("Error updating item")
+    }
   }
 
   /* -------------------- Fetch Subject -------------------- */
@@ -132,25 +153,7 @@ export default function SubjectDetail() {
         }
 
         const data = await res.json()
-        // Apply local (front-end) edits if present
-        const localEdits = loadLocalEdits()
-        const patched: Subject = {
-          ...data,
-          components: (data.components || []).map((comp: ComponentInput) => ({
-            ...comp,
-            items: (comp.items || []).map((it: ItemInput) => {
-              const key = String(it.id ?? "")
-              const override = localEdits[key]
-              if (!override) return it
-              return {
-                ...it,
-                score: override.score,
-                max: override.max ?? it.max ?? null,
-              }
-            }),
-          })),
-        }
-        setSubject(patched)
+        setSubject(data)
       } catch (err) {
         console.error("Subject fetch failed:", err)
         setSubject(null)
@@ -460,31 +463,7 @@ export default function SubjectDetail() {
                                 const rt = e.relatedTarget as HTMLElement | null
                                 // If focus left the popover entirely, auto-save
                                 if (!rt || !e.currentTarget.contains(rt)) {
-                                  const s = editScore ?? null
-                                  const m = editMax ?? null
-                                  if (m !== null && m <= 0) return
-                                  if (s !== null && m !== null && s > m) return
-                                  setSubject((prev) => {
-                                    if (!prev) return prev
-                                    const updated: Subject = {
-                                      ...prev,
-                                      components: prev.components.map((comp) => ({
-                                        ...comp,
-                                        items: (comp.items || []).map((it) =>
-                                          String(it.id) === String(item.id)
-                                            ? { ...it, score: s, max: m ?? it.max ?? null }
-                                            : it
-                                        ),
-                                      })),
-                                    }
-                                    return updated
-                                  })
-                                  if (item.id !== undefined && item.id !== null) {
-                                    saveLocalEdit(String(item.id), { score: editScore, max: editMax })
-                                  }
-                                  setEditingItemId(null)
-                                  setEditScore(null)
-                                  setEditMax(null)
+                                  persistItemEdit(String(item.id), { score: editScore, max: editMax })
                                 }
                               }}
                             >
@@ -499,37 +478,7 @@ export default function SubjectDetail() {
                                 min={0}
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
-                                    const s = editScore ?? null
-                                    const m = editMax ?? null
-                                    if (m !== null && m <= 0) {
-                                      alert("Max must be greater than 0")
-                                      return
-                                    }
-                                    if (s !== null && m !== null && s > m) {
-                                      alert("Score cannot exceed Max")
-                                      return
-                                    }
-                                    setSubject((prev) => {
-                                      if (!prev) return prev
-                                      const updated: Subject = {
-                                        ...prev,
-                                        components: prev.components.map((comp) => ({
-                                          ...comp,
-                                          items: (comp.items || []).map((it) =>
-                                            String(it.id) === String(item.id)
-                                              ? { ...it, score: s, max: m ?? it.max ?? null }
-                                              : it
-                                          ),
-                                        })),
-                                      }
-                                      return updated
-                                    })
-                                    if (item.id !== undefined && item.id !== null) {
-                                      saveLocalEdit(String(item.id), { score: editScore, max: editMax })
-                                    }
-                                    setEditingItemId(null)
-                                    setEditScore(null)
-                                    setEditMax(null)
+                                    persistItemEdit(String(item.id), { score: editScore, max: editMax })
                                   } else if (e.key === "Escape") {
                                     setEditingItemId(null)
                                     setEditScore(null)
@@ -549,37 +498,7 @@ export default function SubjectDetail() {
                                 min={1}
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
-                                    const s = editScore ?? null
-                                    const m = editMax ?? null
-                                    if (m !== null && m <= 0) {
-                                      alert("Max must be greater than 0")
-                                      return
-                                    }
-                                    if (s !== null && m !== null && s > m) {
-                                      alert("Score cannot exceed Max")
-                                      return
-                                    }
-                                    setSubject((prev) => {
-                                      if (!prev) return prev
-                                      const updated: Subject = {
-                                        ...prev,
-                                        components: prev.components.map((comp) => ({
-                                          ...comp,
-                                          items: (comp.items || []).map((it) =>
-                                            String(it.id) === String(item.id)
-                                              ? { ...it, score: s, max: m ?? it.max ?? null }
-                                              : it
-                                          ),
-                                        })),
-                                      }
-                                      return updated
-                                    })
-                                    if (item.id !== undefined && item.id !== null) {
-                                      saveLocalEdit(String(item.id), { score: editScore, max: editMax })
-                                    }
-                                    setEditingItemId(null)
-                                    setEditScore(null)
-                                    setEditMax(null)
+                                    persistItemEdit(String(item.id), { score: editScore, max: editMax })
                                   } else if (e.key === "Escape") {
                                     setEditingItemId(null)
                                     setEditScore(null)
@@ -591,37 +510,7 @@ export default function SubjectDetail() {
                               <button
                                 onClick={(e) => {
                                   e.preventDefault()
-                                  const s = editScore ?? null
-                                  const m = editMax ?? null
-                                  if (m !== null && m <= 0) {
-                                    alert("Max must be greater than 0")
-                                    return
-                                  }
-                                  if (s !== null && m !== null && s > m) {
-                                    alert("Score cannot exceed Max")
-                                    return
-                                  }
-                                  setSubject((prev) => {
-                                    if (!prev) return prev
-                                    const updated: Subject = {
-                                      ...prev,
-                                      components: prev.components.map((comp) => ({
-                                        ...comp,
-                                        items: (comp.items || []).map((it) =>
-                                          String(it.id) === String(item.id)
-                                            ? { ...it, score: s, max: m ?? it.max ?? null }
-                                            : it
-                                        ),
-                                      })),
-                                    }
-                                    return updated
-                                  })
-                                  if (item.id !== undefined && item.id !== null) {
-                                    saveLocalEdit(String(item.id), { score: editScore, max: editMax })
-                                  }
-                                  setEditingItemId(null)
-                                  setEditScore(null)
-                                  setEditMax(null)
+                                  persistItemEdit(String(item.id), { score: editScore, max: editMax })
                                 }}
                                 className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                               >
@@ -665,7 +554,7 @@ export default function SubjectDetail() {
                                     if (updatedRes.ok) {
                                       const updatedData = await updatedRes.json()
                                       // Apply local edits again after refetch
-                                      const localEditsAfterDelete = loadLocalEdits()
+                                      const localEditsAfterDelete: Record<string, { score: number | null; max: number | null }> = {}
                                       const patchedAfterDelete: Subject = {
                                         ...updatedData,
                                         components: (updatedData.components || []).map((comp: ComponentInput) => ({
@@ -846,7 +735,7 @@ export default function SubjectDetail() {
               </div>
               <input
                 type="date"
-                value={newItem.date}
+                value={newItem.date ?? ""}
                 onChange={(e) => setNewItem({ ...newItem, date: e.target.value })}
                 className="w-full p-2 border rounded"
               />
