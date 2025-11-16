@@ -9,10 +9,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const itemId = Number(id);
-    if (!Number.isFinite(itemId)) {
-      return NextResponse.json({ error: "Invalid item id" }, { status: 400 });
-    }
+    const itemId = id;
 
     // Delete the item
     await db.delete(items).where(eq(items.id, itemId));
@@ -30,10 +27,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const itemId = Number(id);
-    if (!Number.isFinite(itemId)) {
-      return NextResponse.json({ error: "Invalid item id" }, { status: 400 });
-    }
+    const itemId = id;
     const body = await req.json();
 
     const update: Record<string, any> = {};

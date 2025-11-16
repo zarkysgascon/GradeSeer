@@ -4,7 +4,7 @@ import { pgTable, serial, varchar, integer, boolean, text, uuid, timestamp } fro
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name"),
-  email: text("email").unique(),
+  email: text("email").unique("users_email_key"),
   image: text("image"),
   password: text("password"),
   provider: text("provider"),
@@ -34,7 +34,7 @@ export const components = pgTable("components", {
 
 /* ------------------ ITEMS TABLE ------------------ */
 export const items = pgTable("items", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey(),
   component_id: uuid("component_id").references(() => components.id),
   name: varchar("name").notNull(),
   score: integer("score"),
