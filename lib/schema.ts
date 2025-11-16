@@ -34,12 +34,11 @@ export const components = pgTable("components", {
 
 /* ------------------ ITEMS TABLE ------------------ */
 export const items = pgTable("items", {
-  id: serial("id").primaryKey(),
-  component_id: uuid("component_id").references(() => components.id),
-  name: varchar("name").notNull(),
+  id: uuid("id").defaultRandom().primaryKey(), // CHANGED: from serial to uuid
+  component_id: uuid("component_id").notNull().references(() => components.id), // CHANGED: added notNull
+  name: text("name").notNull(), // CHANGED: from varchar to text
   score: integer("score"),
   max: integer("max"),
   date: varchar("date"),
   target: integer("target"),
 });
-

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { items } from "@/lib/schema";
+import { v4 as uuidv4 } from "uuid";
 
 /* -----------------------------------------------------------
    CREATE ITEM
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
     const newItem = await db
       .insert(items)
       .values({
-        // Remove the id field - let the database auto-generate it
+        id: uuidv4(), // Add this line - generate UUID on server side
         component_id: body.component_id,
         name: body.name,
         score: body.score,

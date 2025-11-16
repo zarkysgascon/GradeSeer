@@ -75,11 +75,10 @@ export async function POST(
 
     const { componentId, item } = body;
 
-    // Insert the new item
+    // Insert the new item - REMOVE the id field since items.id is serial (auto-increment)
     const newItem = await db
       .insert(items)
       .values({
-        id: generateUUID(),
         component_id: componentId,
         name: item.name,
         score: item.score,
