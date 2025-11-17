@@ -11,6 +11,16 @@ interface ComponentInput {
   percentage: number;
   priority: number;
   grade?: number | null;
+  items?: ItemInput[];
+}
+
+interface ItemInput {
+  id?: string;
+  name: string;
+  score?: number | null;
+  max?: number | null;
+  date?: string | null;
+  target?: number | null;
 }
 
 interface Subject {
@@ -20,6 +30,7 @@ interface Subject {
   target_grade?: number | null;
   color: string;
   components: ComponentInput[];
+  items?: ItemInput[];
 }
 
 interface ExtendedUser {
@@ -27,6 +38,18 @@ interface ExtendedUser {
   name?: string | null;
   email?: string | null;
   image?: string | null;
+}
+
+interface Notification {
+  id: string;
+  type: 'quiz' | 'assignment' | 'exam' | 'general';
+  title: string;
+  message: string;
+  subjectId?: string;
+  subjectName?: string;
+  dueDate?: string;
+  read: boolean;
+  createdAt: string;
 }
 
 /* ------------------------- Calculations ------------------------- */
@@ -59,8 +82,8 @@ function percentageToGradeScale(percentage: number): number {
   if (percentage >= 79) return 2.5;
   if (percentage >= 76) return 2.75;
   if (percentage >= 75) return 3.0;
-  if (percentage >= 72) return 4.0;  // Conditional Failure
-  return 5.0;  // Failure
+  if (percentage >= 72) return 4.0;
+  return 5.0;
 }
 
 // Convert Philippine grade scale to percentage for display
@@ -99,7 +122,7 @@ const NumberInput = ({
   onChange: (value: number) => void;
   placeholder?: string;
   className?: string;
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'>) => { // FIX: Use Omit to exclude the conflicting onChange
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'>) => {
   const [displayValue, setDisplayValue] = useState(value === 0 ? "" : value.toString());
 
   useEffect(() => {
@@ -156,8 +179,65 @@ export default function Dashboard() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const user = session?.user as ExtendedUser | undefined;
+
+  /* ---------------------- Test Email Function ---------------------- */
+  const sendTestEmail = async () => {
+    if (!user?.email) {
+      alert('Please log in to test email');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: user.email,
+          subject: 'GradeSeer Test Email',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
+                <h1 style="margin: 0; font-size: 24px;">GradeSeer</h1>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Test Email Successful! 🎉</p>
+              </div>
+              <div style="padding: 30px; background: #f8f9fa;">
+                <h2 style="color: #333; margin-bottom: 20px;">Email System Working</h2>
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <p style="color: #666; line-height: 1.6;">Congratulations! Your email system is working correctly.</p>
+                  <p style="color: #666; line-height: 1.6;">You will receive notifications for:</p>
+                  <ul style="color: #666; line-height: 1.6;">
+                    <li>Upcoming quizzes and assignments</li>
+                    <li>Exam reminders</li>
+                    <li>Grade updates</li>
+                    <li>Important announcements</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          `
+        }),
+      });
+
+      const result = await res.json();
+      
+      if (result.success) {
+        if (result.service === 'development') {
+          alert('Development mode: Email simulation successful! Check browser console for details.');
+        } else {
+          alert('Test email sent successfully! Check your inbox.');
+        }
+      } else {
+        alert('Failed to send test email: ' + (result.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Error sending test email:', err);
+      alert('Error sending test email');
+    }
+  };
 
   /* ---------------------- Fetch Updated Profile Image ---------------------- */
   useEffect(() => {
@@ -175,6 +255,89 @@ export default function Dashboard() {
     };
     fetchUserProfile();
   }, [user?.email]);
+
+  /* ---------------------- Fetch Notifications ---------------------- */
+  const fetchNotifications = async () => {
+    if (!user?.email) return;
+
+    try {
+      const res = await fetch(`/api/notifications?email=${encodeURIComponent(user.email!)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+        setUnreadCount(data.filter((n: Notification) => !n.read).length);
+      }
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [user?.email]);
+
+  /* ---------------------- Check for Upcoming Quizzes ---------------------- */
+  useEffect(() => {
+    if (!user?.email || subjects.length === 0) return;
+
+    const checkUpcomingQuizzes = async () => {
+      try {
+        // Get all items from all subjects
+        const allItems: { item: ItemInput; subject: Subject }[] = [];
+        subjects.forEach(subject => {
+          subject.components?.forEach(component => {
+            component.items?.forEach((item: ItemInput) => {
+              if (item.date) {
+                allItems.push({ item, subject });
+              }
+            });
+          });
+        });
+
+        // Check for items due within a week
+        const upcomingItems = allItems.filter(({ item }) => {
+          if (!item.date) return false;
+          const itemDate = new Date(item.date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const timeDiff = itemDate.getTime() - today.getTime();
+          const daysDiff = timeDiff / (1000 * 3600 * 24);
+          return daysDiff <= 7 && daysDiff >= 0;
+        });
+
+        // Create notifications for upcoming items
+        for (const { item, subject } of upcomingItems) {
+          const daysUntilDue = Math.ceil((new Date(item.date!).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+          
+          let notificationType: 'quiz' | 'assignment' | 'exam' = 'assignment';
+          const itemName = item.name.toLowerCase();
+          if (itemName.includes('quiz')) notificationType = 'quiz';
+          if (itemName.includes('exam') || itemName.includes('final') || itemName.includes('midterm')) notificationType = 'exam';
+
+          await fetch('/api/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userEmail: user.email,
+              type: notificationType,
+              title: `${notificationType.charAt(0).toUpperCase() + notificationType.slice(1)} Reminder`,
+              message: `${item.name} in ${subject.name} is due in ${daysUntilDue} day${daysUntilDue !== 1 ? 's' : ''}`,
+              subjectId: subject.id,
+              subjectName: subject.name,
+              dueDate: item.date
+            })
+          });
+        }
+
+        // Refresh notifications after creating new ones
+        await fetchNotifications();
+      } catch (err) {
+        console.error("Error checking upcoming quizzes:", err);
+      }
+    };
+
+    checkUpcomingQuizzes();
+  }, [subjects, user?.email]);
 
   /* ---------------------- Modal States ---------------------- */
   const [newSubject, setNewSubject] = useState({
@@ -246,6 +409,55 @@ export default function Dashboard() {
     });
   };
 
+  /* ---------------------- Mark Notification as Read ---------------------- */
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const res = await fetch(`/api/notifications/mark-as-read/${notificationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ read: true })
+      });
+
+      if (res.ok) {
+        await fetchNotifications();
+      }
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  /* ---------------------- Mark All as Read ---------------------- */
+  const markAllAsRead = async () => {
+    try {
+      const res = await fetch('/api/notifications/mark-all-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user?.email })
+      });
+
+      if (res.ok) {
+        await fetchNotifications();
+      }
+    } catch (err) {
+      console.error("Error marking all notifications as read:", err);
+    }
+  };
+
+  /* ---------------------- Delete Notification ---------------------- */
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      const res = await fetch(`/api/notifications/delete/${notificationId}`, {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        await fetchNotifications();
+      }
+    } catch (err) {
+      console.error("Error deleting notification:", err);
+    }
+  };
+
   /* ---------------------- Save Subject ---------------------- */
   const handleSaveSubject = async () => {
     if (!user?.email || !newSubject.name.trim()) return;
@@ -312,13 +524,18 @@ export default function Dashboard() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`capitalize font-medium transition ${
+                className={`capitalize font-medium transition relative ${
                   activeTab === tab
                     ? "text-blue-600 border-b-2 border-blue-600 pb-1"
                     : "text-gray-700 hover:text-blue-600"
                 }`}
               >
                 {tab}
+                {tab === "notifications" && unreadCount > 0 && (
+                  <span className="absolute -top-2 -right-4 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -423,6 +640,124 @@ export default function Dashboard() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* NOTIFICATIONS TAB */}
+        {activeTab === "notifications" && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Notifications</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={sendTestEmail}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
+                  >
+                    Test Email System
+                  </button>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                    >
+                      Mark All as Read
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {notifications.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.93 4.93l9.07 9.07-9.07 9.07L4.93 4.93z" />
+                  </svg>
+                  <p className="text-lg">No notifications yet</p>
+                  <p className="text-sm">You'll get notified about upcoming quizzes and assignments here</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border rounded-lg transition-all ${
+                        notification.read 
+                          ? 'bg-gray-50 border-gray-200' 
+                          : 'bg-blue-50 border-blue-200'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              notification.type === 'quiz' 
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : notification.type === 'exam'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {notification.type.toUpperCase()}
+                            </span>
+                            {!notification.read && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                                NEW
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="font-semibold text-lg mb-1">{notification.title}</h3>
+                          <p className="text-gray-700 mb-2">{notification.message}</p>
+                          {notification.subjectName && (
+                            <p className="text-sm text-gray-600 mb-1">
+                              Subject: <span className="font-medium">{notification.subjectName}</span>
+                            </p>
+                          )}
+                          {notification.dueDate && (
+                            <p className="text-sm text-gray-600">
+                              Due: <span className="font-medium">{new Date(notification.dueDate).toLocaleDateString()}</span>
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-2">
+                            {new Date(notification.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          {!notification.read && (
+                            <button
+                              onClick={() => markAsRead(notification.id)}
+                              className="text-blue-600 hover:text-blue-800 text-sm"
+                            >
+                              Mark Read
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteNotification(notification.id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* HISTORY TAB (Placeholder) */}
+        {activeTab === "history" && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h2 className="text-2xl font-bold mb-6">Grade History</h2>
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <p className="text-lg">Grade history coming soon</p>
+                <p className="text-sm">Track your grade progress over time</p>
+              </div>
             </div>
           </div>
         )}
