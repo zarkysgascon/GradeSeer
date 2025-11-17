@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { db } from '@/lib/db';
+import { notifications } from '@/lib/schema';
+import { eq, desc, and } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,24 +12,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Email required' }, { status: 400 });
     }
 
-    const { rows } = await sql`
-      SELECT 
-        id,
-        user_email,
-        type,
-        title,
-        message,
-        subject_id,
-        subject_name,
-        due_date,
-        read,
-        created_at
-      FROM notifications 
-      WHERE user_email = ${email} 
-      ORDER BY created_at DESC
-    `;
+    const userNotifications = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.user_email, email))
+      .orderBy(desc(notifications.created_at));
 
-    return NextResponse.json(rows);
+    return NextResponse.json(userNotifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);
     return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
@@ -44,38 +35,70 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if similar notification already exists (within last 24 hours)
-    const { rows: existingRows } = await sql`
-      SELECT id FROM notifications 
-      WHERE user_email = ${userEmail} 
-        AND type = ${type} 
-        AND subject_id = ${subjectId || null}
-        AND due_date = ${dueDate || null}
-        AND created_at >= NOW() - INTERVAL '24 hours'
-    `;
+    const existingNotifications = await db
+      .select()
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.user_email, userEmail),
+          eq(notifications.type, type),
+          eq(notifications.subject_id, subjectId || null),
+          eq(notifications.title, title)
+        )
+      );
 
-    if (existingRows.length > 0) {
-      return NextResponse.json({ message: 'Notification already exists' });
+    if (existingNotifications.length > 0) {
+      const recentNotification = existingNotifications.find(notif => {
+        // Check if created_at exists and is not null
+        if (!notif.created_at) return false;
+        
+        const notificationTime = notif.created_at.getTime();
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+        return notificationTime > twentyFourHoursAgo;
+      });
+
+      if (recentNotification) {
+        return NextResponse.json({ message: 'Notification already exists' });
+      }
     }
 
-    const { rows } = await sql`
-      INSERT INTO notifications (user_email, type, title, message, subject_id, subject_name, due_date)
-      VALUES (${userEmail}, ${type}, ${title}, ${message}, ${subjectId || null}, ${subjectName || null}, ${dueDate || null})
-      RETURNING *
-    `;
+    const [newNotification] = await db
+      .insert(notifications)
+      .values({
+        user_email: userEmail,
+        type,
+        title,
+        message,
+        subject_id: subjectId || null,
+        subject_name: subjectName || null,
+        due_date: dueDate ? new Date(dueDate) : null,
+        read: false,
+      })
+      .returning();
 
     // Send email notification (non-blocking)
     sendEmailNotification(userEmail, title, message, subjectName, dueDate, type);
 
-    return NextResponse.json(rows[0]);
+    return NextResponse.json(newNotification);
   } catch (error) {
     console.error('Error creating notification:', error);
     return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 });
   }
 }
 
-// Non-blocking email function - doesn't await the result
-async function sendEmailNotification(userEmail: string, title: string, message: string, subjectName?: string, dueDate?: string, type?: string) {
+// Non-blocking email function
+async function sendEmailNotification(
+  userEmail: string, 
+  title: string, 
+  message: string, 
+  subjectName?: string, 
+  dueDate?: string, 
+  type?: string
+) {
   try {
+    // Fix: Check if dueDate exists before creating Date object
+    const dueDateFormatted = dueDate ? new Date(dueDate).toLocaleDateString() : 'Not specified';
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; border-radius: 8px 8px 0 0;">
@@ -87,7 +110,7 @@ async function sendEmailNotification(userEmail: string, title: string, message: 
           <div style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <p style="color: #666; line-height: 1.6; margin-bottom: 15px; font-size: 16px;">${message}</p>
             ${subjectName ? `<p style="color: #666; margin-bottom: 10px; font-size: 14px;"><strong>Subject:</strong> ${subjectName}</p>` : ''}
-            ${dueDate ? `<p style="color: #666; margin-bottom: 10px; font-size: 14px;"><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}</p>` : ''}
+            <p style="color: #666; margin-bottom: 10px; font-size: 14px;"><strong>Due Date:</strong> ${dueDateFormatted}</p>
             ${type ? `<p style="color: #666; margin-bottom: 0; font-size: 14px;"><strong>Type:</strong> ${type.charAt(0).toUpperCase() + type.slice(1)}</p>` : ''}
           </div>
         </div>
