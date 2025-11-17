@@ -96,7 +96,6 @@ async function sendEmailNotification(
   type?: string
 ) {
   try {
-    // Fix: Check if dueDate exists before creating Date object
     const dueDateFormatted = dueDate ? new Date(dueDate).toLocaleDateString() : 'Not specified';
 
     const emailHtml = `
@@ -121,7 +120,8 @@ async function sendEmailNotification(
       </div>
     `;
 
-    await fetch(`${process.env.NEXTAUTH_URL}/api/send-email`, {
+    // Send email - in development this will simulate, in production it will send real emails
+    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/send-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -131,8 +131,19 @@ async function sendEmailNotification(
       }),
     });
 
+    const result = await response.json();
+    
+    if (result.success) {
+      if (result.service === 'development') {
+        console.log('🎯 [DEV] Email simulation successful for:', userEmail);
+      } else {
+        console.log('✅ Email notification sent successfully to:', userEmail);
+      }
+    } else {
+      console.log('❌ Failed to send email notification:', result.error);
+    }
+
   } catch (error) {
     console.error('Error sending email notification:', error);
-    // Don't throw error - email failure shouldn't break notification creation
   }
 }

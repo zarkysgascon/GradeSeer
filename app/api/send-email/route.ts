@@ -18,13 +18,32 @@ export async function POST(request: NextRequest) {
 
     console.log('📧 Attempting to send email to:', to);
 
-    // Send email using Resend - using a single verified domain
+    // DEVELOPMENT MODE: Simulate email sending for all collaborators
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎯 [DEV MODE] Email simulation:');
+      console.log('   To:', to);
+      console.log('   Subject:', subject);
+      console.log('   Content preview:', html.replace(/<[^>]*>/g, '').substring(0, 200) + '...');
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return NextResponse.json({ 
+        success: true, 
+        service: 'development',
+        message: 'Email simulation successful - check browser console for details',
+        simulatedTo: to,
+        simulatedSubject: subject
+      });
+    }
+
+    // PRODUCTION MODE: Only send real emails in production
     const { data, error } = await resend.emails.send({
-      from: 'GradeSeer <notifications@resend.dev>', // Single sender for everyone
+      from: 'GradeSeer <notifications@resend.dev>',
       to: [to],
       subject: subject,
       html: html,
-      replyTo: 'noreply@resend.dev', // Fixed: removed the duplicate string
+      replyTo: 'noreply@resend.dev',
     });
 
     if (error) {
