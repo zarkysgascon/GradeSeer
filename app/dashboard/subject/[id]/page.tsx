@@ -43,7 +43,7 @@ function computeRawComponentGrade(items: ItemInput[]): number {
   )
   
   // use != null to check both null and undefined
-  const validItems = items.filter((item) => item.score != null && item.max != null && item.max > 0)
+  // Removed duplicate declaration of validItems
   if (validItems.length === 0) return 0
 
   const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0)
@@ -1648,7 +1648,6 @@ export default function SubjectDetail() {
               </div>
               <input
                 type="date"
-                value={newItem.date || ""}
                 value={newItem.date ?? ""}
                 onChange={(e) => setNewItem({ ...newItem, date: e.target.value })}
                 className="w-full p-2 border rounded"
