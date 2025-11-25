@@ -42,3 +42,16 @@ export const items = pgTable("items", {
   date: varchar("date"),
   target: integer("target"),
 });
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  user_email: text("user_email").notNull(),
+  type: text("type").notNull(), // 'quiz', 'assignment', 'exam', 'general'
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  subject_id: uuid("subject_id"),
+  subject_name: text("subject_name"),
+  due_date: timestamp("due_date"),
+  read: boolean("read").default(false),
+  created_at: timestamp("created_at").defaultNow(),
+});

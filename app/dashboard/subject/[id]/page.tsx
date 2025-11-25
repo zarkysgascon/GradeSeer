@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 /* -------------------- Types -------------------- */
 interface ItemInput {
@@ -305,6 +306,8 @@ const aiService = new AIService()
 export default function SubjectDetail() {
   const { id } = useParams()
   const router = useRouter()
+  const { data: session } = useSession()
+  const user = session?.user as { email?: string } | undefined
 
   const [subject, setSubject] = useState<Subject | null>(null)
   const [loading, setLoading] = useState(true)
@@ -352,8 +355,12 @@ export default function SubjectDetail() {
   const [aiMessage, setAiMessage] = useState<string>("")
   const [aiLoading, setAiLoading] = useState(false)
 
+  // Finishing course state
+  const [finishingCourse, setFinishingCourse] = useState(false)
+
   // Local storage helpers
   const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
+  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : "gradeHistory:guest";
 
   const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
     try {
@@ -371,6 +378,25 @@ export default function SubjectDetail() {
     const current = loadLocalEdits()
     current[itemId] = values
     localStorage.setItem(localKey, JSON.stringify(current))
+  }
+
+  const appendHistoryEntry = (entry: {
+    id: string;
+    subjectName: string;
+    rawGrade: number;
+    targetGrade: number;
+    completedAt: string;
+  }) => {
+    if (typeof window === "undefined") return;
+    try {
+      const existingRaw = localStorage.getItem(historyStorageKey);
+      const existing = existingRaw ? JSON.parse(existingRaw) : [];
+      const normalized = Array.isArray(existing) ? existing : [];
+      localStorage.setItem(historyStorageKey, JSON.stringify([entry, ...normalized]));
+      window.dispatchEvent(new Event("history-updated"));
+    } catch (err) {
+      console.error("Failed to cache history entry:", err);
+    }
   }
 
   /* -------------------- Fetch Subject -------------------- */
@@ -413,7 +439,8 @@ export default function SubjectDetail() {
         console.error("Subject fetch failed:", err)
         setSubject(null)
       } finally {
-        setLoading(false)
+        setLoading(false
+        )
       }
     }
 
@@ -840,9 +867,46 @@ export default function SubjectDetail() {
   const projectedGrade = percentageToGradeScale(projectedPercentage)
   
   const targetGrade = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
-  const passingMark = 75 // Default passing mark in Philippine system
-  const effectivePassingMark = targetGrade > 0 ? 
-    Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark // Adjust passing mark based on target grade
+  const passingMark = 75
+  const effectivePassingMark = targetGrade > 0 ? Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark
+
+  const handleFinishCourse = async () => {
+    if (!subject) return
+    setFinishingCourse(true)
+    try {
+      const completedAt = new Date().toISOString()
+      const completionEntry = {
+        id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${subject.id}-${Date.now()}`,
+        subjectName: subject.name,
+        rawGrade: rawPercentage,
+        targetGrade,
+        completedAt,
+      }
+      appendHistoryEntry(completionEntry)
+      const res = await fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjectId: subject.id,
+          subjectName: subject.name,
+          rawGrade: rawPercentage,
+          targetGrade,
+          completedAt,
+          userEmail: user?.email ?? null,
+        }),
+      })
+      if (res.ok) {
+        alert("Course saved to history.")
+      } else {
+        console.warn("History API not ready:", await res.text())
+      }
+    } catch (err) {
+      console.error("Finish course failed:", err)
+      alert("Failed to finish course.")
+    } finally {
+      setFinishingCourse(false)
+    }
+  }
 
   /* -------------------- UI -------------------- */
   return (
@@ -1580,8 +1644,15 @@ export default function SubjectDetail() {
           </div>
         </div>
 
-        {/* BACK BUTTON */}
-        <div className="flex justify-end mt-8">
+        {/* BACK & FINISH BUTTONS */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between mt-8">
+          <button
+            onClick={handleFinishCourse}
+            disabled={finishingCourse}
+            className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400"
+          >
+            {finishingCourse ? "Saving..." : "Finish course"}
+          </button>
           <button
             onClick={() => router.push("/dashboard")}
             className="px-5 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"

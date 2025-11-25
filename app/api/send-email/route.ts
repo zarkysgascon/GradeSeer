@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,7 +10,6 @@ export async function POST(request: NextRequest) {
 
     // Validate email
     if (!to || !to.includes('@')) {
-      console.log('❌ Invalid email address:', to);
       return NextResponse.json({ 
         success: false, 
         message: 'Invalid email address' 
@@ -15,86 +17,56 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('📧 Attempting to send email to:', to);
-    console.log('Subject:', subject);
 
-    // DEVELOPMENT MODE: Simulate email sending
+    // DEVELOPMENT MODE: Simulate email sending for all collaborators
     if (process.env.NODE_ENV === 'development') {
-      console.log('🎯 DEVELOPMENT MODE - Email would be sent to:', to);
-      console.log('📝 Subject:', subject);
-      console.log('📄 Content preview:', html.replace(/<[^>]*>/g, '').substring(0, 200) + '...');
+      console.log('🎯 [DEV MODE] Email simulation:');
+      console.log('   To:', to);
+      console.log('   Subject:', subject);
+      console.log('   Content preview:', html.replace(/<[^>]*>/g, '').substring(0, 200) + '...');
       
-      // Simulate API call delay
+      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       return NextResponse.json({ 
         success: true, 
         service: 'development',
         message: 'Email simulation successful - check browser console for details',
-        simulatedTo: to
+        simulatedTo: to,
+        simulatedSubject: subject
       });
     }
 
-    // PRODUCTION MODE: Actual email sending with Resend
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'GradeSeer <onboarding@resend.dev>',
-            to: [to],
-            subject: subject,
-            html: html,
-          }),
-        });
+    // PRODUCTION MODE: Only send real emails in production
+    const { data, error } = await resend.emails.send({
+      from: 'GradeSeer <notifications@resend.dev>',
+      to: [to],
+      subject: subject,
+      html: html,
+      replyTo: 'noreply@resend.dev',
+    });
 
-        const result = await res.json();
-        
-        if (res.ok) {
-          console.log('✅ Email sent successfully via Resend to:', to);
-          return NextResponse.json({ 
-            success: true, 
-            service: 'resend',
-            message: 'Email sent successfully'
-          });
-        } else {
-          console.log('❌ Resend failed:', result);
-          // Fall back to simulation
-          return NextResponse.json({ 
-            success: true,
-            service: 'simulation',
-            message: 'Email service unavailable - notification created in app'
-          });
-        }
-      } catch (resendError) {
-        console.log('❌ Resend error:', resendError);
-        // Fall back to simulation
-        return NextResponse.json({ 
-          success: true,
-          service: 'simulation',
-          message: 'Email service error - notification created in app'
-        });
-      }
+    if (error) {
+      console.error('❌ Resend error:', error);
+      return NextResponse.json({ 
+        success: false, 
+        error: error.message 
+      });
     }
 
-    // No email service configured
-    console.log('📧 No email service configured. Simulating send to:', to);
+    console.log('✅ Email sent successfully to:', to);
+    
     return NextResponse.json({ 
       success: true, 
-      service: 'simulation',
-      message: 'Email simulated (no service configured)'
+      data: data,
+      message: 'Email sent successfully'
     });
 
   } catch (error) {
     console.error('Error in email service:', error);
-    // Don't break the app - return success anyway
     return NextResponse.json({ 
-      success: true,
-      service: 'error',
-      message: 'Email service error but notification created'
+      success: false,
+      error: 'Failed to send email'
     });
   }
 }

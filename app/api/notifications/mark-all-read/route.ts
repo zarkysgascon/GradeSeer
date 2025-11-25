@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { db } from '@/lib/db';
+import { notifications } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,12 +12,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User email required' }, { status: 400 });
     }
 
-    await sql`
-      UPDATE notifications 
-      SET read = true 
-      WHERE user_email = ${userEmail} 
-      AND read = false
-    `;
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.user_email, userEmail));
 
     return NextResponse.json({ success: true });
   } catch (error) {

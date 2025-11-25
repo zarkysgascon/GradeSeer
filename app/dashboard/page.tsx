@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, ChangeEvent } from "react";
+import { useEffect, useState, ChangeEvent, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -8,6 +8,7 @@ import Image from "next/image";
 
 /* ------------------------- Interfaces ------------------------- */
 interface ComponentInput {
+  id?: string;
   name: string;
   percentage: number;
   priority: number;
@@ -51,6 +52,14 @@ interface Notification {
   dueDate?: string;
   read: boolean;
   createdAt: string;
+}
+
+interface HistoryEntry {
+  id: string;
+  subjectName: string;
+  rawGrade: number;
+  targetGrade: number;
+  completedAt: string;
 }
 
 /* ------------------------- Calculations ------------------------- */
@@ -237,8 +246,11 @@ export default function Dashboard() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
 
   const user = session?.user as ExtendedUser | undefined;
+
+  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : null;
 
   /* ---------------------- Test Email Function ---------------------- */
   const sendTestEmail = async () => {
@@ -332,67 +344,97 @@ export default function Dashboard() {
     fetchNotifications();
   }, [user?.email]);
 
-  /* ---------------------- Check for Upcoming Quizzes ---------------------- */
+  /* ---------------------- Enhanced Quiz Detection ---------------------- */
   useEffect(() => {
     if (!user?.email || subjects.length === 0) return;
 
-    const checkUpcomingQuizzes = async () => {
+    const checkUpcomingAssessments = async () => {
       try {
         // Get all items from all subjects
-        const allItems: { item: ItemInput; subject: Subject }[] = [];
+        const allItems: { item: ItemInput; subject: Subject; component: ComponentInput }[] = [];
         subjects.forEach(subject => {
           subject.components?.forEach(component => {
             component.items?.forEach((item: ItemInput) => {
               if (item.date) {
-                allItems.push({ item, subject });
+                allItems.push({ item, subject, component });
               }
             });
           });
         });
 
-        // Check for items due within a week
-        const upcomingItems = allItems.filter(({ item }) => {
-          if (!item.date) return false;
+        // Check for items due within different timeframes
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (const { item, subject, component } of allItems) {
+          if (!item.date) continue;
+
           const itemDate = new Date(item.date);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
           const timeDiff = itemDate.getTime() - today.getTime();
-          const daysDiff = timeDiff / (1000 * 3600 * 24);
-          return daysDiff <= 7 && daysDiff >= 0;
-        });
+          const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
-        // Create notifications for upcoming items
-        for (const { item, subject } of upcomingItems) {
-          const daysUntilDue = Math.ceil((new Date(item.date!).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-          
-          let notificationType: 'quiz' | 'assignment' | 'exam' = 'assignment';
-          const itemName = item.name.toLowerCase();
-          if (itemName.includes('quiz')) notificationType = 'quiz';
-          if (itemName.includes('exam') || itemName.includes('final') || itemName.includes('midterm')) notificationType = 'exam';
+          // Only create notifications for future dates
+          if (daysDiff >= 0 && daysDiff <= 7) {
+            // Determine notification type based on item name and component
+            let notificationType: 'quiz' | 'assignment' | 'exam' | 'general' = 'assignment';
+            const itemName = item.name.toLowerCase();
+            const componentName = component.name.toLowerCase();
+            
+            if (itemName.includes('quiz') || componentName.includes('quiz')) {
+              notificationType = 'quiz';
+            } else if (itemName.includes('exam') || itemName.includes('final') || itemName.includes('midterm')) {
+              notificationType = 'exam';
+            } else if (itemName.includes('project') || itemName.includes('assignment')) {
+              notificationType = 'assignment';
+            }
 
-          await fetch('/api/notifications', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userEmail: user.email,
-              type: notificationType,
-              title: `${notificationType.charAt(0).toUpperCase() + notificationType.slice(1)} Reminder`,
-              message: `${item.name} in ${subject.name} is due in ${daysUntilDue} day${daysUntilDue !== 1 ? 's' : ''}`,
-              subjectId: subject.id,
-              subjectName: subject.name,
-              dueDate: item.date
-            })
-          });
+            // Create appropriate message based on timeframe
+            let message = '';
+            let title = '';
+
+            if (daysDiff === 0) {
+              title = `${notificationType.charAt(0).toUpperCase() + notificationType.slice(1)} Due Today!`;
+              message = `${item.name} in ${subject.name} is due today`;
+            } else if (daysDiff === 1) {
+              title = `${notificationType.charAt(0).toUpperCase() + notificationType.slice(1)} Due Tomorrow`;
+              message = `${item.name} in ${subject.name} is due tomorrow`;
+            } else if (daysDiff <= 3) {
+              title = `${notificationType.charAt(0).toUpperCase() + notificationType.slice(1)} Approaching`;
+              message = `${item.name} in ${subject.name} is due in ${daysDiff} days`;
+            } else {
+              title = `Upcoming ${notificationType}`;
+              message = `${item.name} in ${subject.name} is due in ${daysDiff} days`;
+            }
+
+            // Create notification
+            await fetch('/api/notifications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userEmail: user.email,
+                type: notificationType,
+                title,
+                message,
+                subjectId: subject.id,
+                subjectName: subject.name,
+                dueDate: item.date
+              })
+            });
+          }
         }
 
         // Refresh notifications after creating new ones
         await fetchNotifications();
       } catch (err) {
-        console.error("Error checking upcoming quizzes:", err);
+        console.error("Error checking upcoming assessments:", err);
       }
     };
 
-    checkUpcomingQuizzes();
+    // Check every hour for new notifications
+    checkUpcomingAssessments();
+    const interval = setInterval(checkUpcomingAssessments, 60 * 60 * 1000); // 1 hour
+
+    return () => clearInterval(interval);
   }, [subjects, user?.email]);
 
   /* ---------------------- Modal States ---------------------- */
@@ -440,6 +482,42 @@ export default function Dashboard() {
 
     fetchSubjects();
   }, [status, user?.email]);
+
+  /* ---------------------- Fetch History ---------------------- */
+  const fetchHistory = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (!historyStorageKey) {
+      setHistoryEntries([]);
+      return;
+    }
+    try {
+      const stored = localStorage.getItem(historyStorageKey);
+      const parsed = stored ? JSON.parse(stored) : [];
+      setHistoryEntries(
+        (Array.isArray(parsed) ? parsed : []).map((entry: any, idx: number) => ({
+          id: entry.id ?? `${idx}-${entry.subjectName ?? "subject"}`,
+          subjectName: entry.subjectName ?? "Unnamed Subject",
+          rawGrade: Number(entry.rawGrade ?? 0),
+          targetGrade: Number(entry.targetGrade ?? 0),
+          completedAt: entry.completedAt ?? new Date().toISOString(),
+        }))
+      );
+    } catch (err) {
+      console.error("Error loading history:", err);
+      setHistoryEntries([]);
+    }
+  }, [historyStorageKey]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => fetchHistory();
+    window.addEventListener("history-updated", handler);
+    return () => window.removeEventListener("history-updated", handler);
+  }, [fetchHistory]);
 
   /* ---------------------- Add/Update Component ---------------------- */
   const handleAddOrUpdateComponent = () => {
@@ -802,18 +880,42 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* HISTORY TAB (Placeholder) */}
+        {/* HISTORY TAB */}
         {activeTab === "history" && (
           <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-2xl font-bold mb-6">Grade History</h2>
-              <div className="text-center py-8 text-gray-500">
-                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <p className="text-lg">Grade history coming soon</p>
-                <p className="text-sm">Track your grade progress over time</p>
-              </div>
+              {historyEntries.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-lg">No completed courses yet</p>
+                  <p className="text-sm">Use “Finish course” inside a subject to log it here.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead>
+                      <tr className="text-gray-500 uppercase text-xs border-b">
+                        <th className="py-2 pr-4">Subject</th>
+                        <th className="py-2 pr-4">Target Grade</th>
+                        <th className="py-2 pr-4">Raw Grade</th>
+                        <th className="py-2">Finished</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyEntries.map((entry) => (
+                        <tr key={entry.id} className="border-b last:border-b-0">
+                          <td className="py-3 pr-4 font-medium text-gray-900">{entry.subjectName}</td>
+                          <td className="py-3 pr-4">{entry.targetGrade.toFixed(2)}</td>
+                          <td className="py-3 pr-4">{entry.rawGrade.toFixed(2)}%</td>
+                          <td className="py-3 text-gray-600">
+                            {new Date(entry.completedAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
