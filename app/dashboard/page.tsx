@@ -363,7 +363,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (status !== "authenticated" || !user?.email) return;
 
-    const fetchSubjects = async () => {
+    const fetchSubjects = async () => {``
       try {
         const res = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
         if (res.ok) {
