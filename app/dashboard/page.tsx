@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
+
 /* ------------------------- Interfaces ------------------------- */
 interface ComponentInput {
   name: string;
@@ -116,12 +117,18 @@ const NumberInput = ({
   onChange, 
   placeholder, 
   className = "",
+  min,
+  max,
+  maxDigits,
   ...props 
 }: {
   value: number;
   onChange: (value: number) => void;
   placeholder?: string;
   className?: string;
+  min?: number;
+  max?: number;
+  maxDigits?: number;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'>) => {
   const [displayValue, setDisplayValue] = useState(value === 0 ? "" : value.toString());
 
@@ -129,8 +136,42 @@ const NumberInput = ({
     setDisplayValue(value === 0 ? "" : value.toString());
   }, [value]);
 
+  const clamp = (n: number) => {
+    let v = n;
+    if (typeof min === 'number' && v < min) v = min;
+    if (typeof max === 'number' && v > max) v = max;
+    return v;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+
+    // If maxDigits is provided, enforce digit-length (trim extras) instead of clamping to max numeric value.
+    if (typeof maxDigits === 'number') {
+      // Keep only optional leading '-' and digits
+      const matched = newValue.match(/^-?\d*/);
+      const raw = matched ? matched[0] : '';
+      // Remove leading '-' for digit counting
+      const isNegative = raw.startsWith('-');
+      const digits = isNegative ? raw.slice(1) : raw;
+      if (digits.length > maxDigits) {
+        const trimmedDigits = digits.slice(0, maxDigits);
+        const finalStr = (isNegative ? '-' : '') + trimmedDigits;
+        setDisplayValue(finalStr);
+        const parsed = parseInt(finalStr, 10);
+        if (!isNaN(parsed)) onChange(parsed);
+        return;
+      }
+      setDisplayValue(raw);
+      if (raw === '' || raw === '-') {
+        onChange(0);
+      } else {
+        const parsed = parseInt(raw, 10);
+        if (!isNaN(parsed)) onChange(parsed);
+      }
+      return;
+    }
+
     setDisplayValue(newValue);
     
     if (newValue === "") {
@@ -138,7 +179,9 @@ const NumberInput = ({
     } else {
       const numValue = parseInt(newValue, 10);
       if (!isNaN(numValue)) {
-        onChange(numValue);
+        const final = clamp(numValue);
+        onChange(final);
+        setDisplayValue(final.toString());
       }
     }
   };
@@ -151,7 +194,18 @@ const NumberInput = ({
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     if (displayValue === "") {
-      setDisplayValue("");
+      setDisplayValue(value === 0 ? "" : value.toString());
+      return;
+    }
+    const numValue = parseInt(displayValue, 10);
+    if (!isNaN(numValue)) {
+      const final = clamp(numValue);
+      if (final !== numValue) {
+        setDisplayValue(final.toString());
+        onChange(final);
+      }
+    } else {
+      setDisplayValue(value === 0 ? "" : value.toString());
     }
   };
 
@@ -163,6 +217,8 @@ const NumberInput = ({
       onFocus={handleFocus}
       onBlur={handleBlur}
       placeholder={placeholder || "0"}
+      min={min}
+      max={max}
       className={`${className} ${value === 0 ? "text-gray-400" : "text-gray-900"}`}
       {...props}
     />
@@ -170,7 +226,7 @@ const NumberInput = ({
 };
 
 /* ---------------------- Dashboard Component ---------------------- */
-export default function Dashboard() {
+export default function Dashboard() { 
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -768,14 +824,15 @@ export default function Dashboard() {
         <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
           <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
             <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
-            <h2 className="text-xl font-bold mb-4 text-center">Add New Subject</h2>
+            <h2 className="text-xl font-bold mb-4 text-center">Add  t</h2>
 
             {/* Subject Name */}
             <input
               type="text"
               placeholder="Subject name"
               value={newSubject.name}
-              onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
+              onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
+              maxLength={50}
               className="w-full p-2 border rounded mb-3"
             />
 
@@ -836,6 +893,8 @@ export default function Dashboard() {
                       updated[i].percentage = value;
                       setNewSubject({ ...newSubject, components: updated });
                     }}
+                    min={0}
+                    max={100}
                     className="w-20 p-1 border rounded"
                   />
                   <NumberInput
@@ -845,6 +904,8 @@ export default function Dashboard() {
                       updated[i].priority = value;
                       setNewSubject({ ...newSubject, components: updated });
                     }}
+                    min={0}
+                    maxDigits={4}
                     className="w-20 p-1 border rounded"
                   />
                 </div>
@@ -857,9 +918,10 @@ export default function Dashboard() {
                 type="text"
                 placeholder="Component Name"
                 className="flex-1 p-2 border rounded"
+                maxLength={80}
                 value={newComponent.name}
                 onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setNewComponent({ ...newComponent, name: e.target.value })
+                  setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
                 }
               />
               <NumberInput
@@ -868,6 +930,8 @@ export default function Dashboard() {
                 onChange={(value: number) =>
                   setNewComponent({ ...newComponent, percentage: value })
                 }
+                min={0}
+                max={100}
                 className="w-20 p-2 border rounded"
               />
               <NumberInput
@@ -876,6 +940,8 @@ export default function Dashboard() {
                 onChange={(value: number) =>
                   setNewComponent({ ...newComponent, priority: value })
                 }
+                min={0}
+                maxDigits={4}
                 className="w-20 p-2 border rounded"
               />
             </div>
