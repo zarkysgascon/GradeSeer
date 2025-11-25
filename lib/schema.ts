@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, integer, boolean, text, uuid, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, integer, boolean, text, uuid, timestamp, doublePrecision } from "drizzle-orm/pg-core";
 
 /* ------------------ USERS TABLE ------------------ */
 export const users = pgTable("users", {
@@ -55,3 +55,14 @@ export const notifications = pgTable("notifications", {
   read: boolean("read").default(false),
   created_at: timestamp("created_at").defaultNow(),
 });
+
+export const history = pgTable("history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  subject: text("subject").notNull(),
+  target_grade: doublePrecision("target_grade").notNull(),
+  raw_grade: doublePrecision("raw_grade").notNull(),
+  finished: timestamp("finished").notNull(),
+  user_email: text("user_email").notNull().references(() => users.email), // CHANGED: added notNull
+  
+});
+
