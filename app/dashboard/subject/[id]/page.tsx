@@ -331,8 +331,6 @@ const aiService = new AIService();
 export default function SubjectDetail() {
   const { id } = useParams()
   const router = useRouter()
-  const { data: session } = useSession()
-  const user = session?.user as ExtendedUser | undefined
 
   const [subject, setSubject] = useState<Subject | null>(null)
   const [loading, setLoading] = useState(true)
@@ -376,10 +374,14 @@ export default function SubjectDetail() {
   const [userInput, setUserInput] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
 
+  // Finishing course state
+  const [finishingCourse, setFinishingCourse] = useState(false)
+
   const [finishLoading, setFinishLoading] = useState(false)
 
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
+  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : "gradeHistory:guest";
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -504,28 +506,6 @@ const handleFinishSubject = async () => {
     localStorage.setItem(localKey, JSON.stringify(current))
   }
 
-  const validateDate = (dateString: string): boolean => {
-    if (!dateString) return true;
-    
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const year = date.getFullYear();
-    
-    return day >= 1 && day <= 31 && year >= 1000 && year <= 9999;
-  };
-
-  const handleDateChange = (dateString: string, setItemFunction: (item: any) => void, currentItem: any) => {
-    if (dateString) {
-      if (validateDate(dateString)) {
-        setItemFunction({ ...currentItem, date: dateString });
-      } else {
-        alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
-      }
-    } else {
-      setItemFunction({ ...currentItem, date: "" });
-    }
-  };
-
   /* -------------------- Fetch Subject -------------------- */
   useEffect(() => {
     if (!id) return
@@ -568,7 +548,8 @@ const handleFinishSubject = async () => {
         console.error("Subject fetch failed:", err)
         setSubject(null)
       } finally {
-        setLoading(false)
+        setLoading(false
+        )
       }
     }
 
@@ -1146,9 +1127,9 @@ const handleFinishSubject = async () => {
   const projectedGrade = percentageToGradeScale(projectedPercentage)
   
   const targetGrade = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
-  const passingMark = 75
+  const passingMark = 75 // Default passing mark in Philippine system
   const effectivePassingMark = targetGrade > 0 ? 
-    Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark
+    Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark // Adjust passing mark based on target grade
 
   return (
     <div className="min-h-screen bg-gray-100 p-10 flex justify-center relative">
@@ -1957,7 +1938,7 @@ const handleFinishSubject = async () => {
           </div>
         </div>
 
-        {/* FINISH SUBJECT BUTTON - BOTTOM RIGHT INSIDE SUBJECT */}
+        {/* BACK BUTTON */}
         <div className="flex justify-end mt-8">
           <button
             onClick={handleFinishSubject}

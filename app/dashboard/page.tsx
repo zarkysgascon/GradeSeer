@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, ChangeEvent } from "react";
+import { useEffect, useState, ChangeEvent, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -55,6 +55,18 @@ interface ExtendedUser {
   name?: string | null;
   email?: string | null;
   image?: string | null;
+}
+
+interface Notification {
+  id: string;
+  type: 'quiz' | 'assignment' | 'exam' | 'general';
+  title: string;
+  message: string;
+  subjectId?: string;
+  subjectName?: string;
+  dueDate?: string;
+  read: boolean;
+  createdAt: string;
 }
 
 /* ------------------------- Calculations ------------------------- */
@@ -279,10 +291,12 @@ export default function Dashboard() {
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const user = session?.user as ExtendedUser | undefined;
+
+  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : null;
 
   /* ---------------------- Debug History System ---------------------- */
   const debugHistorySystem = async () => {
@@ -479,7 +493,7 @@ export default function Dashboard() {
     };
 
     fetchSubjects();
-  }, [status, user?.email, showSuccess]);
+  }, [status, user?.email]);
 
   /* ---------------------- Add/Update Component ---------------------- */
   const handleAddOrUpdateComponent = () => {
@@ -1066,107 +1080,25 @@ export default function Dashboard() {
                     <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
                       <span className="text-4xl">📚</span>
                     </div>
-                    <p className="text-xl font-semibold mb-2">No completed subjects yet</p>
-                    <p className="text-sm max-w-md mx-auto">Finish a subject to see its history here. Go to a subject and click "Finish Subject" to get started.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Course Name</th>
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Target Grade</th>
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Final Grade</th>
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Status</th>
-                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Completed Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {history.map((record, index) => (
-                          <tr 
-                            key={record.id} 
-                            className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                            }`}
-                          >
-                            <td className="py-4 px-6">
-                              <div className="font-medium text-gray-900">{record.course_name}</div>
-                            </td>
-                            <td className="py-4 px-6">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                                {record.target_grade}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                parseFloat(record.final_grade) <= parseFloat(record.target_grade) 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {record.final_grade}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                record.status === 'reached' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {record.status === 'reached' ? (
-                                  <>
-                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Reached
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                    Missed
-                                  </>
-                                )}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6 text-sm text-gray-600">
-                              {new Date(record.completed_at).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* History Stats */}
-              {history.length > 0 && (
-                <div className="grid grid-cols-3 gap-6 mt-8 pt-8 border-t border-gray-200">
-                  <div className="text-center p-6 bg-blue-50/80 rounded-2xl backdrop-blur-sm">
-                    <div className="text-3xl font-bold text-blue-600">{history.length}</div>
-                    <div className="text-sm text-gray-600 font-medium">Total Completed</div>
-                  </div>
-                  <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
-                    <div className="text-3xl font-bold text-green-600">
-                      {history.filter(record => record.status === 'reached').length}
-                    </div>
-                    <div className="text-sm text-gray-600 font-medium">Targets Reached</div>
-                  </div>
-                  <div className="text-center p-6 bg-red-50/80 rounded-2xl backdrop-blur-sm">
-                    <div className="text-3xl font-bold text-red-600">
-                      {history.filter(record => record.status === 'missed').length}
-                    </div>
-                    <div className="text-sm text-gray-600 font-medium">Targets Missed</div>
-                  </div>
+                  ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* HISTORY TAB (Placeholder) */}
+        {activeTab === "history" && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h2 className="text-2xl font-bold mb-6">Grade History</h2>
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <p className="text-lg">Grade history coming soon</p>
+                <p className="text-sm">Track your grade progress over time</p>
+              </div>
             </div>
           </div>
         )}
