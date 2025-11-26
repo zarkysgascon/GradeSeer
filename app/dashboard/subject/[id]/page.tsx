@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
@@ -12,6 +12,7 @@ interface ItemInput {
   max?: number | null
   date?: string | null
   target?: number | null
+  topic?: string | null
 }
 
 interface ComponentInput {
@@ -31,9 +32,14 @@ interface Subject {
   components: ComponentInput[]
 }
 
-/* -------------------- Grade Computation -------------------- */
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+}
 
-// RAW GRADE: Only calculates based on items that have actual scores (no assumptions)
+/* -------------------- Grade Computation -------------------- */
 function computeRawComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
 
@@ -53,11 +59,10 @@ function computeRawComponentGrade(items: ItemInput[]): number {
   return totalMax > 0 ? Number(((totalScore / totalMax) * 100).toFixed(2)) : 0
 }
 
-// PROJECTED GRADE: Assumes all incomplete items will get passing scores (75%)
 function computeProjectedComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
 
-  const passingScorePercentage = 75 // Default passing score assumption
+  const passingScorePercentage = 75
 
   let totalScore = 0
   let totalMax = 0
@@ -105,7 +110,6 @@ function computeProjectedGrade(components: ComponentInput[]): number {
   return totalWeight > 0 ? Number((totalWeightedGrade / totalWeight).toFixed(2)) : 0
 }
 
-// Convert percentage grade to 1.0-5.0 scale (Philippine System)
 function percentageToGradeScale(percentage: number): number {
   if (percentage >= 98) return 1.0
   if (percentage >= 95) return 1.25
@@ -120,10 +124,9 @@ function percentageToGradeScale(percentage: number): number {
   if (percentage >= 68) return 3.5
   if (percentage >= 65) return 3.75
   if (percentage >= 60) return 4.0
-  return 5.0 // Below 60% is failing (5.00)
+  return 5.0
 }
 
-// Calculate target score needed to reach passing threshold
 function calculateTargetScoreForPassing(
   component: ComponentInput, 
   currentItem: ItemInput, 
@@ -134,174 +137,198 @@ function calculateTargetScoreForPassing(
   const currentItems = component.items || []
   const otherItems = currentItems.filter(item => item.id !== currentItem.id)
   
-  // Calculate current total from other items
   const otherValidItems = otherItems.filter(item => item.score !== null && item.max !== null && item.max! > 0)
   const otherTotalScore = otherValidItems.reduce((sum, item) => sum + (item.score || 0), 0)
   const otherTotalMax = otherValidItems.reduce((sum, item) => sum + (item.max || 0), 0)
 
-  // Calculate required score for this item to reach passing threshold
   const totalMax = otherTotalMax + currentItem.max
   const requiredTotalScore = (passingThreshold / 100) * totalMax
   const requiredItemScore = requiredTotalScore - otherTotalScore
 
-  // Return the minimum score needed (at least 0, at most max score)
   return Math.max(0, Math.min(currentItem.max, Math.ceil(requiredItemScore)))
 }
+
+/* -------------------- Custom Date Input Component -------------------- */
+const CustomDateInput = ({ 
+  value, 
+  onChange, 
+  className = "" 
+}: { 
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) => {
+  const [displayValue, setDisplayValue] = useState(value || "");
+
+  useEffect(() => {
+    setDisplayValue(value || "");
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setDisplayValue(newValue);
+    
+    if (newValue.length === 10) {
+      const date = new Date(newValue);
+      const day = date.getDate();
+      const year = date.getFullYear();
+      
+      if (day >= 1 && day <= 31 && year >= 1000 && year <= 9999) {
+        onChange(newValue);
+      }
+    } else if (newValue === "") {
+      onChange("");
+    }
+  };
+
+  const handleBlur = () => {
+    if (displayValue && displayValue.length === 10) {
+      const date = new Date(displayValue);
+      const day = date.getDate();
+      const year = date.getFullYear();
+      
+      if (day >= 1 && day <= 31 && year >= 1000 && year <= 9999) {
+        onChange(displayValue);
+      } else {
+        setDisplayValue(value || "");
+      }
+    } else if (displayValue === "") {
+      onChange("");
+    } else {
+      setDisplayValue(value || "");
+    }
+  };
+
+  return (
+    <input
+      type="date"
+      value={displayValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      className={className}
+      onKeyDown={(e) => {
+        if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab') {
+          return;
+        }
+        if (!/[\d-]/.test(e.key) && e.key.length === 1) {
+          e.preventDefault();
+        }
+      }}
+    />
+  );
+};
 
 /* -------------------- AI Service -------------------- */
 class AIService {
   private apiKey: string = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 
-  private getFallbackSuggestions(subject: Subject, effectivePassingMark: number): string {
-    const strugglingComponents = subject.components
-      .filter(comp => {
-        const grade = computeRawComponentGrade(comp.items || [])
-        return grade < effectivePassingMark
-      })
-      .map(comp => `${comp.name} (${comp.percentage}% weight - current: ${computeRawComponentGrade(comp.items || [])}%)`)
-
-    const strongComponents = subject.components
-      .filter(comp => {
-        const grade = computeRawComponentGrade(comp.items || [])
-        return grade >= effectivePassingMark
-      })
-      .map(comp => comp.name)
-
-    let suggestions = "📊 **Grade Analysis**\n\n"
-
-    if (strugglingComponents.length > 0) {
-      suggestions += `🎯 **Focus Areas:**\n${strugglingComponents.map(comp => `• ${comp}`).join('\n')}\n\n`
-      suggestions += `💡 **Study Strategy:**\n• Prioritize ${strugglingComponents[0].split(' (')[0]} as it has the most impact\n`
-      suggestions += `• Aim for at least ${effectivePassingMark}% on upcoming assessments\n`
-      suggestions += `• Review completed items to identify patterns in mistakes\n\n`
-    } else {
-      suggestions += "✅ **Great job!** You're passing all components.\n\n"
-    }
-
-    if (strongComponents.length > 0) {
-      suggestions += `🌟 **Strong Areas:** ${strongComponents.join(', ')}\n\n`
-    }
-
-    suggestions += `📈 **General Tips:**\n• Complete all missing assignments\n• Focus on high-weightage components first\n• Set specific target scores for each component\n• Review materials regularly`
-
-    return suggestions
+  private getFallbackResponse(userMessage: string, subject: Subject | null): string {
+    return "I'm having trouble connecting to my AI service right now. Please check that your API key is properly configured and try again.";
   }
 
-  async getStudySuggestions(subject: Subject, rawPercentage: number, projectedPercentage: number, effectivePassingMark: number): Promise<string> {
+  async sendChatMessage(messages: ChatMessage[], userMessage: string, subject: Subject | null): Promise<string> {
     try {
-      // Check if API key is configured
+      // Enhanced debugging
+      console.log('=== 🔍 AI SERVICE DEBUG INFO ===');
+      console.log('API Key from env:', process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'PRESENT' : 'MISSING');
+      console.log('API Key length:', process.env.NEXT_PUBLIC_GEMINI_API_KEY?.length);
+      console.log('API Key starts with AIza:', process.env.NEXT_PUBLIC_GEMINI_API_KEY?.startsWith('AIza'));
+      console.log('Current this.apiKey:', this.apiKey ? `Present (length: ${this.apiKey.length})` : 'MISSING');
+      console.log('============================');
+
+      // If no API key, use fallback immediately
       if (!this.apiKey || this.apiKey === '') {
-        console.log('No API key found, using fallback suggestions')
-        return this.getFallbackSuggestions(subject, effectivePassingMark)
+        console.error('❌ CRITICAL: No API key found in class instance');
+        return "Please configure your Gemini API key in the environment variables to use the AI chat feature.";
       }
 
-      // Check if API key looks valid (starts with AIza)
-      if (!this.apiKey.startsWith('AIza')) {
-        console.log('Invalid API key format, using fallback')
-        return this.getFallbackSuggestions(subject, effectivePassingMark)
-      }
+      // Build conversation context
+      const conversationHistory = messages
+        .slice(-6)
+        .map(msg => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}`)
+        .join('\n\n');
 
-      const componentAnalysis = subject.components.map(comp => {
-        const rawGrade = computeRawComponentGrade(comp.items || [])
-        const projectedGrade = computeProjectedComponentGrade(comp.items || [])
-        return {
-          name: comp.name,
-          weight: comp.percentage,
-          currentGrade: rawGrade,
-          projectedGrade: projectedGrade,
-          isPassing: rawGrade >= effectivePassingMark,
-          itemsCount: comp.items?.length || 0,
-          scoredItems: comp.items?.filter(item => item.score !== null && item.score !== undefined).length || 0
-        }
-      })
-
-      const prompt = `
-As an academic advisor, analyze this student's performance and provide specific, actionable study suggestions:
-
-SUBJECT: ${subject.name}
-CURRENT GRADE: ${rawPercentage}% (${percentageToGradeScale(rawPercentage)})
-PROJECTED GRADE: ${projectedPercentage}% (${percentageToGradeScale(projectedPercentage)})
-TARGET GRADE: ${subject.target_grade || 'Not set'}
-PASSING MARK: ${effectivePassingMark}%
-
-COMPONENT BREAKDOWN:
-${componentAnalysis.map(comp => `
-- ${comp.name} (${comp.weight}% weight):
-  * Current: ${comp.currentGrade}% ${comp.currentGrade >= effectivePassingMark ? '✅ PASSING' : '❌ NEEDS IMPROVEMENT'}
-  * Projected: ${comp.projectedGrade}%
-  * Completion: ${comp.scoredItems}/${comp.itemsCount} items scored
-`).join('')}
-
-Please provide:
-1. 2-3 most important focus areas
-2. Specific study strategies for struggling components
-3. Time allocation recommendations based on component weights
-4. Practical tips to improve grades
-5. Encouraging but realistic outlook
-
-Keep response concise, practical, and focused on actionable advice. Use bullet points and be encouraging.`
-
-      console.log('Sending request to Gemini API...')
+      let context = "You are a helpful AI tutor and study assistant. You help students with academic questions, study strategies, time management, and general learning advice.";
       
-      // Try the most common model names
-      const modelsToTry = [
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-        'gemini-1.0-pro',
-        'gemini-pro'
-      ];
-
-      for (const modelName of modelsToTry) {
-        try {
-          console.log(`Trying model: ${modelName}`)
-          const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${this.apiKey}`
-          
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{
-                  text: prompt
-                }]
-              }],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 1000,
-              }
-            })
-          })
-
-          if (response.ok) {
-            const data = await response.json()
-            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-              console.log(`✅ Success with model: ${modelName}`)
-              return data.candidates[0].content.parts[0].text
-            }
-          } else {
-            console.log(`Model ${modelName} failed: ${response.status}`)
-          }
-        } catch (error) {
-          console.log(`Model ${modelName} error:`, error)
-          continue
-        }
+      if (subject) {
+        context += `\n\nThe student is currently viewing their "${subject.name}" subject but may ask about any academic topic.`;
       }
 
-      // If all models fail, use fallback
-      console.log('All models failed, using fallback suggestions')
-      return this.getFallbackSuggestions(subject, effectivePassingMark)
+      const prompt = `${context}
+
+CONVERSATION HISTORY:
+${conversationHistory}
+
+STUDENT'S CURRENT QUESTION: ${userMessage}
+
+Please provide a helpful, engaging response. Answer their question directly and be conversational but informative.`;
+
+      console.log('🚀 Calling Gemini API...');
+
+      // Use the most common working model
+      const modelName = 'gemini-1.5-flash';
+      const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${this.apiKey}`;
+      
+      console.log('📡 API URL (key hidden):', apiUrl.replace(this.apiKey, 'API_KEY_REDACTED'));
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1000,
+          }
+        })
+      });
+
+      console.log('📨 Response status:', response.status);
+      console.log('📨 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ API call successful!');
+        
+        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+          const aiResponse = data.candidates[0].content.parts[0].text;
+          console.log('🎉 Got AI response:', aiResponse.substring(0, 100) + '...');
+          return aiResponse;
+        } else {
+          console.error('❌ No content in response:', data);
+          throw new Error('No content in API response');
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ API Error Details:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        
+        if (response.status === 401 || response.status === 403) {
+          return "Authentication failed. Please check that your Gemini API key is valid and has the correct permissions.";
+        } else if (response.status === 404) {
+          return "The AI model is not available. Please try a different model or check the API documentation.";
+        } else {
+          return `API request failed with status ${response.status}. Please check your API key and try again.`;
+        }
+      }
 
     } catch (error) {
-      console.error('AI analysis failed:', error)
-      // Return fallback suggestions instead of error message
-      return this.getFallbackSuggestions(subject, effectivePassingMark)
+      console.error('💥 AI service error:', error);
+      return this.getFallbackResponse(userMessage, subject);
     }
   }
 }
 
-const aiService = new AIService()
+const aiService = new AIService();
 
 export default function SubjectDetail() {
   const { id } = useParams()
@@ -319,47 +346,63 @@ export default function SubjectDetail() {
     max: null,
     date: "",
     target: null,
+    topic: "",
   })
   const [savingItem, setSavingItem] = useState(false)
   
-  // Editing states
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editScore, setEditScore] = useState<number | null>(null)
   const [editMax, setEditMax] = useState<number | null>(null)
   
-  // Subject name editing
   const [isEditingName, setIsEditingName] = useState(false)
   const [editingName, setEditingName] = useState("")
   const [renamingSubject, setRenamingSubject] = useState(false)
 
-  // Component editing
   const [editingComponentId, setEditingComponentId] = useState<string | null>(null)
   const [editingComponentName, setEditingComponentName] = useState("")
   const [editingComponentPercentage, setEditingComponentPercentage] = useState(0)
   const [updatingComponent, setUpdatingComponent] = useState(false)
 
-  // Target grade editing
   const [isEditingTargetGrade, setIsEditingTargetGrade] = useState(false)
   const [editingTargetGrade, setEditingTargetGrade] = useState<number | null>(null)
   const [updatingTargetGrade, setUpdatingTargetGrade] = useState(false)
 
-  // Item editing modal
   const [showEditItemModal, setShowEditItemModal] = useState(false)
   const [editingItem, setEditingItem] = useState<ItemInput | null>(null)
   const [editingItemComponentId, setEditingItemComponentId] = useState<string | null>(null)
 
-  // Dropdown menu state
   const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null)
 
-  // AI States
-  const [aiMessage, setAiMessage] = useState<string>("")
+  // AI Chat State
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [userInput, setUserInput] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
 
   // Finishing course state
   const [finishingCourse, setFinishingCourse] = useState(false)
 
-  // Local storage helpers
+  const chatContainerRef = useRef<HTMLDivElement>(null)
   const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+    }
+  }, [chatMessages])
+
+  // Initialize with welcome message
+  useEffect(() => {
+    if (subject && chatMessages.length === 0) {
+      const welcomeMessage: ChatMessage = {
+        id: '1',
+        role: 'assistant',
+        content: `Hi! I'm your AI study assistant for ${subject.name}. I can help you analyze your performance, suggest study strategies, and provide academic advice. What would you like to know about your progress?`,
+        timestamp: new Date()
+      }
+      setChatMessages([welcomeMessage])
+    }
+  }, [subject])
   const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : "gradeHistory:guest";
 
   const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
@@ -379,6 +422,28 @@ export default function SubjectDetail() {
     current[itemId] = values
     localStorage.setItem(localKey, JSON.stringify(current))
   }
+
+  const validateDate = (dateString: string): boolean => {
+    if (!dateString) return true;
+    
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const year = date.getFullYear();
+    
+    return day >= 1 && day <= 31 && year >= 1000 && year <= 9999;
+  };
+
+  const handleDateChange = (dateString: string, setItemFunction: (item: any) => void, currentItem: any) => {
+    if (dateString) {
+      if (validateDate(dateString)) {
+        setItemFunction({ ...currentItem, date: dateString });
+      } else {
+        alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
+      }
+    } else {
+      setItemFunction({ ...currentItem, date: "" });
+    }
+  };
 
   const appendHistoryEntry = (entry: {
     id: string;
@@ -415,10 +480,12 @@ export default function SubjectDetail() {
         }
 
         const data = await res.json()
-        // Apply local (front-end) edits if present
+        
+        // Apply local edits if present
         const localEdits = loadLocalEdits()
         const patched: Subject = {
           ...data,
+          color: data.color || '#4F46E5',
           components: (data.components || []).map((comp: ComponentInput) => ({
             ...comp,
             items: (comp.items || []).map((it: ItemInput) => {
@@ -452,45 +519,70 @@ export default function SubjectDetail() {
     if (subject?.target_grade) setEditingTargetGrade(parseFloat(subject.target_grade.toString()))
   }, [subject?.name, subject?.target_grade])
 
-  // Force refresh when target grade changes
   useEffect(() => {
     if (subject) {
-      // This triggers re-renders for all components that depend on target_grade
       setSubject(prev => prev ? { ...prev } : null)
     }
   }, [subject?.target_grade])
 
-  /* -------------------- AI Function -------------------- */
-  const handleGetAISuggestions = async () => {
-    if (!subject) return
+  // New Chat Functions
+  const handleSendMessage = async () => {
+    if (!userInput.trim() || !subject) return
 
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: userInput,
+      timestamp: new Date()
+    }
+
+    setChatMessages(prev => [...prev, userMessage])
+    setUserInput("")
     setAiLoading(true)
-    setAiMessage("")
-    
-    try {
-      const rawPercentage = computeRawGrade(subject.components)
-      const projectedPercentage = computeProjectedGrade(subject.components)
-      const targetGrade = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
-      const effectivePassingMark = targetGrade > 0 ? 
-        Math.max(75, (3.0 - targetGrade) * 25 + 50) : 75
 
-      const suggestions = await aiService.getStudySuggestions(
-        subject, 
-        rawPercentage, 
-        projectedPercentage, 
-        effectivePassingMark
-      )
+    try {
+      const response = await aiService.sendChatMessage(chatMessages, userInput, subject)
       
-      setAiMessage(suggestions)
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response,
+        timestamp: new Date()
+      }
+
+      setChatMessages(prev => [...prev, assistantMessage])
     } catch (error) {
-      console.error('AI suggestions failed:', error)
-      setAiMessage("Sorry, I couldn't generate suggestions right now. Please try again later.")
+      console.error('Chat error:', error)
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "I'm sorry, I encountered an error. Please try again.",
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, errorMessage])
     } finally {
       setAiLoading(false)
     }
   }
 
-  /* -------------------- Rename Subject -------------------- */
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
+
+  const quickQuestions = [
+    "How can I improve my grades?",
+    "What should I focus on?",
+    "Study schedule suggestions?",
+    "How to prepare for exams?"
+  ]
+
+  const handleQuickQuestion = (question: string) => {
+    setUserInput(question)
+  }
+
   const handleRenameSubject = async () => {
     if (!subject?.id) return
     const trimmedName = editingName.trim()
@@ -516,7 +608,6 @@ export default function SubjectDetail() {
         throw new Error(errorData.error || "Rename failed")
       }
 
-      // Update local state immediately
       setSubject(prev => prev ? { ...prev, name: trimmedName } : null)
       setIsEditingName(false)
     } catch (err) {
@@ -527,11 +618,9 @@ export default function SubjectDetail() {
     }
   }
 
-  /* -------------------- Update Target Grade -------------------- */
   const handleUpdateTargetGrade = async () => {
     if (!subject?.id) return
 
-    // Validate target grade
     if (editingTargetGrade === null || editingTargetGrade < 1.0 || editingTargetGrade > 5.0) {
       alert("Target grade must be between 1.0 and 5.0")
       return
@@ -544,7 +633,7 @@ export default function SubjectDetail() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           target_grade: editingTargetGrade?.toString(),
-          name: subject.name // Include the name to satisfy API validation
+          name: subject.name
         }),
       })
       
@@ -553,7 +642,6 @@ export default function SubjectDetail() {
         throw new Error(errorData.error || "Target grade update failed")
       }
 
-      // Update local state immediately - this triggers the useEffect above
       setSubject(prev => prev ? { 
         ...prev, 
         target_grade: editingTargetGrade 
@@ -568,7 +656,6 @@ export default function SubjectDetail() {
     }
   }
 
-  /* -------------------- Update Component -------------------- */
   const handleUpdateComponent = async (componentId: string) => {
     if (!subject?.id) return
     const trimmedName = editingComponentName.trim()
@@ -593,7 +680,6 @@ export default function SubjectDetail() {
         throw new Error(errorData.error || "Component update failed")
       }
 
-      // Update local state immediately
       setSubject(prev => {
         if (!prev) return prev
         return {
@@ -614,7 +700,6 @@ export default function SubjectDetail() {
     }
   }
 
-  /* -------------------- Open Edit Item Modal -------------------- */
   const handleOpenEditItemModal = (item: ItemInput, componentId: string) => {
     setEditingItem(item)
     setEditingItemComponentId(componentId)
@@ -622,7 +707,6 @@ export default function SubjectDetail() {
     setDropdownOpenId(null)
   }
 
-  /* -------------------- Update Item -------------------- */
   const handleUpdateItem = async () => {
     if (!editingItem || !editingItemComponentId || !subject?.id) return
 
@@ -632,24 +716,46 @@ export default function SubjectDetail() {
       return
     }
 
+    if (editingItem.date && !validateDate(editingItem.date)) {
+      alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
+      return;
+    }
+
+    // Validation for score and max
+    if (editingItem.score !== null && editingItem.max !== null) {
+      if (editingItem.max! <= 0) {
+        alert("Max must be greater than 0")
+        return
+      }
+      if (editingItem.score! > editingItem.max!) {
+        alert("Score cannot exceed Max")
+        return
+      }
+    }
+
     setSavingItem(true)
     try {
+      const requestBody = {
+        name: trimmedName,
+        score: editingItem.score,
+        max: editingItem.max,
+        date: editingItem.date,
+        target: editingItem.target,
+        topic: editingItem.topic || null,
+      }
+
+      console.log('🔄 Updating item with topic:', requestBody)
+
       const res = await fetch(`/api/items/${editingItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: trimmedName,
-          score: editingItem.score,
-          max: editingItem.max,
-          date: editingItem.date,
-          target: editingItem.target,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (res.ok) {
         const result = await res.json()
+        console.log('✅ Item updated successfully:', result)
         
-        // Update local state immediately
         setSubject(prev => {
           if (!prev) return prev
           return {
@@ -659,7 +765,7 @@ export default function SubjectDetail() {
                 ? {
                     ...comp,
                     items: (comp.items || []).map(it =>
-                      it.id === editingItem.id ? { ...editingItem, name: trimmedName } : it
+                      it.id === editingItem.id ? { ...result } : it
                     )
                   }
                 : comp
@@ -671,22 +777,46 @@ export default function SubjectDetail() {
         setEditingItem(null)
         setEditingItemComponentId(null)
       } else {
-        const errorData = await res.json()
-        alert(`Failed to update item: ${errorData.error || "Unknown error"}`)
+        // Enhanced error handling
+        let errorMessage = "Failed to update item"
+        
+        try {
+          // Try to parse JSON error response
+          const contentType = res.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await res.json()
+            errorMessage = errorData.error || errorMessage
+          } else {
+            // Handle non-JSON responses (like HTML error pages)
+            const text = await res.text()
+            console.error('Non-JSON error response:', text)
+            if (res.status === 405) {
+              errorMessage = "Method not allowed. Please check your API route."
+            } else if (res.status === 404) {
+              errorMessage = "Item not found."
+            } else {
+              errorMessage = `Server error: ${res.status} ${res.statusText}`
+            }
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+          errorMessage = `Network error: ${res.status} ${res.statusText}`
+        }
+        
+        alert(errorMessage)
       }
     } catch (err) {
       console.error("Error updating item:", err)
-      alert("Error updating item.")
+      alert("Network error: Failed to update item. Please check your connection.")
     } finally {
       setSavingItem(false)
     }
   }
 
-  /* -------------------- Update Item Score/Max -------------------- */
   const handleUpdateItemScore = async (itemId: string, score: number | null, max: number | null) => {
     if (!subject?.id) return
 
-    // Validation
+    // Validation checks
     if (max !== null && max <= 0) {
       alert("Max must be greater than 0")
       return
@@ -697,19 +827,23 @@ export default function SubjectDetail() {
     }
 
     try {
+      const requestBody = {
+        score: score !== null ? Number(score) : null, 
+        max: max !== null ? Number(max) : null 
+      }
+
+      console.log('🔄 Updating item score:', itemId, requestBody)
+
       const res = await fetch(`/api/items/${itemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          score: score !== null ? Number(score) : null, 
-          max: max !== null ? Number(max) : null 
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (res.ok) {
         const result = await res.json()
+        console.log('✅ Item score updated successfully:', result)
         
-        // Update local state immediately for better UX
         setSubject((prev) => {
           if (!prev) return prev
           const updated: Subject = {
@@ -730,55 +864,112 @@ export default function SubjectDetail() {
           return updated
         })
 
-        // Save to local storage
         saveLocalEdit(String(itemId), { score, max })
         
         setEditingItemId(null)
         setEditScore(null)
         setEditMax(null)
       } else {
-        const errorData = await res.json()
-        throw new Error(errorData.error || "Item update failed")
+        // Handle different error cases properly
+        let errorMessage = "Failed to update item score"
+        
+        try {
+          // Try to parse JSON error response
+          const contentType = res.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await res.json()
+            errorMessage = errorData.error || errorMessage
+          } else {
+            // Handle non-JSON responses (like HTML error pages)
+            const text = await res.text()
+            console.error('Non-JSON error response:', text)
+            if (res.status === 405) {
+              errorMessage = "Method not allowed. Please check your API route."
+            } else if (res.status === 404) {
+              errorMessage = "Item not found."
+            } else {
+              errorMessage = `Server error: ${res.status} ${res.statusText}`
+            }
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+          errorMessage = `Network error: ${res.status} ${res.statusText}`
+        }
+        
+        alert(errorMessage)
       }
     } catch (err) {
       console.error("Item score update failed:", err)
-      alert("Failed to update item score.")
+      alert("Network error: Failed to update item score. Please check your connection.")
     }
   }
 
-  /* -------------------- Add Item -------------------- */
   const handleAddItem = async (componentId: string) => {
     if (!newItem.name.trim()) {
       alert("Item name is required!")
       return
     }
 
+    if (newItem.date && !validateDate(newItem.date)) {
+      alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
+      return;
+    }
+
+    // Validation for score and max
+    if (newItem.score !== null && newItem.max !== null) {
+      if (newItem.max! <= 0) {
+        alert("Max must be greater than 0")
+        return
+      }
+      if (newItem.score! > newItem.max!) {
+        alert("Score cannot exceed Max")
+        return
+      }
+    }
+
     setSavingItem(true)
     try {
+      const requestBody = {
+        component_id: componentId,
+        name: newItem.name,
+        score: newItem.score,
+        max: newItem.max,
+        date: newItem.date,
+        target: newItem.target,
+        topic: newItem.topic || null,
+      }
+
+      console.log('🔄 Creating item with topic:', requestBody)
+
       const res = await fetch(`/api/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          component_id: componentId,
-          name: newItem.name,
-          score: newItem.score,
-          max: newItem.max,
-          date: newItem.date,
-          target: newItem.target,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (res.ok) {
         const result = await res.json()
+        console.log('✅ Item created successfully:', result)
         
-        // Refresh the subject data to show the new item
-        const updatedRes = await fetch(`/api/subjects/${id}`, {
-          cache: "no-store",
+        setSubject(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            components: prev.components.map(comp => 
+              comp.id === componentId
+                ? {
+                    ...comp,
+                    items: [
+                      ...(comp.items || []),
+                      {
+                        ...result
+                      }
+                    ]
+                  }
+                : comp
+            )
+          }
         })
-        if (updatedRes.ok) {
-          const updatedData = await updatedRes.json()
-          setSubject(updatedData)
-        }
 
         setShowAddItemModal(false)
         setNewItem({
@@ -787,21 +978,42 @@ export default function SubjectDetail() {
           max: null,
           date: "",
           target: null,
+          topic: "",
         })
         setSelectedComponent(null)
       } else {
-        const errorData = await res.json()
-        alert(`Failed to add item: ${errorData.error}`)
+        // Enhanced error handling
+        let errorMessage = "Failed to add item"
+        
+        try {
+          const contentType = res.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await res.json()
+            errorMessage = errorData.error || errorMessage
+          } else {
+            const text = await res.text()
+            console.error('Non-JSON error response:', text)
+            if (res.status === 405) {
+              errorMessage = "Method not allowed. Please check your API route."
+            } else {
+              errorMessage = `Server error: ${res.status} ${res.statusText}`
+            }
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+          errorMessage = `Network error: ${res.status} ${res.statusText}`
+        }
+        
+        alert(errorMessage)
       }
     } catch (err) {
       console.error("Error adding item:", err)
-      alert("Error adding item.")
+      alert("Network error: Failed to add item. Please check your connection.")
     } finally {
       setSavingItem(false)
     }
   }
 
-  /* -------------------- Delete Item -------------------- */
   const handleDeleteItem = async (itemId: string) => {
     if (!subject?.id) return
 
@@ -812,7 +1024,6 @@ export default function SubjectDetail() {
         })
 
         if (res.ok) {
-          // Update local state immediately
           setSubject(prev => {
             if (!prev) return prev
             return {
@@ -824,18 +1035,33 @@ export default function SubjectDetail() {
             }
           })
         } else {
-          const errorData = await res.json()
-          alert(`Failed to delete item: ${errorData.error}`)
+          let errorMessage = "Failed to delete item"
+          
+          try {
+            const contentType = res.headers.get("content-type")
+            if (contentType && contentType.includes("application/json")) {
+              const errorData = await res.json()
+              errorMessage = errorData.error || errorMessage
+            } else {
+              const text = await res.text()
+              console.error('Non-JSON error response:', text)
+              errorMessage = `Server error: ${res.status} ${res.statusText}`
+            }
+          } catch (parseError) {
+            console.error('Error parsing error response:', parseError)
+            errorMessage = `Network error: ${res.status} ${res.statusText}`
+          }
+          
+          alert(errorMessage)
         }
       } catch (err) {
         console.error("Error deleting item:", err)
-        alert("Error deleting item.")
+        alert("Network error: Failed to delete item. Please check your connection.")
       }
     }
     setDropdownOpenId(null)
   }
 
-  /* -------------------- Progress Calculation -------------------- */
   const calculateComponentProgress = (component: ComponentInput) => {
     const grade = computeRawComponentGrade(component.items || [])
     return {
@@ -860,7 +1086,6 @@ export default function SubjectDetail() {
       </div>
     )
 
-  // Calculate both grades
   const rawPercentage = computeRawGrade(subject.components)
   const projectedPercentage = computeProjectedGrade(subject.components)
   const rawGrade = percentageToGradeScale(rawPercentage)
@@ -908,14 +1133,48 @@ export default function SubjectDetail() {
     }
   }
 
-  /* -------------------- UI -------------------- */
   return (
-    <div className="min-h-screen bg-gray-100 p-10 flex justify-center">
+    <div className="min-h-screen bg-gray-100 p-10 flex justify-center relative">
+      {/* FLOATING BACK BUTTON - TOP LEFT */}
+      <div className="fixed top-6 left-6 z-40">
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="px-5 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 border border-gray-200 flex items-center gap-2 transition-all duration-200 hover:shadow-xl"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          Back to Dashboard
+        </button>
+      </div>
+
       {/* MAIN MODAL CARD */}
-      <div className="bg-white w-[1100px] rounded-3xl shadow-2xl p-8">
+      <div className="w-[1100px] rounded-3xl shadow-2xl p-8">
         {/* HEADER */}
-        <div className="bg-gradient-to-r from-purple-500 to-blue-400 p-8 rounded-2xl text-white flex justify-between items-center shadow-lg">
-          <div className="flex items-center gap-3">
+        <div 
+          className="p-8 rounded-2xl text-white flex justify-between items-center shadow-lg relative overflow-hidden"
+        >
+          {/* Background with proper color */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{ 
+              background: subject?.color 
+                ? `linear-gradient(135deg, ${subject.color} 0%, ${subject.color}dd 50%, ${subject.color}aa 100%)`
+                : 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%)'
+            }}
+          />
+          
+          {/* Content */}
+          <div className="relative z-10 flex items-center gap-3">
             {isEditingName ? (
               <>
                 <input
@@ -929,13 +1188,14 @@ export default function SubjectDetail() {
                     }
                   }}
                   autoFocus
-                  className="text-3xl font-bold px-3 py-1 rounded-lg bg-white text-gray-900"
+                  className="text-3xl font-bold px-3 py-1 rounded-lg bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  placeholder="Subject name"
                 />
                 <button
                   type="button"
                   onClick={handleRenameSubject}
                   disabled={renamingSubject || !editingName.trim() || editingName.trim() === subject?.name}
-                  className="px-3 py-1 bg-white/20 rounded text-sm font-semibold disabled:opacity-50"
+                  className="px-3 py-1 bg-white/20 rounded text-sm font-semibold disabled:opacity-50 hover:bg-white/30 transition-colors"
                 >
                   {renamingSubject ? "Saving…" : "Save"}
                 </button>
@@ -945,7 +1205,7 @@ export default function SubjectDetail() {
                     setIsEditingName(false)
                     setEditingName(subject?.name || "")
                   }}
-                  className="px-3 py-1 bg-white/10 rounded text-sm font-semibold"
+                  className="px-3 py-1 bg-white/10 rounded text-sm font-semibold hover:bg-white/20 transition-colors"
                 >
                   Cancel
                 </button>
@@ -980,11 +1240,11 @@ export default function SubjectDetail() {
             )}
           </div>
 
-          {/* UPDATED HEADER SECTION */}
-          <div className="flex items-center gap-8">
+          {/* Grade Metrics */}
+          <div className="relative z-10 flex items-center gap-4">
             {/* Grade Metrics with Icons */}
             <div className="flex gap-8 text-center">
-              {/* Target Grade with Icon - Now Editable */}
+              {/* Target Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
                   <svg
@@ -1002,7 +1262,7 @@ export default function SubjectDetail() {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm">Target Grade</div>
+                  <div className="text-sm text-white/90">Target Grade</div>
                   {isEditingTargetGrade ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -1013,7 +1273,6 @@ export default function SubjectDetail() {
                         value={editingTargetGrade || ""}
                         onChange={(e) => {
                           const value = e.target.value ? parseFloat(e.target.value) : null
-                          // Round to nearest 0.25 increment
                           if (value !== null) {
                             const roundedValue = Math.round(value * 4) / 4
                             setEditingTargetGrade(roundedValue)
@@ -1021,7 +1280,7 @@ export default function SubjectDetail() {
                             setEditingTargetGrade(null)
                           }
                         }}
-                        className="w-20 text-2xl font-bold bg-white/20 border border-white/30 rounded px-1 text-white"
+                        className="w-20 text-2xl font-bold bg-white/20 border border-white/30 rounded px-1 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === "Enter") handleUpdateTargetGrade()
@@ -1030,11 +1289,12 @@ export default function SubjectDetail() {
                             setEditingTargetGrade(subject.target_grade ? parseFloat(subject.target_grade.toString()) : null)
                           }
                         }}
+                        placeholder="0.00"
                       />
                       <button
                         onClick={handleUpdateTargetGrade}
                         disabled={updatingTargetGrade}
-                        className="text-xs bg-white/20 hover:bg-white/30 rounded px-2 py-1"
+                        className="text-xs bg-white/20 hover:bg-white/30 rounded px-2 py-1 transition-colors"
                       >
                         {updatingTargetGrade ? "Saving" : "✓"}
                       </button>
@@ -1043,14 +1303,16 @@ export default function SubjectDetail() {
                           setIsEditingTargetGrade(false)
                           setEditingTargetGrade(subject.target_grade ? parseFloat(subject.target_grade.toString()) : null)
                         }}
-                        className="text-xs bg-white/10 hover:bg-white/20 rounded px-2 py-1"
+                        className="text-xs bg-white/10 hover:bg-white/20 rounded px-2 py-1 transition-colors"
                       >
                         ✕
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <div className="text-2xl font-bold">{targetGrade.toFixed(2)}</div>
+                      <div className="text-2xl font-bold">
+                        {targetGrade > 0 ? targetGrade.toFixed(2) : "—"}
+                      </div>
                       <button
                         type="button"
                         aria-label="Edit target grade"
@@ -1079,7 +1341,7 @@ export default function SubjectDetail() {
                 </div>
               </div>
 
-              {/* Projected Grade with Icon */}
+              {/* Projected Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
                   <svg
@@ -1097,7 +1359,7 @@ export default function SubjectDetail() {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm">Projected Grade</div>
+                  <div className="text-sm text-white/90">Projected Grade</div>
                   <div className="text-2xl font-bold">{projectedGrade.toFixed(2)}</div>
                   <div className="text-xs opacity-80">
                     {projectedPercentage.toFixed(1)}%
@@ -1108,7 +1370,7 @@ export default function SubjectDetail() {
                 </div>
               </div>
 
-              {/* Raw Grade with Icon */}
+              {/* Raw Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
                   <svg
@@ -1129,7 +1391,7 @@ export default function SubjectDetail() {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm">Raw Grade</div>
+                  <div className="text-sm text-white/90">Raw Grade</div>
                   <div className="text-2xl font-bold">{rawGrade.toFixed(2)}</div>
                   <div className="text-xs opacity-80">
                     {rawPercentage.toFixed(1)}%
@@ -1143,17 +1405,16 @@ export default function SubjectDetail() {
           </div>
         </div>
 
-        {/* Rest of your component remains the same... */}
+        {/* MAIN CONTENT */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
           {/* Left Column - Components */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Components List */}
             {subject.components.map((component) => {
               const componentProgress = calculateComponentProgress(component)
 
               return (
                 <div key={component.id} className="bg-white rounded-xl border border-gray-300 p-6">
-                  {/* Component Header - Editable */}
+                  {/* Component Header */}
                   <div className="flex justify-between items-start mb-4">
                     {editingComponentId === component.id ? (
                       <div className="flex items-center gap-3">
@@ -1251,13 +1512,21 @@ export default function SubjectDetail() {
                       return (
                       <div
                         key={itemIndex}
-                        className="grid grid-cols-4 gap-4 py-2 border-b border-gray-200 last:border-b-0 items-start"
+                        className="grid grid-cols-5 gap-4 py-2 border-b border-gray-200 last:border-b-0 items-start"
                       >
                         {/* Item Name */}
                         <div>
                           <div className="text-sm text-gray-500">Name</div>
                           <div className="font-medium">
                             {item.name || "—"}
+                          </div>
+                        </div>
+
+                        {/* Topic */}
+                        <div>
+                          <div className="text-sm text-gray-500">Topic</div>
+                          <div className="font-medium">
+                            {item.topic || "—"}
                           </div>
                         </div>
 
@@ -1540,16 +1809,111 @@ export default function SubjectDetail() {
               </div>
             </div>
 
-            {/* AI Chatbox - NOW WORKING WITH GEMINI */}
+            {/* AI Chatbox */}
             <div className="bg-white rounded-xl border border-gray-300 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Study Assistant</h3>
               <div className="space-y-4">
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                {/* Chat Messages Area */}
+                <div 
+                  ref={chatContainerRef}
+                  className="h-48 overflow-y-auto border border-gray-200 rounded-lg bg-gray-50 p-4 space-y-3"
+                >
+                  {chatMessages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex items-start gap-3 ${
+                        message.role === 'user' ? 'flex-row-reverse' : ''
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                        message.role === 'user' 
+                          ? 'bg-blue-500' 
+                          : 'bg-green-500'
+                      }`}>
+                        {message.role === 'user' ? (
+                          <span className="text-white text-xs font-bold">U</span>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 text-white"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                            <path d="m9 12 2 2 4-4" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className={`flex-1 ${
+                        message.role === 'user' ? 'text-right' : ''
+                      }`}>
+                        <p className={`text-sm whitespace-pre-wrap ${
+                          message.role === 'user' 
+                            ? 'bg-blue-100 text-blue-900' 
+                            : 'bg-white text-gray-800'
+                        } rounded-lg px-3 py-2 inline-block max-w-[80%]`}>
+                          {message.content}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {aiLoading && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-600 bg-white rounded-lg px-3 py-2 inline-block">
+                          Thinking...
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Questions */}
+                <div className="grid grid-cols-2 gap-2">
+                  {quickQuestions.map((question, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleQuickQuestion(question)}
+                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded px-2 py-1 transition-colors text-left"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Input Area */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Ask about your grades, study tips, or anything else..."
+                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    disabled={aiLoading}
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={aiLoading || !userInput.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    {aiLoading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4 text-white"
+                        className="w-4 h-4"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -1557,86 +1921,18 @@ export default function SubjectDetail() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <path d="M12 8V4H8" />
-                        <rect width="16" height="12" x="4" y="8" rx="2" />
-                        <path d="M2 14h2" />
-                        <path d="M20 14h2" />
-                        <path d="M15 13v2" />
-                        <path d="M9 13v2" />
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                       </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-blue-800">
-                        Hi! I'm your AI study assistant powered by Gemini. I can analyze your current grades, 
-                        identify focus areas, and provide personalized study suggestions based on your performance.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* AI Suggestions Button */}
-                <div className="text-center">
-                  <button
-                    onClick={handleGetAISuggestions}
-                    disabled={aiLoading}
-                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {aiLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Analyzing Your Grades...
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-5 h-5"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
-                        Get AI Study Suggestions
-                      </>
                     )}
+                    Send
                   </button>
                 </div>
-
-                {/* AI Response */}
-                {aiMessage && (
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-3 h-3 text-white"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-                          <path d="m9 12 2 2 4-4" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-green-800 whitespace-pre-wrap">{aiMessage}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Quick Tips */}
                 <div className="border-t pt-4">
                   <p className="text-xs text-gray-600 text-center">
-                    I'll analyze your: current grades, component weights, target scores, and suggest personalized study strategies.
+                    Ask me about study strategies, grade analysis, time management, or academic advice!
                   </p>
                 </div>
               </div>
@@ -1644,36 +1940,55 @@ export default function SubjectDetail() {
           </div>
         </div>
 
-        {/* BACK & FINISH BUTTONS */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between mt-8">
+        {/* FINISH SUBJECT BUTTON - BOTTOM RIGHT INSIDE SUBJECT */}
+        <div className="flex justify-end mt-8">
           <button
-            onClick={handleFinishCourse}
-            disabled={finishingCourse}
-            className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400"
+            onClick={() => {
+              // Placeholder function - does nothing
+              console.log("Finish Subject clicked - placeholder");
+            }}
+            className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-all duration-200"
           >
-            {finishingCourse ? "Saving..." : "Finish course"}
-          </button>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="px-5 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
-          >
-            Back to Dashboard
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            Finish Subject
           </button>
         </div>
       </div>
 
       {/* ADD ITEM MODAL */}
       {showAddItemModal && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-96 p-6">
+        <div className="fixed inset-0 flex justify-center items-center z-50">
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: subject?.color 
+                ? `linear-gradient(135deg, ${subject.color}40 0%, ${subject.color}20 50%, ${subject.color}10 100%)`
+                : 'linear-gradient(135deg, #4F46E540 0%, #6366F120 50%, #818CF810 100%)'
+            }}
+          />
+          
+          <div className="bg-white rounded-2xl shadow-2xl w-96 p-6 relative z-10 border border-gray-200">
             <h2 className="text-xl font-bold mb-4 text-center">Add New Item</h2>
 
               <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Item Name"
-                value={newItem.name}
-                // allow letters and spaces only, limit to 50 characters
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                <input
+                  type="text"
+                  placeholder="Item Name"
+                  value={newItem.name}
+                  // allow letters and spaces only, limit to 50 characters
                 onChange={(e) => {
                   const raw = e.target.value
                   const sanitized = raw.replace(/[^A-Za-z\s]/g, "").slice(0, 50)
@@ -1681,48 +1996,72 @@ export default function SubjectDetail() {
                 }}
                 maxLength={50}
                 pattern="[A-Za-z ]*"
-                className="w-full p-2 border rounded"
-              />
-              <div className="grid grid-cols-2 gap-2">
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              {/* Topic Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
                 <input
-                  type="number"
-                  placeholder="Score"
-                  value={newItem.score ?? ""}
-                  onChange={(e) => {
-                    const raw = e.target.value
+                  type="text"
+                  placeholder="Topic (optional)"
+                  value={newItem.topic || ""}
+                  onChange={(e) => setNewItem({ ...newItem, topic: e.target.value })}
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Score</label>
+                  <input
+                    type="number"
+                    placeholder="Score"
+                    value={newItem.score ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
                     const digits = raw.replace(/\D/g, "").slice(0, 4)
                     setNewItem({ ...newItem, score: digits ? Number.parseInt(digits) : null })
-                  }}
+                    }}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   min={0}
                   max={9999}
-                  className="p-2 border rounded"
-                />
-                <input
-                  type="number"
-                  placeholder="Max Score"
-                    value={newItem.max ?? ""}
-                    // Limit input to digits only and max 4 characters (0-9999) /
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Score</label>
+                  <input
+                    type="number"
+                    placeholder="Max Score"
+                      value={newItem.max ?? ""}
+                      // Limit input to digits only and max 4 characters (0-9999) /
                     onChange={(e) => {
-                      const raw = e.target.value
+                        const raw = e.target.value
                       // keep only digits
                       const digits = raw.replace(/\D/g, "").slice(0, 5)
                       setNewItem({ ...newItem, max: digits ? Number.parseInt(digits) : null })
-                    }}
+                      }}
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    min={0}
+                    min={1}
                     max={9999}
-                    className="p-2 border rounded"
-                />
+                      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
               </div>
-              <input
-                type="date"
-                value={newItem.date ?? ""}
-                onChange={(e) => setNewItem({ ...newItem, date: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <CustomDateInput
+                  value={newItem.date ?? ""}
+                  onChange={(date) => setNewItem({ ...newItem, date })}
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Day must be 1-31, Year must be 4 digits</p>
+              </div>
               <input
                 type="number"
                 placeholder="Target"
@@ -1737,24 +2076,25 @@ export default function SubjectDetail() {
             <div className="flex justify-between mt-6">
               <button
                 onClick={() => {
-                  setShowAddItemModal(false)
-                  setSelectedComponent(null)
+                  setShowAddItemModal(false);
+                  setSelectedComponent(null);
                   setNewItem({
                     name: "",
                     score: null,
                     max: null,
                     date: "",
                     target: null,
-                  })
+                    topic: "",
+                  });
                 }}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => selectedComponent && handleAddItem(selectedComponent)}
                 disabled={savingItem}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
               >
                 {savingItem ? "Saving..." : "Add Item"}
               </button>
@@ -1765,8 +2105,17 @@ export default function SubjectDetail() {
 
       {/* EDIT ITEM MODAL */}
       {showEditItemModal && editingItem && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-96 p-6">
+        <div className="fixed inset-0 flex justify-center items-center z-50">
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: subject?.color 
+                ? `linear-gradient(135deg, ${subject.color}40 0%, ${subject.color}20 50%, ${subject.color}10 100%)`
+                : 'linear-gradient(135deg, #4F46E540 0%, #6366F120 50%, #818CF810 100%)'
+            }}
+          />
+          
+          <div className="bg-white rounded-2xl shadow-2xl w-96 p-6 relative z-10 border border-gray-200">
             <h2 className="text-xl font-bold mb-4 text-center">Edit Item</h2>
 
             <div className="space-y-3">
@@ -1776,7 +2125,19 @@ export default function SubjectDetail() {
                   type="text"
                   value={editingItem.name}
                   onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              {/* Topic Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
+                <input
+                  type="text"
+                  placeholder="Topic (optional)"
+                  value={editingItem.topic || ""}
+                  onChange={(e) => setEditingItem({ ...editingItem, topic: e.target.value })}
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
@@ -1790,7 +2151,8 @@ export default function SubjectDetail() {
                     onChange={(e) =>
                       setEditingItem({ ...editingItem, score: e.target.value ? Number.parseInt(e.target.value) : null })
                     }
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min="0"
                   />
                 </div>
                 <div>
@@ -1802,19 +2164,20 @@ export default function SubjectDetail() {
                     onChange={(e) =>
                       setEditingItem({ ...editingItem, max: e.target.value ? Number.parseInt(e.target.value) : null })
                     }
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min="1"
                   />
                 </div>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
+                <CustomDateInput
                   value={editingItem.date || ""}
-                  onChange={(e) => setEditingItem({ ...editingItem, date: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  onChange={(date) => setEditingItem({ ...editingItem, date })}
+                  className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">Day must be 1-31, Year must be 4 digits</p>
               </div>
             </div>
 
@@ -1825,14 +2188,14 @@ export default function SubjectDetail() {
                   setEditingItem(null)
                   setEditingItemComponentId(null)
                 }}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateItem}
                 disabled={savingItem}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
               >
                 {savingItem ? "Saving..." : "Save Changes"}
               </button>
