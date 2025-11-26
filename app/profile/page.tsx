@@ -19,44 +19,44 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-useEffect(() => {
-  if (status === "unauthenticated") router.push("/login");
+  useEffect(() => {
+    if (status === "unauthenticated") router.push("/login");
 
-  const fetchUser = async () => {
-    if (session?.user?.email) {
-      try {
-        const res = await fetch(`/api/users?email=${session.user.email}`);
-        if (res.ok) {
-          const data = await res.json();
-          setUserInfo({
-            name: data.name ?? session.user.name ?? "",
-            email: data.email ?? session.user.email ?? "",
-            image: data.image ?? session.user.image ?? "",
-          });
-          setPreviewImage(data.image ?? session.user.image ?? "");
-        } else {
-          // for fall back
-          setUserInfo({
-            name: session.user.name ?? "",
-            email: session.user.email ?? "",
-            image: session.user.image ?? "",
-          });
-          setPreviewImage(session.user.image ?? "");
+    const fetchUser = async () => {
+      if (session?.user?.email) {
+        try {
+          const res = await fetch(`/api/users?email=${session.user.email}`);
+          if (res.ok) {
+            const data = await res.json();
+            setUserInfo({
+              name: data.name ?? session.user.name ?? "",
+              email: data.email ?? session.user.email ?? "",
+              image: data.image ?? session.user.image ?? "",
+            });
+            setPreviewImage(data.image ?? session.user.image ?? "");
+          } else {
+            setUserInfo({
+              name: session.user.name ?? "",
+              email: session.user.email ?? "",
+              image: session.user.image ?? "",
+            });
+            setPreviewImage(session.user.image ?? "");
+          }
+        } catch (err) {
+          console.error("Error fetching user:", err);
         }
-      } catch (err) {
-        console.error("Error fetching user:", err);
       }
-    }
-  };
+    };
 
-  fetchUser();
-}, [session, status, router]);
-
+    fetchUser();
+  }, [session, status, router]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setPreviewImage(reader.result as string);
@@ -90,21 +90,27 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Navbar */}
-      <nav className="bg-white shadow-md px-10 py-4 flex items-center justify-between">
+      {/* Updated Navbar */}
+      <nav className="bg-white/90 backdrop-blur-md shadow-md px-10 py-4 flex items-center justify-between relative z-10">
+        
+        {/* Left - Logo */}
         <div className="flex-1 flex justify-start">
-          <Image src="/gslogo.png" alt="Logo" width={48} height={48} />
+          <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
         </div>
+
+        {/* Center - Dashboard tab */}
         <div className="flex-1 flex justify-center">
-          <div className="flex gap-8">
+          <div className="flex gap-16">
             <button
               onClick={() => router.push("/dashboard")}
-              className="text-gray-700 hover:text-blue-600 font-medium"
+              className="capitalize font-medium transition-all text-blue-600 border-b-2 border-blue-600 pb-1"
             >
               Dashboard
             </button>
           </div>
         </div>
+
+        {/* Right - profile picture */}
         <div className="flex-1 flex justify-end">
           <button onClick={() => router.push("/profile")}>
             {userInfo.image ? (
@@ -127,6 +133,7 @@ useEffect(() => {
         <div className="bg-white shadow-lg rounded-2xl overflow-hidden w-full max-w-3xl">
           <div className="bg-indigo-500 p-6 flex justify-between items-center text-white">
             <div className="flex items-center space-x-4">
+              {/* Profile Image */}
               <div
                 className="relative group cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
@@ -163,6 +170,7 @@ useEffect(() => {
                 />
               </div>
 
+              {/* Name */}
               <div>
                 {isEditing ? (
                   <input
@@ -179,6 +187,7 @@ useEffect(() => {
               </div>
             </div>
 
+            {/* Edit / Save Buttons */}
             <div className="flex items-center gap-3">
               {isEditing ? (
                 <>
@@ -207,7 +216,7 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Information section */}
+          {/* Info Section */}
           <div className="px-8 py-6">
             <h3 className="font-bold text-gray-800 mb-3">Information</h3>
             <div className="border rounded-md shadow-sm p-4 bg-white">
@@ -215,29 +224,52 @@ useEffect(() => {
                 <span className="font-medium text-gray-600">Name:</span>{" "}
                 {userInfo.name}
               </p>
-              <p>
+              <p className="mb-4">
                 <span className="font-medium text-gray-600">Email:</span>{" "}
                 {userInfo.email}
               </p>
             </div>
 
-            {/* Performance section Placeholder */}
-            <div className="mt-6">
-              <h3 className="font-bold text-gray-800 mb-3">Performance</h3>
-              <div className="flex gap-6">
-                <div className="bg-white shadow-md rounded-md w-40 text-center p-4">
-                  <p className="text-3xl font-bold text-gray-700">2</p>
-                  <p className="text-gray-500 text-sm">Courses Completed</p>
-                </div>
-                <div className="bg-white shadow-md rounded-md w-40 text-center p-4">
-                  <p className="text-3xl font-bold text-gray-700">5</p>
-                  <p className="text-gray-500 text-sm">Courses in Progress</p>
-                </div>
-              </div>
+            {/* Logout button */}
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setShowLogoutModal(true)}
+                className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600"
+              >
+                Log Out
+              </button>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Logout Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-80 text-center">
+            <h2 className="text-lg font-semibold mb-4">Confirm Logout</h2>
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to log out?
+            </p>
+
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 bg-gray-300 rounded-md font-medium hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="px-4 py-2 bg-red-500 text-white rounded-md font-medium hover:bg-red-600"
+              >
+                Yes, Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
