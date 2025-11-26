@@ -331,6 +331,8 @@ const aiService = new AIService();
 export default function SubjectDetail() {
   const { id } = useParams()
   const router = useRouter()
+  const { data: session, status } = useSession()
+  const user = session?.user as ExtendedUser | undefined
 
   const [subject, setSubject] = useState<Subject | null>(null)
   const [loading, setLoading] = useState(true)
@@ -2182,4 +2184,17 @@ const handleFinishSubject = async () => {
       )}
     </div>
   )
+}
+
+function validateDate(dateStr: string): boolean {
+  if (!dateStr) return false
+  const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!m) return false
+  const year = Number(m[1])
+  const month = Number(m[2])
+  const day = Number(m[3])
+  if (String(year).length !== 4) return false
+  if (month < 1 || month > 12) return false
+  if (day < 1 || day > 31) return false
+  return true
 }

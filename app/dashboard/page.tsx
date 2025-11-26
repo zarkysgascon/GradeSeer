@@ -287,12 +287,14 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState<"subjects" | "pending items" | "history">("subjects");
   const [showModal, setShowModal] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
 
   const user = session?.user as ExtendedUser | undefined;
 
@@ -1075,14 +1077,14 @@ export default function Dashboard() {
 
               {/* History Table */}
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
-                {history.length === 0 ? (
+                {history.length === 0 && (
                   <div className="text-center py-16 text-gray-500">
                     <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
                       <span className="text-4xl">📚</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

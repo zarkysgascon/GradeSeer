@@ -41,10 +41,10 @@
     "**/*.tsx",
     "next-auth.d.ts",
     ".next/types/**/*.ts",
-    "app/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "app/types"
   ]
 }
