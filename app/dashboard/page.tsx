@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, ChangeEvent } from "react";
+import { useEffect, useState, ChangeEvent, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -39,11 +39,34 @@ interface Subject {
   items?: ItemInput[];
 }
 
+interface HistoryRecord {
+  id: string;
+  subject_id: string;
+  user_email: string;
+  course_name: string;
+  target_grade: string;
+  final_grade: string;
+  status: 'reached' | 'missed';
+  completed_at: string;
+}
+
 interface ExtendedUser {
   id?: string;
   name?: string | null;
   email?: string | null;
   image?: string | null;
+}
+
+interface Notification {
+  id: string;
+  type: 'quiz' | 'assignment' | 'exam' | 'general';
+  title: string;
+  message: string;
+  subjectId?: string;
+  subjectName?: string;
+  dueDate?: string;
+  read: boolean;
+  createdAt: string;
 }
 
 /* ------------------------- Calculations ------------------------- */
@@ -57,7 +80,6 @@ function computeRawGrade(components: ComponentInput[]) {
     const componentGrade = computeComponentGrade(component);
     const weight = component.percentage / 100;
     
-    // Only add to total if the component has items with scores
     if (component.items && component.items.length > 0) {
       const hasScores = component.items.some(item => 
         item.score !== null && item.score !== undefined
@@ -70,7 +92,6 @@ function computeRawGrade(components: ComponentInput[]) {
     }
   });
 
-  // If no components have scores yet, return 0
   if (totalWeight === 0) return 0;
   
   return Number(totalWeightedGrade.toFixed(2));
@@ -98,7 +119,6 @@ function computeComponentGrade(component: ComponentInput): number {
   return Number(percentage.toFixed(2));
 }
 
-// FIXED: Completion progress based on items with scores
 function computeCompletionProgress(subject: Subject): number {
   if (!subject.components || subject.components.length === 0) return 0;
   
@@ -109,7 +129,6 @@ function computeCompletionProgress(subject: Subject): number {
     if (component.items && component.items.length > 0) {
       component.items.forEach((item) => {
         totalItems++;
-        // Count as completed if item has a score
         if (item.score !== null && item.score !== undefined) {
           completedItems++;
         }
@@ -121,7 +140,6 @@ function computeCompletionProgress(subject: Subject): number {
   return progress;
 }
 
-// Convert percentage grade to Philippine transmuted grade (1.0-5.0 scale)
 function percentageToGradeScale(percentage: number): number {
   if (percentage >= 97) return 1.0;
   if (percentage >= 94) return 1.25;
@@ -151,7 +169,6 @@ const predefinedColors = [
 
 const BackgroundImage = () => (
   <div className="fixed inset-0 -z-10 overflow-hidden">
-    {/* Gradient background */}
     <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-400"></div>
     
     {/* Single floating image */}
@@ -271,12 +288,93 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<"subjects" | "pending items" | "history">("subjects");
   const [showModal, setShowModal] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const user = session?.user as ExtendedUser | undefined;
+
+  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : null;
+
+  /* ---------------------- Debug History System ---------------------- */
+  const debugHistorySystem = async () => {
+    if (!user?.email) {
+      console.log('❌ No user email available');
+      return;
+    }
+
+    console.log('🔍 === HISTORY SYSTEM DEBUG ===');
+    console.log('User email:', user.email);
+    
+    try {
+      // Test the history API endpoint
+      console.log('📡 Testing history API...');
+      const apiUrl = `/api/history?email=${encodeURIComponent(user.email)}`;
+      console.log('API URL:', apiUrl);
+      
+      const res = await fetch(apiUrl);
+      console.log('📨 API Response status:', res.status);
+      console.log('📨 API Response ok:', res.ok);
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log('✅ History data received:', data);
+        console.log('📊 Number of history records:', data.length);
+        
+        if (data.length > 0) {
+          console.log('📝 Sample record structure:');
+          data.forEach((record: any, index: number) => {
+            console.log(`Record ${index + 1}:`, {
+              id: record.id,
+              course_name: record.course_name,
+              final_grade: record.final_grade,
+              target_grade: record.target_grade,
+              status: record.status,
+              completed_at: record.completed_at,
+              user_email: record.user_email
+            });
+          });
+        } else {
+          console.log('📭 No history records found for this user');
+        }
+      } else {
+        const errorText = await res.text();
+        console.error('❌ API Error response:', errorText);
+      }
+    } catch (err) {
+      console.error('💥 Debug error:', err);
+    }
+    console.log('🔍 === END DEBUG ===');
+  };
+
+  /* ---------------------- Fetch History ---------------------- */
+  const fetchHistory = async () => {
+    if (!user?.email) {
+      console.log('❌ No user email available for fetching history');
+      return;
+    }
+
+    try {
+      console.log('🔄 Fetching history for:', user.email);
+      
+      const res = await fetch(`/api/history?email=${encodeURIComponent(user.email)}`);
+      
+      if (!res.ok) {
+        console.error('❌ History fetch failed:', res.status, res.statusText);
+        const errorText = await res.text();
+        console.error('Error response:', errorText);
+        return;
+      }
+
+      const data = await res.json();
+      console.log('✅ History data received:', data);
+      setHistory(data);
+    } catch (err) {
+      console.error("💥 Error fetching history:", err);
+    }
+  };
 
   /* ---------------------- Fetch Updated Profile Image ---------------------- */
   useEffect(() => {
@@ -334,6 +432,22 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [user?.email]);
 
+  /* ---------------------- Fetch History when tab is active ---------------------- */
+  useEffect(() => {
+    if (activeTab === "history" && user?.email) {
+      console.log('📊 History tab activated, fetching history...');
+      
+      // Check if we need to refresh after finishing a subject
+      const shouldRefresh = localStorage.getItem('shouldRefreshHistory');
+      if (shouldRefresh === 'true') {
+        console.log('🔄 Auto-refreshing history after subject completion');
+        localStorage.removeItem('shouldRefreshHistory');
+      }
+      
+      fetchHistory();
+    }
+  }, [activeTab, user?.email]);
+
   /* ---------------------- Modal States ---------------------- */
   const [newSubject, setNewSubject] = useState({
     name: "",
@@ -379,7 +493,7 @@ export default function Dashboard() {
     };
 
     fetchSubjects();
-  }, [status, user?.email, showSuccess]);
+  }, [status, user?.email]);
 
   /* ---------------------- Add/Update Component ---------------------- */
   const handleAddOrUpdateComponent = () => {
@@ -435,10 +549,7 @@ export default function Dashboard() {
         const result = await res.json();
         console.log('Subject created:', result);
         
-        // Show success message
         setShowSuccess(true);
-        
-        // Reset form
         setShowModal(false);
         setNewSubject({
           name: "",
@@ -448,7 +559,6 @@ export default function Dashboard() {
           components: [],
         });
         
-        // Hide success message after 3 seconds
         setTimeout(() => setShowSuccess(false), 3000);
         
         await fetchUpcomingItems();
@@ -487,7 +597,6 @@ export default function Dashboard() {
   /* ---------------------- Handle Modal Close ---------------------- */
   const handleModalClose = () => {
     setShowModal(false);
-    // Reset form when closing
     setNewSubject({
       name: "",
       is_major: false,
@@ -504,6 +613,16 @@ export default function Dashboard() {
 
   if (status === "loading")
     return <div className="flex justify-center items-center h-screen text-lg">Loading...</div>;
+
+  /* ---------------------- Format Date ---------------------- */
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   /* ---------------------- UI Return ---------------------- */
   return (
@@ -565,7 +684,7 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* MAIN - MADE SCROLLABLE */}
+      {/* MAIN CONTENT */}
       <main className="p-6 relative z-10 overflow-y-auto">
         {/* SUBJECTS TAB */}
         {activeTab === "subjects" && (
@@ -924,17 +1043,61 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* HISTORY TAB */}
+        {activeTab === "history" && (
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Grade History
+                </h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={fetchHistory}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
+                  <button
+                    onClick={debugHistorySystem}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Debug History
+                  </button>
+                </div>
+              </div>
+
+              {/* History Table */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
+                {history.length === 0 ? (
+                  <div className="text-center py-16 text-gray-500">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
+                      <span className="text-4xl">📚</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* HISTORY TAB (Placeholder) */}
         {activeTab === "history" && (
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
-              <h2 className="text-3xl font-bold mb-8 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Grade History</h2>
-              <div className="text-center py-16 text-gray-500 bg-gradient-to-br from-blue-50/80 to-purple-50/80 rounded-2xl">
-                <svg className="w-24 h-24 mx-auto text-gray-300 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h2 className="text-2xl font-bold mb-6">Grade History</h2>
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
-                <p className="text-xl font-semibold mb-3">Grade history coming soon</p>
-                <p className="text-sm max-w-md mx-auto">Track your grade progress over time with detailed analytics and visual insights to help you achieve your academic goals.</p>
+                <p className="text-lg">Grade history coming soon</p>
+                <p className="text-sm">Track your grade progress over time</p>
               </div>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 /* -------------------- Types -------------------- */
 interface ItemInput {
@@ -36,6 +37,13 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+}
+
+interface ExtendedUser {
+  id?: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
 }
 
 /* -------------------- Grade Computation -------------------- */
@@ -225,21 +233,16 @@ class AIService {
 
   async sendChatMessage(messages: ChatMessage[], userMessage: string, subject: Subject | null): Promise<string> {
     try {
-      // Enhanced debugging
       console.log('=== 🔍 AI SERVICE DEBUG INFO ===');
       console.log('API Key from env:', process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'PRESENT' : 'MISSING');
-      console.log('API Key length:', process.env.NEXT_PUBLIC_GEMINI_API_KEY?.length);
-      console.log('API Key starts with AIza:', process.env.NEXT_PUBLIC_GEMINI_API_KEY?.startsWith('AIza'));
       console.log('Current this.apiKey:', this.apiKey ? `Present (length: ${this.apiKey.length})` : 'MISSING');
       console.log('============================');
 
-      // If no API key, use fallback immediately
       if (!this.apiKey || this.apiKey === '') {
         console.error('❌ CRITICAL: No API key found in class instance');
         return "Please configure your Gemini API key in the environment variables to use the AI chat feature.";
       }
 
-      // Build conversation context
       const conversationHistory = messages
         .slice(-6)
         .map(msg => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}`)
@@ -262,7 +265,6 @@ Please provide a helpful, engaging response. Answer their question directly and 
 
       console.log('🚀 Calling Gemini API...');
 
-      // Use the most common working model
       const modelName = 'gemini-1.5-flash';
       const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${this.apiKey}`;
       
@@ -287,7 +289,6 @@ Please provide a helpful, engaging response. Answer their question directly and 
       });
 
       console.log('📨 Response status:', response.status);
-      console.log('📨 Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (response.ok) {
         const data = await response.json();
@@ -373,8 +374,14 @@ export default function SubjectDetail() {
   const [userInput, setUserInput] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
 
+  // Finishing course state
+  const [finishingCourse, setFinishingCourse] = useState(false)
+
+  const [finishLoading, setFinishLoading] = useState(false)
+
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
+  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : "gradeHistory:guest";
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -396,6 +403,91 @@ export default function SubjectDetail() {
     }
   }, [subject])
 
+  /* -------------------- Updated Finish Subject Function -------------------- */
+const handleFinishSubject = async () => {
+  if (!subject?.id || !user?.email) {
+    alert("You need to be logged in to finish a subject.");
+    return;
+  }
+
+  if (!window.confirm(`Are you sure you want to finish "${subject.name}"? This will calculate your final grade and move it to history. This action cannot be undone.`)) {
+    return;
+  }
+
+  setFinishLoading(true);
+  try {
+    console.log('🔄 Starting finish process for subject:', {
+      subjectId: subject.id,
+      subjectName: subject.name,
+      userEmail: user.email
+    });
+
+    const finishData = { 
+      user_email: user.email 
+    };
+
+    console.log('📤 Sending finish request with data:', finishData);
+
+    const res = await fetch(`/api/subjects/${subject.id}/finish`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(finishData),
+    });
+
+    console.log('📨 Finish API response status:', res.status);
+    console.log('📨 Finish API response ok:', res.ok);
+
+    // Get the response text first to see what's coming back
+    const responseText = await res.text();
+    console.log('📄 Raw response text:', responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+      console.log('📊 Parsed response data:', data);
+    } catch (parseError) {
+      console.error('❌ Failed to parse JSON response:', parseError);
+      throw new Error(`Invalid JSON response: ${responseText}`);
+    }
+
+    if (!res.ok) {
+      console.error('❌ Finish API Error:', data);
+      throw new Error(data.error || data.details || `Failed to finish subject (${res.status})`);
+    }
+
+    if (data.success) {
+      console.log('✅ Finish API success:', data);
+      
+      const statusMessage = data.status === 'reached' ? '🎉 Target Reached!' : 'Target Missed';
+      const message = `Subject completed successfully!\n\nFinal Grade: ${data.final_grade}\nTarget Grade: ${subject.target_grade}\nStatus: ${statusMessage}\n\nYou can view this in your History tab.`;
+      
+      alert(message);
+      
+      // Set multiple flags to ensure refresh
+      localStorage.setItem('shouldRefreshHistory', 'true');
+      localStorage.setItem('lastFinishedSubject', JSON.stringify({
+        id: subject.id,
+        name: subject.name,
+        timestamp: new Date().toISOString()
+      }));
+      
+      console.log('🏁 Subject finished, flags set, redirecting to dashboard...');
+      
+      // Redirect to dashboard
+      router.push("/dashboard");
+    } else {
+      console.error('❌ API returned success: false', data);
+      throw new Error(data.error || 'Unknown error occurred');
+    }
+  } catch (err) {
+    console.error("💥 Finish subject error:", err);
+    alert(`Error finishing subject: ${err instanceof Error ? err.message : 'Please try again.'}`);
+  } finally {
+    setFinishLoading(false);
+  }
+};
   const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
     try {
       const raw = localStorage.getItem(localKey)
@@ -413,28 +505,6 @@ export default function SubjectDetail() {
     current[itemId] = values
     localStorage.setItem(localKey, JSON.stringify(current))
   }
-
-  const validateDate = (dateString: string): boolean => {
-    if (!dateString) return true;
-    
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const year = date.getFullYear();
-    
-    return day >= 1 && day <= 31 && year >= 1000 && year <= 9999;
-  };
-
-  const handleDateChange = (dateString: string, setItemFunction: (item: any) => void, currentItem: any) => {
-    if (dateString) {
-      if (validateDate(dateString)) {
-        setItemFunction({ ...currentItem, date: dateString });
-      } else {
-        alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
-      }
-    } else {
-      setItemFunction({ ...currentItem, date: "" });
-    }
-  };
 
   /* -------------------- Fetch Subject -------------------- */
   useEffect(() => {
@@ -478,7 +548,8 @@ export default function SubjectDetail() {
         console.error("Subject fetch failed:", err)
         setSubject(null)
       } finally {
-        setLoading(false)
+        setLoading(false
+        )
       }
     }
 
@@ -748,17 +819,14 @@ export default function SubjectDetail() {
         setEditingItem(null)
         setEditingItemComponentId(null)
       } else {
-        // Enhanced error handling
         let errorMessage = "Failed to update item"
         
         try {
-          // Try to parse JSON error response
           const contentType = res.headers.get("content-type")
           if (contentType && contentType.includes("application/json")) {
             const errorData = await res.json()
             errorMessage = errorData.error || errorMessage
           } else {
-            // Handle non-JSON responses (like HTML error pages)
             const text = await res.text()
             console.error('Non-JSON error response:', text)
             if (res.status === 405) {
@@ -841,17 +909,14 @@ export default function SubjectDetail() {
         setEditScore(null)
         setEditMax(null)
       } else {
-        // Handle different error cases properly
         let errorMessage = "Failed to update item score"
         
         try {
-          // Try to parse JSON error response
           const contentType = res.headers.get("content-type")
           if (contentType && contentType.includes("application/json")) {
             const errorData = await res.json()
             errorMessage = errorData.error || errorMessage
           } else {
-            // Handle non-JSON responses (like HTML error pages)
             const text = await res.text()
             console.error('Non-JSON error response:', text)
             if (res.status === 405) {
@@ -953,7 +1018,6 @@ export default function SubjectDetail() {
         })
         setSelectedComponent(null)
       } else {
-        // Enhanced error handling
         let errorMessage = "Failed to add item"
         
         try {
@@ -1063,9 +1127,9 @@ export default function SubjectDetail() {
   const projectedGrade = percentageToGradeScale(projectedPercentage)
   
   const targetGrade = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
-  const passingMark = 75
+  const passingMark = 75 // Default passing mark in Philippine system
   const effectivePassingMark = targetGrade > 0 ? 
-    Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark
+    Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark // Adjust passing mark based on target grade
 
   return (
     <div className="min-h-screen bg-gray-100 p-10 flex justify-center relative">
@@ -1874,28 +1938,35 @@ export default function SubjectDetail() {
           </div>
         </div>
 
-        {/* FINISH SUBJECT BUTTON - BOTTOM RIGHT INSIDE SUBJECT */}
+        {/* BACK BUTTON */}
         <div className="flex justify-end mt-8">
           <button
-            onClick={() => {
-              // Placeholder function - does nothing
-              console.log("Finish Subject clicked - placeholder");
-            }}
-            className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-all duration-200"
+            onClick={handleFinishSubject}
+            disabled={finishLoading}
+            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-3 font-semibold disabled:bg-green-400 disabled:cursor-not-allowed"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-            Finish Subject
+            {finishLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Finishing...
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Finish Subject
+              </>
+            )}
           </button>
         </div>
       </div>
