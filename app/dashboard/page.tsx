@@ -293,61 +293,10 @@ export default function Dashboard() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
 
   const user = session?.user as ExtendedUser | undefined;
-
-  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : null;
-
-  /* ---------------------- Debug History System ---------------------- */
-  const debugHistorySystem = async () => {
-    if (!user?.email) {
-      console.log('❌ No user email available');
-      return;
-    }
-
-    console.log('🔍 === HISTORY SYSTEM DEBUG ===');
-    console.log('User email:', user.email);
-    
-    try {
-      // Test the history API endpoint
-      console.log('📡 Testing history API...');
-      const apiUrl = `/api/history?email=${encodeURIComponent(user.email)}`;
-      console.log('API URL:', apiUrl);
-      
-      const res = await fetch(apiUrl);
-      console.log('📨 API Response status:', res.status);
-      console.log('📨 API Response ok:', res.ok);
-      
-      if (res.ok) {
-        const data = await res.json();
-        console.log('✅ History data received:', data);
-        console.log('📊 Number of history records:', data.length);
-        
-        if (data.length > 0) {
-          console.log('📝 Sample record structure:');
-          data.forEach((record: any, index: number) => {
-            console.log(`Record ${index + 1}:`, {
-              id: record.id,
-              course_name: record.course_name,
-              final_grade: record.final_grade,
-              target_grade: record.target_grade,
-              status: record.status,
-              completed_at: record.completed_at,
-              user_email: record.user_email
-            });
-          });
-        } else {
-          console.log('📭 No history records found for this user');
-        }
-      } else {
-        const errorText = await res.text();
-        console.error('❌ API Error response:', errorText);
-      }
-    } catch (err) {
-      console.error('💥 Debug error:', err);
-    }
-    console.log('🔍 === END DEBUG ===');
-  };
 
   /* ---------------------- Fetch History ---------------------- */
   const fetchHistory = async () => {
@@ -359,7 +308,7 @@ export default function Dashboard() {
     try {
       console.log('🔄 Fetching history for:', user.email);
       
-      const res = await fetch(`/api/history?email=${encodeURIComponent(user.email)}`);
+      const res = await fetch(`/api/subjects/history?email=${encodeURIComponent(user.email)}`);
       
       if (!res.ok) {
         console.error('❌ History fetch failed:', res.status, res.statusText);
@@ -560,6 +509,19 @@ export default function Dashboard() {
         });
         
         setTimeout(() => setShowSuccess(false), 3000);
+        
+        // Refresh subjects list
+        const refreshRes = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          const mapped: Subject[] = data.map((s: any) => ({
+            ...s,
+            id: s.id || s._id,
+            components: s.components || [],
+            color: s.color || generateColor(),
+          }));
+          setSubjects(mapped);
+        }
         
         await fetchUpcomingItems();
       } else {
@@ -1061,15 +1023,6 @@ export default function Dashboard() {
                     </svg>
                     Refresh
                   </button>
-                  <button
-                    onClick={debugHistorySystem}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    Debug History
-                  </button>
                 </div>
               </div>
 
@@ -1080,24 +1033,45 @@ export default function Dashboard() {
                     <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
                       <span className="text-4xl">📚</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* HISTORY TAB (Placeholder) */}
-        {activeTab === "history" && (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold mb-6">Grade History</h2>
-              <div className="text-center py-8 text-gray-500">
-                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <p className="text-lg">Grade history coming soon</p>
-                <p className="text-sm">Track your grade progress over time</p>
+                    <p className="text-xl font-semibold mb-2">No history yet</p>
+                    <p className="text-sm max-w-md mx-auto">Complete subjects to see your grade history here.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50/80 border-b border-gray-200">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Course</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Target Grade</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Final Grade</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Completed</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {history.map((record) => (
+                          <tr key={record.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{record.course_name}</td>
+                            <td className="px-6 py-4 text-sm text-gray-600">{record.target_grade}</td>
+                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">{record.final_grade}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                record.status === 'reached' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {record.status === 'reached' ? 'Target Reached' : 'Target Missed'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {formatDate(record.completed_at)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>

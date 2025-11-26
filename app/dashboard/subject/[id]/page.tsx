@@ -46,6 +46,17 @@ interface ExtendedUser {
   image?: string | null
 }
 
+/* -------------------- Helper Functions -------------------- */
+function validateDate(dateString: string): boolean {
+  if (!dateString) return true // Empty date is valid
+  
+  const date = new Date(dateString);
+  const day = date.getDate();
+  const year = date.getFullYear();
+  
+  return day >= 1 && day <= 31 && year >= 1000 && year <= 9999;
+}
+
 /* -------------------- Grade Computation -------------------- */
 function computeRawComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
@@ -331,6 +342,8 @@ const aiService = new AIService();
 export default function SubjectDetail() {
   const { id } = useParams()
   const router = useRouter()
+  const { data: session } = useSession()
+  const user = session?.user as ExtendedUser | undefined
 
   const [subject, setSubject] = useState<Subject | null>(null)
   const [loading, setLoading] = useState(true)
@@ -376,7 +389,6 @@ export default function SubjectDetail() {
 
   // Finishing course state
   const [finishingCourse, setFinishingCourse] = useState(false)
-
   const [finishLoading, setFinishLoading] = useState(false)
 
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -403,89 +415,69 @@ export default function SubjectDetail() {
     }
   }, [subject])
 
-  /* -------------------- Updated Finish Subject Function -------------------- */
+  /* -------------------- Finish Subject Function -------------------- */
+// In your subject page component
+// In your subject page - UPDATED FINISH FUNCTION
 const handleFinishSubject = async () => {
-  if (!subject?.id || !user?.email) {
-    alert("You need to be logged in to finish a subject.");
+  if (!session?.user?.email) {
+    console.log('❌ No user session found');
     return;
   }
-
-  if (!window.confirm(`Are you sure you want to finish "${subject.name}"? This will calculate your final grade and move it to history. This action cannot be undone.`)) {
+  
+  if (!subject?.id) {
+    console.log('❌ No subject ID found');
     return;
   }
-
-  setFinishLoading(true);
+  
   try {
-    console.log('🔄 Starting finish process for subject:', {
-      subjectId: subject.id,
-      subjectName: subject.name,
-      userEmail: user.email
-    });
-
-    const finishData = { 
-      user_email: user.email 
-    };
-
-    console.log('📤 Sending finish request with data:', finishData);
-
-    const res = await fetch(`/api/subjects/${subject.id}/finish`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
+    console.log('🔄 Starting finish process for subject:', subject.id);
+    console.log('📤 Sending finish request to:', `/api/subjects/${subject.id}/finish`);
+    
+    const response = await fetch(`/api/subjects/${subject.id}/finish`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(finishData),
+      body: JSON.stringify({
+        user_email: session.user.email
+      }),
     });
 
-    console.log('📨 Finish API response status:', res.status);
-    console.log('📨 Finish API response ok:', res.ok);
-
-    // Get the response text first to see what's coming back
-    const responseText = await res.text();
+    console.log('📨 Finish API response status:', response.status);
+    console.log('📨 Finish API response ok:', response.ok);
+    
+    // Get the raw response text first
+    const responseText = await response.text();
     console.log('📄 Raw response text:', responseText);
-
-    let data;
+    
+    let result;
     try {
-      data = JSON.parse(responseText);
-      console.log('📊 Parsed response data:', data);
+      result = responseText ? JSON.parse(responseText) : {};
     } catch (parseError) {
-      console.error('❌ Failed to parse JSON response:', parseError);
-      throw new Error(`Invalid JSON response: ${responseText}`);
+      console.error('❌ Failed to parse response:', parseError);
+      result = {};
     }
-
-    if (!res.ok) {
-      console.error('❌ Finish API Error:', data);
-      throw new Error(data.error || data.details || `Failed to finish subject (${res.status})`);
-    }
-
-    if (data.success) {
-      console.log('✅ Finish API success:', data);
+    
+    if (response.ok) {
+      console.log('✅ Finish API success:', result);
       
-      const statusMessage = data.status === 'reached' ? '🎉 Target Reached!' : 'Target Missed';
-      const message = `Subject completed successfully!\n\nFinal Grade: ${data.final_grade}\nTarget Grade: ${subject.target_grade}\nStatus: ${statusMessage}\n\nYou can view this in your History tab.`;
-      
-      alert(message);
-      
-      // Set multiple flags to ensure refresh
+      // Set flag to refresh history
       localStorage.setItem('shouldRefreshHistory', 'true');
-      localStorage.setItem('lastFinishedSubject', JSON.stringify({
-        id: subject.id,
-        name: subject.name,
-        timestamp: new Date().toISOString()
-      }));
-      
-      console.log('🏁 Subject finished, flags set, redirecting to dashboard...');
       
       // Redirect to dashboard
-      router.push("/dashboard");
+      console.log('🏁 Subject finished, redirecting to dashboard...');
+      router.push('/dashboard');
     } else {
-      console.error('❌ API returned success: false', data);
-      throw new Error(data.error || 'Unknown error occurred');
+      console.error('❌ Finish API error - Full details:', {
+        status: response.status,
+        statusText: response.statusText,
+        result: result
+      });
+      alert('Failed to finish subject: ' + (result.error || result.message || 'Unknown error'));
     }
-  } catch (err) {
-    console.error("💥 Finish subject error:", err);
-    alert(`Error finishing subject: ${err instanceof Error ? err.message : 'Please try again.'}`);
-  } finally {
-    setFinishLoading(false);
+  } catch (error) {
+    console.error('💥 Finish subject error:', error);
+    alert('Error finishing subject: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 };
   const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
@@ -548,8 +540,7 @@ const handleFinishSubject = async () => {
         console.error("Subject fetch failed:", err)
         setSubject(null)
       } finally {
-        setLoading(false
-        )
+        setLoading(false)
       }
     }
 
@@ -1160,19 +1151,14 @@ const handleFinishSubject = async () => {
         {/* HEADER */}
         <div 
           className="p-8 rounded-2xl text-white flex justify-between items-center shadow-lg relative overflow-hidden"
+          style={{ 
+            background: subject?.color 
+              ? `linear-gradient(135deg, ${subject.color} 0%, ${subject.color}dd 50%, ${subject.color}aa 100%)`
+              : 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%)'
+          }}
         >
-          {/* Background with proper color */}
-          <div 
-            className="absolute inset-0 z-0"
-            style={{ 
-              background: subject?.color 
-                ? `linear-gradient(135deg, ${subject.color} 0%, ${subject.color}dd 50%, ${subject.color}aa 100%)`
-                : 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%)'
-            }}
-          />
-          
           {/* Content */}
-          <div className="relative z-10 flex items-center gap-3">
+          <div className="flex items-center gap-3">
             {isEditingName ? (
               <>
                 <input
@@ -1239,7 +1225,7 @@ const handleFinishSubject = async () => {
           </div>
 
           {/* Grade Metrics */}
-          <div className="relative z-10 flex items-center gap-4">
+          <div className="flex items-center gap-4">
             {/* Grade Metrics with Icons */}
             <div className="flex gap-8 text-center">
               {/* Target Grade */}
@@ -1823,7 +1809,7 @@ const handleFinishSubject = async () => {
                         message.role === 'user' ? 'flex-row-reverse' : ''
                       }`}
                     >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1 ${
                         message.role === 'user' 
                           ? 'bg-blue-500' 
                           : 'bg-green-500'
@@ -1865,7 +1851,7 @@ const handleFinishSubject = async () => {
                   
                   {aiLoading && (
                     <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shrink-0 mt-1">
                         <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       </div>
                       <div className="flex-1">
