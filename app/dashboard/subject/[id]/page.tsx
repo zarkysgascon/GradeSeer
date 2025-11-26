@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
@@ -225,103 +225,153 @@ const CustomDateInput = ({
 
 /* -------------------- AI Service -------------------- */
 class AIService {
-  private apiKey: string = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
-
   private getFallbackResponse(userMessage: string, subject: Subject | null): string {
-    return "I'm having trouble connecting to my AI service right now. Please check that your API key is properly configured and try again.";
+    if (!subject) return "No subject context available.";
+    const msg = (userMessage || '').toLowerCase()
+    const comps = subject.components || []
+    const rawPct = computeRawGrade(comps)
+    const current = percentageToGradeScale(rawPct)
+    const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
+    const items = comps.flatMap(c => (c.items || []).map(i => ({ i, comp: c })))
+    const upcoming = items.filter(x => x.i?.score === null || x.i?.score === undefined)
+      .sort((a, b) => Number(b.comp.percentage) - Number(a.comp.percentage))
+    const compGrades = comps.map(c => ({ name: c.name, g: computeRawComponentGrade(c.items || []), w: c.percentage }))
+    const strengths = [...compGrades].sort((a, b) => b.g - a.g).slice(0, 2)
+    const weaknesses = [...compGrades].sort((a, b) => a.g - b.g).slice(0, 2)
+    const status = target > 0 ? (current >= target ? '✅ Above target' : '⚠️ Below target') : 'Set a target to compute status'
+
+    if (msg.includes('strength') || msg.includes('weak')) {
+      const lines = [
+        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `💪 Strengths: ${strengths.length ? strengths.map(s => `${s.name} (${s.g.toFixed(1)}%)`).join(', ') : 'None logged yet'}`,
+        `⚠️ Weaknesses: ${weaknesses.length ? weaknesses.map(s => `${s.name} (${s.g.toFixed(1)}%)`).join(', ') : 'None identified'}`,
+        `🎯 Focus: ${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments'}`
+      ]
+      return lines.join('\n')
+    }
+
+    if (msg.includes('improve') || msg.includes('better') || msg.includes('increase')) {
+      const primary = weaknesses[0] || strengths[0]
+      const upcomingInPrimary = upcoming.filter(u => u.comp.name === primary?.name).slice(0,3)
+      const lines = [
+        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `� Plan:`,
+        `${primary ? `1. Prioritize ${primary.name} — raise average above ${Math.max(75, Math.round(primary.g+5))}%` : '1. Log more assessments to compute a plan'}`,
+        `${upcomingInPrimary.length ? upcomingInPrimary.map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : (upcoming.length ? upcoming.slice(0,2).map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : '2. No upcoming assessments — maintain consistency in weakest areas')}`,
+        `💡 Tips: Focus study on weakest topics, practice past papers, and aim for steady improvement rather than one-off spikes.`
+      ]
+      return lines.join('\n')
+    }
+
+    if (msg.includes('focus') || msg.includes('next') || msg.includes('priority')) {
+      const lines = [
+        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `🎯 Next Focus:`,
+        `${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments logged'}`,
+        `💡 Highest impact components: ${compGrades.sort((a,b)=>b.w-a.w).slice(0,2).map(c=>`${c.name} (${c.w}% weight)`).join(', ')}`
+      ]
+      return lines.join('\n')
+    }
+
+    if (msg.includes('risk') || msg.includes('fail')) {
+      const risky = weaknesses.slice(0,2)
+      const lines = [
+        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `⚠️ Risk Components: ${risky.length ? risky.map(r=>`${r.name} (${r.g.toFixed(1)}%)`).join(', ') : 'No risk detected'}`,
+        `🛡️ Mitigation: focus on weakest areas first, allocate more time to high-weight assessments, and aim for >=75% on upcoming items.`
+      ]
+      return lines.join('\n')
+    }
+
+    const lines = [
+      `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+      `🎯 Next Focus:`,
+      `${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments logged'}`,
+      `💡 Insights: Strongest: ${strengths[0] ? `${strengths[0].name} (${strengths[0].g.toFixed(1)}%)` : 'N/A'}, Weakest: ${weaknesses[0] ? `${weaknesses[0].name} (${weaknesses[0].g.toFixed(1)}%)` : 'N/A'}`
+    ]
+    return lines.join('\n')
+  }
+
+  private async discoverModel(apiKey: string): Promise<string> {
+    const cached = typeof window !== 'undefined' ? localStorage.getItem('gemini:model') : null
+    if (cached) return cached
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+      headers: { 'x-goog-api-key': apiKey }
+    })
+    if (!res.ok) return 'gemini-pro'
+    const j = await res.json()
+    const names: string[] = Array.isArray(j?.models) ? j.models.map((m: any) => String(m?.name || '').replace(/^models\//,'')).filter(Boolean) : []
+    const pick = names.find(n => n.startsWith('gemini-1.5')) || names.find(n => n.startsWith('gemini-pro')) || names.find(n => n.startsWith('gemini-1.0')) || names[0]
+    const chosen = pick || 'gemini-pro'
+    if (typeof window !== 'undefined') localStorage.setItem('gemini:model', chosen)
+    return chosen
   }
 
   async sendChatMessage(messages: ChatMessage[], userMessage: string, subject: Subject | null): Promise<string> {
     try {
-      console.log('=== 🔍 AI SERVICE DEBUG INFO ===');
-      console.log('API Key from env:', process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'PRESENT' : 'MISSING');
-      console.log('Current this.apiKey:', this.apiKey ? `Present (length: ${this.apiKey.length})` : 'MISSING');
-      console.log('============================');
-
-      if (!this.apiKey || this.apiKey === '') {
-        console.error('❌ CRITICAL: No API key found in class instance');
-        return "Please configure your Gemini API key in the environment variables to use the AI chat feature.";
-      }
-
-      const conversationHistory = messages
-        .slice(-6)
-        .map(msg => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}`)
-        .join('\n\n');
-
-      let context = "You are a helpful AI tutor and study assistant. You help students with academic questions, study strategies, time management, and general learning advice.";
-      
-      if (subject) {
-        context += `\n\nThe student is currently viewing their "${subject.name}" subject but may ask about any academic topic.`;
-      }
-
-      const prompt = `${context}
-
-CONVERSATION HISTORY:
-${conversationHistory}
-
-STUDENT'S CURRENT QUESTION: ${userMessage}
-
-Please provide a helpful, engaging response. Answer their question directly and be conversational but informative.`;
-
-      console.log('🚀 Calling Gemini API...');
-
-      const modelName = 'gemini-1.5-flash';
-      const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${this.apiKey}`;
-      
-      console.log('📡 API URL (key hidden):', apiUrl.replace(this.apiKey, 'API_KEY_REDACTED'));
-
-      const response = await fetch(apiUrl, {
+      if (!subject) return "No subject context available.";
+      const history = messages.slice(-6).map(m => m.content)
+      const serverRes = await fetch(`/api/ai/subject/${subject.id}/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1000,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage, history })
+      })
+      if (serverRes.ok) {
+        const serverData = await serverRes.json()
+        const text = String(serverData?.response || '')
+        if (text) return text
+      }
+      const keys = [
+        ...((process.env.NEXT_PUBLIC_GEMINI_API_KEYS || '').split(',').map(s => s.trim()).filter(Boolean)),
+        ...(process.env.NEXT_PUBLIC_GEMINI_API_KEY ? [process.env.NEXT_PUBLIC_GEMINI_API_KEY] : [])
+      ].filter((v, i, a) => v && a.indexOf(v) === i)
+      if (!keys.length) return 'Public AI key missing. Add NEXT_PUBLIC_GEMINI_API_KEY.'
+
+      const hist = messages.slice(-6).map(msg => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}`).join('\n\n')
+      const prompt = `Subject: ${subject.name}\nTarget: ${subject.target_grade || ''}\n\n${hist}\n\nQuestion: ${userMessage}`
+
+      for (const key of keys) {
+        const discovered = await this.discoverModel(key)
+        const candidates = [discovered, discovered.includes('flash') ? 'gemini-pro' : 'gemini-1.5-flash']
+        for (const model of candidates) {
+          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+          let r = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              systemInstruction: { role: 'system', parts: [{ text: 'You are a helpful academic advisor. Respond concisely with prioritized actions.' }] },
+              generationConfig: { temperature: 0.7, maxOutputTokens: 1000, candidateCount: 1 }
+            })
+          })
+          if (r.status === 429) {
+            const retry = Number(r.headers.get('Retry-After') || '2')
+            const ms = Math.min(Math.max(retry, 1), 8) * 1000
+            await new Promise(res => setTimeout(res, ms))
+            r = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                systemInstruction: { role: 'system', parts: [{ text: 'You are a helpful academic advisor. Respond concisely with prioritized actions.' }] },
+                generationConfig: { temperature: 0.7, maxOutputTokens: 1000, candidateCount: 1 }
+              })
+            })
           }
-        })
-      });
-
-      console.log('📨 Response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ API call successful!');
-        
-        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-          const aiResponse = data.candidates[0].content.parts[0].text;
-          console.log('🎉 Got AI response:', aiResponse.substring(0, 100) + '...');
-          return aiResponse;
-        } else {
-          console.error('❌ No content in response:', data);
-          throw new Error('No content in API response');
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('❌ API Error Details:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
-        
-        if (response.status === 401 || response.status === 403) {
-          return "Authentication failed. Please check that your Gemini API key is valid and has the correct permissions.";
-        } else if (response.status === 404) {
-          return "The AI model is not available. Please try a different model or check the API documentation.";
-        } else {
-          return `API request failed with status ${response.status}. Please check your API key and try again.`;
+          if (r.ok) {
+            const data = await r.json()
+            const parts = data?.candidates?.[0]?.content?.parts || []
+            const p = parts.find((x: any) => typeof x?.text === 'string')
+            const text = p?.text || ''
+            if (text) return text
+          } else if (r.status === 404 || r.status === 429) {
+            continue
+          }
         }
       }
-
+      return this.getFallbackResponse(userMessage, subject)
     } catch (error) {
-      console.error('💥 AI service error:', error);
-      return this.getFallbackResponse(userMessage, subject);
+      return this.getFallbackResponse(userMessage, subject)
     }
   }
 }
@@ -395,12 +445,21 @@ export default function SubjectDetail() {
   // Initialize with welcome message
   useEffect(() => {
     if (subject && chatMessages.length === 0) {
-      const welcomeMessage: ChatMessage = {
-        id: '1',
-        role: 'assistant',
-        content: `Hi! I'm your AI study assistant for ${subject.name}. I can help you analyze your performance, suggest study strategies, and provide academic advice. What would you like to know about your progress?`,
-        timestamp: new Date()
+      const allItems = (subject.components || []).flatMap(c => c.items || [])
+      const total = allItems.filter(i => i?.max && i.max > 0).length
+      const completed = allItems.filter(i => i?.score !== null && i?.score !== undefined && i?.max && i.max > 0).length
+      const progress = total === 0 ? 0 : Math.round((completed / total) * 100)
+      const rawPct = computeRawGrade(subject.components)
+      const currentGrade = percentageToGradeScale(rawPct)
+      const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
+      let content = ''
+      if (completed === 0) {
+        content = `📊 ${subject.name} Analysis\n\nCurrent Status: You haven't logged any grades yet (${progress}% progress).\n\nNext Steps:\n1. Add your assessment items\n2. Set your target to ${target || 3.0}\n3. Log grades as you get them`
+      } else {
+        const status = target > 0 ? (currentGrade >= target ? 'ABOVE TARGET ✅' : 'BELOW TARGET ⚠️') : 'Status available once a target is set'
+        content = `📊 ${subject.name} Analysis\n\nCurrent Grade: ${currentGrade.toFixed(2)} (target ${target || 0}) - ${status}\n\nAsk me for prioritized actions based on weights and upcoming assessments.`
       }
+      const welcomeMessage: ChatMessage = { id: '1', role: 'assistant', content, timestamp: new Date() }
       setChatMessages([welcomeMessage])
     }
   }, [subject])
@@ -616,12 +675,25 @@ const handleFinishSubject = async () => {
     }
   }
 
-  const quickQuestions = [
-    "How can I improve my grades?",
-    "What should I focus on?",
-    "Study schedule suggestions?",
-    "How to prepare for exams?"
-  ]
+  const quickQuestions = useMemo(() => {
+    if (!subject) return [] as string[]
+    const allItems = (subject.components || []).flatMap(c => c.items || [])
+    const rawPct = computeRawGrade(subject.components)
+    const current = percentageToGradeScale(rawPct)
+    const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
+    const completedItems = allItems.filter(i => i?.score !== null && i?.score !== undefined)
+    const upcomingItems = allItems.filter(i => i?.score === null || i?.score === undefined)
+    const safetyZone = target > 0 ? (current >= target ? 'green' : rawPct >= 71 ? 'yellow' : 'red') : (rawPct >= 75 ? 'green' : rawPct >= 65 ? 'yellow' : 'red')
+    const qs: string[] = []
+    if (target > 0 && current < target) qs.push("What do I need to reach my target?")
+    const nextBig = upcomingItems
+      .map(i => ({ i, comp: (subject.components || []).find(c => (c.items || []).some(ci => ci.id === i.id)) }))
+      .sort((a, b) => (Number(b.comp?.percentage || 0) - Number(a.comp?.percentage || 0)))[0]
+    if (nextBig?.i && nextBig.comp) qs.push(`How should I prepare for ${nextBig.i.name}?`)
+    if (completedItems.length > 0) qs.push("What are my strengths and weaknesses?")
+    if (safetyZone === 'red') qs.push("Am I at risk of failing?")
+    return qs.slice(0, 4)
+  }, [subject])
 
   const handleQuickQuestion = (question: string) => {
     setUserInput(question)
@@ -1934,6 +2006,86 @@ const handleFinishSubject = async () => {
                   <p className="text-xs text-gray-600 text-center">
                     Ask me about study strategies, grade analysis, time management, or academic advice!
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Insights */}
+            <div className="bg-white rounded-xl border border-gray-300 p-6 mt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Insights</h3>
+              <div className="space-y-3 text-sm text-gray-800">
+                <div>
+                  <span className="font-medium">Status:</span>
+                  <span className="ml-2">
+                    {(() => {
+                      const rawPct = computeRawGrade(subject.components)
+                      const curr = percentageToGradeScale(rawPct)
+                      const tgt = targetGrade
+                      if (tgt > 0) return curr >= tgt ? '✅ Above target' : '⚠️ Below target'
+                      return 'Set a target to track status'
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Gap to target:</span>
+                  <span className="ml-2">
+                    {(() => {
+                      const rawPct = computeRawGrade(subject.components)
+                      const curr = percentageToGradeScale(rawPct)
+                      const tgt = targetGrade
+                      if (!tgt) return 'N/A'
+                      const gap = Number((curr - tgt).toFixed(2))
+                      return `${gap > 0 ? '+' : ''}${gap}`
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Risk components:</span>
+                  <ul className="list-disc ml-6 mt-1">
+                    {subject.components
+                      .map(c => ({
+                        c,
+                        pct: computeRawComponentGrade(c.items || []),
+                        valid: (c.items || []).filter(i => i?.score !== null && i?.score !== undefined && i?.max && i.max > 0).length
+                      }))
+                      .filter(x => {
+                        if (x.valid === 0) return false
+                        const scaled = percentageToGradeScale(x.pct)
+                        return targetGrade > 0 ? scaled > targetGrade : x.pct < effectivePassingMark
+                      })
+                      .sort((a, b) => {
+                        const aScaled = percentageToGradeScale(a.pct)
+                        const bScaled = percentageToGradeScale(b.pct)
+                        const aGap = targetGrade > 0 ? Math.max(0, aScaled - targetGrade) : Math.max(0, effectivePassingMark - a.pct)
+                        const bGap = targetGrade > 0 ? Math.max(0, bScaled - targetGrade) : Math.max(0, effectivePassingMark - b.pct)
+                        const aImpact = Number(a.c.percentage) * aGap
+                        const bImpact = Number(b.c.percentage) * bGap
+                        return bImpact - aImpact
+                      })
+                      .slice(0, 3)
+                      .map(x => (
+                        <li key={x.c.id}>{x.c.name} ({x.c.percentage}% weight)</li>
+                      ))}
+                    {subject.components.filter(c => (c.items || []).length > 0).length === 0 && (
+                      <li>No data yet</li>
+                    )}
+                  </ul>
+                </div>
+                <div>
+                  <span className="font-medium">Upcoming priorities:</span>
+                  <ul className="list-disc ml-6 mt-1">
+                    {subject.components
+                      .flatMap(c => (c.items || []).map(i => ({ i, comp: c })))
+                      .filter(x => x.i.score === null || x.i.score === undefined)
+                      .sort((a, b) => Number(b.comp.percentage) - Number(a.comp.percentage))
+                      .slice(0, 3)
+                      .map(x => (
+                        <li key={`${x.comp.id}-${x.i.name}`}>{x.i.name} ({x.comp.name}, {x.comp.percentage}% weight)</li>
+                      ))}
+                    {subject.components.flatMap(c => c.items || []).filter(i => i.score === null || i.score === undefined).length === 0 && (
+                      <li>No upcoming assessments</li>
+                    )}
+                  </ul>
                 </div>
               </div>
             </div>

@@ -45,6 +45,7 @@
   ],
   "exclude": [
     "node_modules",
-    "app/types"
+    "app/types",
+    "drizzle.config.ts"
   ]
 }
