@@ -4,7 +4,7 @@ import { pgTable, varchar, integer, boolean, text, uuid, timestamp } from "drizz
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name"),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
   image: text("image"),
   password: text("password"),
   provider: text("provider"),
@@ -18,22 +18,18 @@ export const subjects = pgTable("subjects", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   is_major: boolean("is_major").notNull().default(false),
-  user_email: text("user_email").notNull().references(() => users.email),
-  target_grade: integer("target_grade"),
+  user_email: text("user_email").notNull(), // Removed reference for now
+  target_grade: text("target_grade"),
   color: varchar("color", { length: 25 }).default("#3B82F6"),
-  created_at: timestamp("created_at").defaultNow(),
-  updated_at: timestamp("updated_at").defaultNow(),
 });
 
 /* ------------------ COMPONENTS TABLE ------------------ */
 export const components = pgTable("components", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
-  percentage: integer("percentage").notNull(),
+  percentage: text("percentage").notNull(),
   priority: integer("priority").notNull(),
   subject_id: uuid("subject_id").notNull().references(() => subjects.id),
-  created_at: timestamp("created_at").defaultNow(),
-  updated_at: timestamp("updated_at").defaultNow(),
 });
 
 /* ------------------ ITEMS TABLE ------------------ */
@@ -43,9 +39,7 @@ export const items = pgTable("items", {
   name: text("name").notNull(),
   score: integer("score"),
   max: integer("max"),
-  date: timestamp("date"),
+  date: varchar("date", { length: 50 }),
   target: integer("target"),
   topic: text("topic"), // NOW EXISTS
-  created_at: timestamp("created_at").defaultNow(),
-  updated_at: timestamp("updated_at").defaultNow(),
 });
