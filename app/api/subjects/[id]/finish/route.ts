@@ -30,6 +30,7 @@ interface Subject {
   user_email: string;
   target_grade: string | null;
   color: string;
+  units?: number; // ADDED: Units field
 }
 
 interface HistoryRecord {
