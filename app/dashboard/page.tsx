@@ -606,12 +606,6 @@ const fetchHistory = async () => {
     });
   };
 
-  /* ---------------------- Handle Subject Card Click ---------------------- */
-  const handleSubjectClick = (subjectId: string) => {
-  // Use the correct route - check if it should be /subject/ or /dashboard/subject/
-  router.push(`/dashboard/subject/${subjectId}?showGraph=true`)
-  }
-
   /* ---------------------- UI Return ---------------------- */
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
@@ -779,7 +773,7 @@ const fetchHistory = async () => {
                 return (
                   <div
                     key={subj.id}
-                    onClick={() => handleSubjectClick(subj.id)} // CHANGED: Use the new handler
+                    onClick={() => router.push(`/dashboard/subject/${subj.id}`)}
                     className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg cursor-pointer hover:shadow-2xl border border-gray-100 transition-all duration-300 hover:scale-105 overflow-hidden"
                   >
                     {/* Color Header */}
@@ -878,7 +872,7 @@ const fetchHistory = async () => {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleSubjectClick(subj.id); // CHANGED: Use the new handler
+                          router.push(`/dashboard/subject/${subj.id}`);
                         }}
                         className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600"
                       >
@@ -996,7 +990,7 @@ const fetchHistory = async () => {
                             )}
                           </div>
                           <button
-                            onClick={() => item.subjectId && handleSubjectClick(item.subjectId)} // CHANGED: Use the new handler
+                            onClick={() => item.subjectId && router.push(`/dashboard/subject/${item.subjectId}`)}
                             className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm"
                           >
                             View Subject
