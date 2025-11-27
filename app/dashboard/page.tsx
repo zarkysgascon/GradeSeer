@@ -58,18 +58,6 @@ interface ExtendedUser {
   image?: string | null;
 }
 
-interface Notification {
-  id: string;
-  type: 'quiz' | 'assignment' | 'exam' | 'general';
-  title: string;
-  message: string;
-  subjectId?: string;
-  subjectName?: string;
-  dueDate?: string;
-  read: boolean;
-  createdAt: string;
-}
-
 /* ------------------------- Calculations ------------------------- */
 function computeRawGrade(components: ComponentInput[]) {
   if (!components || components.length === 0) return 0;
@@ -574,8 +562,6 @@ export default function Dashboard() {
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
 
   // GPA Calculator States
@@ -945,6 +931,12 @@ export default function Dashboard() {
     });
   };
 
+    /* ---------------------- Handle Subject Card Click ---------------------- */  // ← ADDED HERE
+  const handleSubjectClick = (subjectId: string) => {
+    // Navigate to subject page with showGraph parameter to auto-open the modal
+    router.push(`dashboard/subject/${subjectId}?showGraph=true`)
+  }
+
   /* ---------------------- UI Return ---------------------- */
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
@@ -1129,7 +1121,7 @@ export default function Dashboard() {
                 return (
                   <div
                     key={subj.id}
-                    onClick={() => router.push(`/dashboard/subject/${subj.id}`)}
+                    onClick={() => handleSubjectClick(subj.id)}
                     className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg cursor-pointer hover:shadow-2xl border border-gray-100 transition-all duration-300 hover:scale-105 overflow-hidden"
                   >
                     {/* Color Header */}
@@ -1229,7 +1221,7 @@ export default function Dashboard() {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          router.push(`/dashboard/subject/${subj.id}`);
+                          handleSubjectClick(subj.id);
                         }}
                         className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600"
                       >
