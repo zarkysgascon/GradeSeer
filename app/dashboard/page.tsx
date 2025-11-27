@@ -1728,11 +1728,12 @@ export default function Dashboard() {
           <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
             <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
             <h2 className="text-xl font-bold mb-4 text-center">Add Subject</h2>
+            <h2 className="text-xl font-bold mb-4 text-center">Add subject</h2>
 
             {/* Subject Name */}
             <input
               type="text"
-              placeholder="Subject name"
+              placeholder="Subject name ba"
               value={newSubject.name}
               onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
               maxLength={50}
