@@ -927,6 +927,19 @@ export default function Dashboard() {
   /* ---------------------- Save Subject ---------------------- */
   const handleSaveSubject = async () => {
     if (!user?.email || !newSubject.name.trim()) return;
+    const totalPct = newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0);
+    if (newSubject.components.length === 0) {
+      alert("Add at least one grading component.");
+      return;
+    }
+    if (totalPct > 100) {
+      alert("Total component percentage must be 100% or less.");
+      return;
+    }
+    if (!newSubject.target_grade || newSubject.target_grade === 0) {
+      alert("Select a target grade.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -1711,10 +1724,11 @@ export default function Dashboard() {
 
       {/* ADD SUBJECT MODAL */}
       {showModal && (
-  <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
-    <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
-      <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
-      <h2 className="text-xl font-bold mb-4 text-center">Add subject</h2>
+        <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
+          <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
+            <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
+            <h2 className="text-xl font-bold mb-4 text-center">Add Subject</h2>
+            <h2 className="text-xl font-bold mb-4 text-center">Add subject</h2>
 
       {/* Subject Name */}
       <input
@@ -1874,40 +1888,46 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Footer */}
-      <div className="flex justify-between pt-6 mt-6 border-t border-gray-200">
-        <button
-          onClick={handleModalClose}
-          className="px-4 py-2.5 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors text-sm"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSaveSubject}
-          disabled={loading || !newSubject.name.trim()}
-          className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
-        >
-          {loading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Creating...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Create Subject
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+              {/* Footer */}
+              <div className="flex justify-between pt-6 mt-6 border-t border-gray-200">
+                <button
+                  onClick={handleModalClose}
+                  className="px-4 py-2.5 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSubject}
+                  disabled={
+                    loading ||
+                    !newSubject.name.trim() ||
+                    newSubject.components.length === 0 ||
+                    (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
+                    !newSubject.target_grade || newSubject.target_grade === 0
+                  }
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Create Subject
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+      )}
 
       {/* GPA CALCULATOR MODAL */}
       {/* Delete Confirmation Modal */}
