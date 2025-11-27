@@ -1724,187 +1724,207 @@ export default function Dashboard() {
 
       {/* ADD SUBJECT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
-              <h2 className="text-white text-lg font-semibold">Add Subject</h2>
-            </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Subject Name</label>
-                <input
-                  type="text"
-                  placeholder="Subject name"
-                  value={newSubject.name}
-                  onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
-                  maxLength={50}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white mb-3"
-                />
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Type</label>
-                <select
-                  value={newSubject.is_major ? "major" : "minor"}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white mb-3"
-                >
-                  <option value="major">Major</option>
-                  <option value="minor">Minor</option>
-                </select>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Units</label>
-                <select
-                  value={newSubject.units}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white mb-3"
-                >
-                  <option value={1}>1 Unit</option>
-                  <option value={2}>2 Units</option>
-                  <option value={3}>3 Units</option>
-                  <option value={4}>4 Units</option>
-                  <option value={5}>5 Units</option>
-                </select>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Target Grade</label>
-                <select
-                  value={newSubject.target_grade}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value={0}>Select Grade</option>
-                  <option value={1.00}>1.00</option>
-                  <option value={1.25}>1.25</option>
-                  <option value={1.50}>1.50</option>
-                  <option value={1.75}>1.75</option>
-                  <option value={2.00}>2.00</option>
-                  <option value={2.25}>2.25</option>
-                  <option value={2.50}>2.50</option>
-                  <option value={2.75}>2.75</option>
-                  <option value={3.00}>3.00</option>
-                  <option value={4.00}>4.00</option>
-                  <option value={5.00}>5.00</option>
-                </select>
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-sm font-semibold text-gray-800">Grading Components</h3>
-                  <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                    {newSubject.components.length} added
-                  </span>
+        <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
+          <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
+            <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
+            <h2 className="text-xl font-bold mb-4 text-center">Add Subject</h2>
+
+            {/* Subject Name */}
+            <input
+              type="text"
+              placeholder="Subject name"
+              value={newSubject.name}
+              onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
+              maxLength={50}
+              className="w-full p-2 border rounded mb-3"
+            />
+
+            {/* Type */}
+            <select
+              value={newSubject.is_major ? "major" : "minor"}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
+              }
+              className="w-full p-2 border rounded mb-3"
+            >
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+            </select>
+
+                  {/* Units */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Units
+                    </label>
+                    <select
+                      value={newSubject.units}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value={1}>1 Unit</option>
+                      <option value={2}>2 Units</option>
+                      <option value={3}>3 Units</option>
+                      <option value={4}>4 Units</option>
+                      <option value={5}>5 Units</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="border border-gray-200 rounded-lg p-3 max-h-40 overflow-y-auto mb-4 bg-gray-50 overflow-hidden">
-                  {newSubject.components.length === 0 ? (
-                    <div className="text-center py-4 text-gray-400">
-                      <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <p className="text-sm">No components yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {newSubject.components.map((c, i) => (
-                        <div key={i} className="flex items-center gap-2 p-2 bg-white rounded border">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-700 truncate">{c.name}</span>
-                              <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
-                                {c.percentage}%
-                              </span>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Target Grade */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Target Grade
+                    </label>
+                    <select
+                      value={newSubject.target_grade}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value={0}>Select Grade</option>
+                      <option value={1.00}>1.00</option>
+                      <option value={1.25}>1.25</option>
+                      <option value={1.50}>1.50</option>
+                      <option value={1.75}>1.75</option>
+                      <option value={2.00}>2.00</option>
+                      <option value={2.25}>2.25</option>
+                      <option value={2.50}>2.50</option>
+                      <option value={2.75}>2.75</option>
+                      <option value={3.00}>3.00</option>
+                      <option value={4.00}>4.00</option>
+                      <option value={5.00}>5.00</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Components Section */}
+                <div className="border-t pt-5">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Grading Components</h3>
+                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {newSubject.components.length} added
+                    </span>
+                  </div>
+
+                  {/* Components List */}
+                  <div className="border rounded-lg p-3 max-h-32 overflow-y-auto mb-4 bg-gray-50">
+                    {newSubject.components.length === 0 ? (
+                      <div className="text-center py-4 text-gray-400">
+                        <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p className="text-sm">No components yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {newSubject.components.map((c, i) => (
+                          <div key={i} className="flex items-center gap-2 p-2 bg-white rounded border">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700 truncate">{c.name}</span>
+                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                  {c.percentage}%
+                                </span>
+                              </div>
                             </div>
+                            <button
+                              onClick={() => handleRemoveComponent(i)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleRemoveComponent(i)}
-                            className="text-red-500 hover:text-red-700 p-1 rounded"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-[1fr_6rem_4.5rem] gap-2 mb-3">
-                  <input
-                    type="text"
-                    placeholder="Component Name"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white box-border"
-                    maxLength={80}
-                    value={newComponent.name}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
-                    }
-                  />
-                  <NumberInput
-                    placeholder="%"
-                    value={newComponent.percentage}
-                    onChange={(value: number) =>
-                      setNewComponent({ ...newComponent, percentage: value })
-                    }
-                    min={0}
-                    max={100}
-                    className="w-full p-3 border border-gray-300 rounded-lg box-border"
-                  />
-                  <NumberInput
-                    placeholder="P"
-                    value={newComponent.priority}
-                    onChange={(value: number) =>
-                      setNewComponent({ ...newComponent, priority: value })
-                    }
-                    min={0}
-                    maxDigits={4}
-                    className="w-full p-3 border border-gray-300 rounded-lg box-border"
-                  />
-                </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+            {/* Add Component */}
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                placeholder="Component Name"
+                className="flex-1 p-2 border rounded"
+                maxLength={80}
+                value={newComponent.name}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
+                }
+              />
+              <NumberInput
+                placeholder="%"
+                value={newComponent.percentage}
+                onChange={(value: number) =>
+                  setNewComponent({ ...newComponent, percentage: value })
+                }
+                min={0}
+                max={100}
+                className="w-20 p-2 border rounded"
+              />
+              <NumberInput
+                placeholder="P"
+                value={newComponent.priority}
+                onChange={(value: number) =>
+                  setNewComponent({ ...newComponent, priority: value })
+                }
+                min={0}
+                maxDigits={4}
+                className="w-20 p-2 border rounded"
+              />
+            </div>
+
+            <button
+              onClick={handleAddOrUpdateComponent}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded mb-4"
+            >
+              + Add Component
+            </button>
+
+              {/* Footer */}
+              <div className="flex justify-between pt-6 mt-6 border-t border-gray-200">
                 <button
-                  onClick={handleAddOrUpdateComponent}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg"
+                  onClick={handleModalClose}
+                  className="px-4 py-2.5 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors text-sm"
                 >
-                  + Add Component
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSubject}
+                  disabled={
+                    loading ||
+                    !newSubject.name.trim() ||
+                    newSubject.components.length === 0 ||
+                    (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
+                    !newSubject.target_grade || newSubject.target_grade === 0
+                  }
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Create Subject
+                    </>
+                  )}
                 </button>
               </div>
             </div>
-            <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200">
-              <button
-                onClick={handleModalClose}
-                className="px-4 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveSubject}
-                disabled={
-                  loading ||
-                  !newSubject.name.trim() ||
-                  newSubject.components.length === 0 ||
-                  (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
-                  !newSubject.target_grade || newSubject.target_grade === 0
-                }
-                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Create Subject
-                  </>
-                )}
-              </button>
-            </div>
           </div>
-        </div>
       )}
 
       {/* GPA CALCULATOR MODAL */}
