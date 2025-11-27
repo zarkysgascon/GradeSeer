@@ -1254,7 +1254,7 @@ const handleFinishSubject = async () => {
     Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark // Adjust passing mark based on target grade
 
   return (
-    <div className="min-h-screen bg-gray-100 p-10 flex justify-center relative">
+    <div className="min-h-screen p-10 flex justify-center relative">
       {/* FLOATING BACK BUTTON - TOP LEFT */}
       <div className="fixed top-6 left-6 z-40">
         <button
@@ -1289,7 +1289,7 @@ const handleFinishSubject = async () => {
           }}
         >
           {/* Content */}
-          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
             {isEditingName ? (
               <>
                 <input
@@ -1327,7 +1327,7 @@ const handleFinishSubject = async () => {
               </>
             ) : (
               <>
-                <h1 className="text-3xl font-bold">{subject.name}</h1>
+                <h1 className="text-3xl font-bold text-outline-dark">{subject.name}</h1>
                 <button
                   type="button"
                   aria-label="Rename subject"
@@ -1377,7 +1377,7 @@ const handleFinishSubject = async () => {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm text-white/90">Target Grade</div>
+                  <div className="text-sm text-white/90 text-outline-dark">Target Grade</div>
                   {isEditingTargetGrade ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -1425,7 +1425,7 @@ const handleFinishSubject = async () => {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <div className="text-2xl font-bold">
+                      <div className="text-2xl font-bold text-outline-dark">
                         {targetGrade > 0 ? targetGrade.toFixed(2) : "—"}
                       </div>
                       <button
@@ -1477,7 +1477,7 @@ const handleFinishSubject = async () => {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm text-white/90">Units</div>
+                  <div className="text-sm text-white/90 text-outline-dark">Units</div>
                   {isEditingUnits ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -1518,7 +1518,7 @@ const handleFinishSubject = async () => {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <div className="text-2xl font-bold">
+                      <div className="text-2xl font-bold text-outline-dark">
                         {subject?.units || 3}
                       </div>
                       <button
@@ -1567,8 +1567,8 @@ const handleFinishSubject = async () => {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm text-white/90">Projected Grade</div>
-                  <div className="text-2xl font-bold">{projectedGrade.toFixed(2)}</div>
+                  <div className="text-sm text-white/90 text-outline-dark">Projected Grade</div>
+                  <div className="text-2xl font-bold text-outline-dark">{projectedGrade.toFixed(2)}</div>
                   <div className="text-xs opacity-80">
                     {projectedPercentage.toFixed(1)}%
                     {projectedPercentage > 0 && (
@@ -1599,8 +1599,8 @@ const handleFinishSubject = async () => {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-sm text-white/90">Raw Grade</div>
-                  <div className="text-2xl font-bold">{rawGrade.toFixed(2)}</div>
+                  <div className="text-sm text-white/90 text-outline-dark">Raw Grade</div>
+                  <div className="text-2xl font-bold text-outline-dark">{rawGrade.toFixed(2)}</div>
                   <div className="text-xs opacity-80">
                     {rawPercentage.toFixed(1)}%
                     {rawPercentage > 0 && (
@@ -2023,9 +2023,9 @@ const handleFinishSubject = async () => {
               aria-expanded={assistantOpen}
               aria-controls="subject-assistant"
               onClick={() => setAssistantOpen(v => !v)}
-              className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-600 shadow-xl flex items-center justify-center z-50 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center z-50 hover:bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
-              <Image src="/gslogo.png" alt="GradeSeer" width={28} height={28} />
+              <Image src="/gslogo.png" alt="GradeSeer" width={28} height={28} className="object-contain" />
             </button>
 
             {assistantOpen && (
@@ -2037,7 +2037,7 @@ const handleFinishSubject = async () => {
               >
                 <div className="flex items-center justify-between p-3 border-b">
                   <div className="flex items-center gap-2">
-                    <Image src="/gslogo.png" alt="GradeSeer" width={24} height={24} />
+                    <Image src="/gslogo.png" alt="GradeSeer" width={24} height={24} className="object-contain" />
                     <span className="text-sm font-semibold text-gray-800">GradeSeer Assistant</span>
                   </div>
                   <button
@@ -2054,7 +2054,7 @@ const handleFinishSubject = async () => {
                   {chatMessages.map((message) => (
                     <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       {message.role === 'assistant' && (
-                        <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2" />
+                        <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2 object-contain" />
                       )}
                       <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>{message.content}</div>
                     </div>
@@ -2207,17 +2207,22 @@ const handleFinishSubject = async () => {
       {/* ADD ITEM MODAL */}
       {showAddItemModal && (
         <div className="fixed inset-0 flex justify-center items-center z-50">
-          <div 
-            className="absolute inset-0"
-            style={{
-              background: subject?.color 
-                ? `linear-gradient(135deg, ${subject.color}40 0%, ${subject.color}20 50%, ${subject.color}10 100%)`
-                : 'linear-gradient(135deg, #4F46E540 0%, #6366F120 50%, #818CF810 100%)'
-            }}
-          />
-          
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div className="bg-white rounded-2xl shadow-2xl w-96 p-6 relative z-10 border border-gray-200">
-            <h2 className="text-xl font-bold mb-4 text-center">Add New Item</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Add New Item</h2>
+              <button
+                onClick={() => {
+                  setShowAddItemModal(false);
+                  setSelectedComponent(null);
+                  setNewItem({ name: "", score: null, max: null, date: "", target: null, topic: "" });
+                }}
+                className="p-2 rounded hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
 
               <div className="space-y-3">
               <div>
@@ -2300,35 +2305,10 @@ const handleFinishSubject = async () => {
                 />
                 <p className="text-xs text-gray-500 mt-1">Day must be 1-31, Year must be 4 digits</p>
               </div>
-              <input
-                type="number"
-                placeholder="Target"
-                value={newItem.target ?? ""}
-                onChange={(e) =>
-                  setNewItem({ ...newItem, target: e.target.value ? Number.parseInt(e.target.value) : null })
-                }
-                className="w-full p-2 border rounded"
-              />
+              
             </div>
 
-            <div className="flex justify-between mt-6">
-              <button
-                onClick={() => {
-                  setShowAddItemModal(false);
-                  setSelectedComponent(null);
-                  setNewItem({
-                    name: "",
-                    score: null,
-                    max: null,
-                    date: "",
-                    target: null,
-                    topic: "",
-                  });
-                }}
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition-colors"
-              >
-                Cancel
-              </button>
+            <div className="flex justify-end mt-6">
               <button
                 onClick={() => selectedComponent && handleAddItem(selectedComponent)}
                 disabled={savingItem}
