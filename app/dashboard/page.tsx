@@ -1,20 +1,24 @@
 "use client";
 
+// React and Next.js imports
 import { useEffect, useState, ChangeEvent, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 /* ------------------------- Interfaces ------------------------- */
+
+// Interface for grading components (e.g., quizzes, exams, assignments)
 interface ComponentInput {
   id?: string;
   name: string;
-  percentage: number;
-  priority: number;
+  percentage: number; // Weight of this component in final grade
+  priority: number; // Order of importance
   grade?: number | null;
-  items?: ItemInput[];
+  items?: ItemInput[]; // Individual items within this component
 }
 
+// Interface for individual assessment items
 interface ItemInput {
   id?: string;
   name: string;
@@ -29,16 +33,18 @@ interface ItemInput {
   completed?: boolean;
 }
 
+// Interface for academic subjects
 interface Subject {
   id: string;
   name: string;
   is_major: boolean;
   target_grade?: number | null;
-  color: string;
+  color: string; // Visual identifier for the subject
   components: ComponentInput[];
   items?: ItemInput[];
 }
 
+// Interface for grade history records
 interface HistoryRecord {
   id: string;
   subject_id: string;
@@ -46,10 +52,11 @@ interface HistoryRecord {
   course_name: string;
   target_grade: string;
   final_grade: string;
-  status: 'reached' | 'missed';
+  status: 'reached' | 'missed'; // Whether target was achieved
   completed_at: string;
 }
 
+// Interface for extended user information
 interface ExtendedUser {
   id?: string;
   name?: string | null;
@@ -57,6 +64,7 @@ interface ExtendedUser {
   image?: string | null;
 }
 
+// Interface for notification system
 interface Notification {
   id: string;
   type: 'quiz' | 'assignment' | 'exam' | 'general';
@@ -69,7 +77,11 @@ interface Notification {
   createdAt: string;
 }
 
-/* ------------------------- Calculations ------------------------- */
+/* ------------------------- Calculation Functions ------------------------- */
+
+/**
+ * Calculates the raw grade percentage based on component weights and scores
+ */
 function computeRawGrade(components: ComponentInput[]) {
   if (!components || components.length === 0) return 0;
   
@@ -80,6 +92,7 @@ function computeRawGrade(components: ComponentInput[]) {
     const componentGrade = computeComponentGrade(component);
     const weight = component.percentage / 100;
     
+    // Only include components that have actual scores
     if (component.items && component.items.length > 0) {
       const hasScores = component.items.some(item => 
         item.score !== null && item.score !== undefined
@@ -97,9 +110,13 @@ function computeRawGrade(components: ComponentInput[]) {
   return Number(totalWeightedGrade.toFixed(2));
 }
 
+/**
+ * Calculates the grade for a single component based on its items
+ */
 function computeComponentGrade(component: ComponentInput): number {
   if (!component.items || component.items.length === 0) return 0;
   
+  // Filter out items without valid scores
   const validItems = component.items.filter(item => 
     item.score !== null && 
     item.score !== undefined && 
@@ -110,6 +127,7 @@ function computeComponentGrade(component: ComponentInput): number {
   
   if (validItems.length === 0) return 0;
 
+  // Calculate total scores and maximum possible
   const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0);
   const totalMax = validItems.reduce((sum, item) => sum + (item.max || 0), 0);
 
@@ -119,12 +137,16 @@ function computeComponentGrade(component: ComponentInput): number {
   return Number(percentage.toFixed(2));
 }
 
+/**
+ * Calculates completion progress for a subject (percentage of items with scores)
+ */
 function computeCompletionProgress(subject: Subject): number {
   if (!subject.components || subject.components.length === 0) return 0;
   
   let totalItems = 0;
   let completedItems = 0;
 
+  // Count all items and completed items
   subject.components.forEach((component) => {
     if (component.items && component.items.length > 0) {
       component.items.forEach((item) => {
@@ -140,6 +162,9 @@ function computeCompletionProgress(subject: Subject): number {
   return progress;
 }
 
+/**
+ * Converts percentage grade to GPA scale (1.0 to 5.0)
+ */
 function percentageToGradeScale(percentage: number): number {
   if (percentage >= 97) return 1.0;
   if (percentage >= 94) return 1.25;
@@ -155,11 +180,16 @@ function percentageToGradeScale(percentage: number): number {
 }
 
 /* ---------------------- Utility Functions ---------------------- */
+
+/**
+ * Generates a random HSL color for subject identification
+ */
 const generateColor = () => {
   const hue = Math.floor(Math.random() * 360);
   return `hsl(${hue}, 70%, 85%)`;
 };
 
+// Predefined color palette for subject colors
 const predefinedColors = [
   "#FFB3BA", "#BAFFC9", "#BAE1FF", "#FFFFBA", "#E0BBE4",
   "#FFDFBA", "#B5EAD7", "#C7CEEA", "#F8B195", "#F67280",
@@ -167,6 +197,9 @@ const predefinedColors = [
   "#FF847C", "#E84A5F", "#2A363B", "#A8E6CE", "#DCEDC2"
 ];
 
+/**
+ * Background component with gradient and floating animation
+ */
 const BackgroundImage = () => (
   <div className="fixed inset-0 -z-10 overflow-hidden">
     <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-400"></div>
@@ -186,6 +219,10 @@ const BackgroundImage = () => (
 );
 
 /* ---------------------- Circular Progress Component ---------------------- */
+
+/**
+ * Reusable circular progress indicator component
+ */
 const CircularProgress = ({ 
   progress, 
   size = 80, 
@@ -236,6 +273,10 @@ const CircularProgress = ({
 };
 
 /* ---------------------- Number Input Component ---------------------- */
+
+/**
+ * Custom number input with better empty state handling
+ */
 const NumberInput = ({ 
   value, 
   onChange, 
@@ -250,6 +291,7 @@ const NumberInput = ({
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'>) => {
   const [displayValue, setDisplayValue] = useState(value === 0 ? "" : value.toString());
 
+  // Sync display value with actual value
   useEffect(() => {
     setDisplayValue(value === 0 ? "" : value.toString());
   }, [value]);
@@ -280,11 +322,14 @@ const NumberInput = ({
   );
 };
 
-/* ---------------------- Dashboard Component ---------------------- */
+/* ---------------------- Main Dashboard Component ---------------------- */
+
 export default function Dashboard() {
+  // Authentication and routing
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // State management
   const [activeTab, setActiveTab] = useState<"subjects" | "pending items" | "history">("subjects");
   const [showModal, setShowModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -299,52 +344,57 @@ export default function Dashboard() {
   const user = session?.user as ExtendedUser | undefined;
 
   /* ---------------------- Fetch History ---------------------- */
-const fetchHistory = async () => {
-  if (!user?.email) {
-    console.log('❌ No user email available for fetching history');
-    return;
-  }
 
-  try {
-    console.log('🔄 Fetching history for:', user.email);
-    
-    // First try API
-    const res = await fetch(`/api/subjects/history?email=${encodeURIComponent(user.email)}`);
-    
-    if (res.ok) {
-      const apiHistory = await res.json();
-      console.log('🌐 API history data:', apiHistory.length, 'records');
+  /**
+   * Fetches grade history from API with localStorage fallback
+   */
+  const fetchHistory = async () => {
+    if (!user?.email) {
+      console.log('❌ No user email available for fetching history');
+      return;
+    }
+
+    try {
+      console.log('🔄 Fetching history for:', user.email);
       
-      if (apiHistory.length > 0) {
-        setHistory(apiHistory);
-        // Also update localStorage as backup
-        const localHistoryKey = `user_history_${user.email}`;
-        localStorage.setItem(localHistoryKey, JSON.stringify(apiHistory));
-        return;
+      // First try API
+      const res = await fetch(`/api/subjects/history?email=${encodeURIComponent(user.email)}`);
+      
+      if (res.ok) {
+        const apiHistory = await res.json();
+        console.log('🌐 API history data:', apiHistory.length, 'records');
+        
+        if (apiHistory.length > 0) {
+          setHistory(apiHistory);
+          // Also update localStorage as backup
+          const localHistoryKey = `user_history_${user.email}`;
+          localStorage.setItem(localHistoryKey, JSON.stringify(apiHistory));
+          return;
+        }
       }
-    }
-    
-    // If API fails or returns empty, try localStorage
-    console.log('🌐 API returned empty or failed, trying localStorage...');
-    const localHistoryKey = `user_history_${user.email}`;
-    const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
-    
-    if (localHistory.length > 0) {
-      console.log('📱 Using local history data:', localHistory.length, 'records');
+      
+      // If API fails or returns empty, try localStorage
+      console.log('🌐 API returned empty or failed, trying localStorage...');
+      const localHistoryKey = `user_history_${user.email}`;
+      const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
+      
+      if (localHistory.length > 0) {
+        console.log('📱 Using local history data:', localHistory.length, 'records');
+        setHistory(localHistory);
+      } else {
+        console.log('💡 No history data found anywhere');
+        setHistory([]);
+      }
+      
+    } catch (err) {
+      console.error("💥 Error fetching history:", err);
+      // Final fallback to local storage
+      const localHistoryKey = `user_history_${user.email}`;
+      const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
       setHistory(localHistory);
-    } else {
-      console.log('💡 No history data found anywhere');
-      setHistory([]);
     }
-    
-  } catch (err) {
-    console.error("💥 Error fetching history:", err);
-    // Final fallback to local storage
-    const localHistoryKey = `user_history_${user.email}`;
-    const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
-    setHistory(localHistory);
-  }
-};
+  };
+
   /* ---------------------- Fetch Updated Profile Image ---------------------- */
   useEffect(() => {
     if (!user?.email) return;
@@ -363,34 +413,39 @@ const fetchHistory = async () => {
   }, [user?.email]);
 
   /* ---------------------- Fetch Upcoming Items ---------------------- */
-const fetchUpcomingItems = async () => {
-  if (!user?.email) return;
 
-  try {
-    console.log('🔄 Fetching upcoming items for:', user.email);
-    const res = await fetch(`/api/items/upcoming?email=${encodeURIComponent(user.email)}`);
-    
-    if (res.ok) {
-      const data = await res.json();
-      console.log('✅ Upcoming items data:', data);
-      setUpcomingItems(data);
-    } else {
-      console.error('❌ Failed to fetch upcoming items:', res.status);
-      const errorText = await res.text();
-      console.error('Error details:', errorText);
+  /**
+   * Fetches items that need scoring/attention
+   */
+  const fetchUpcomingItems = async () => {
+    if (!user?.email) return;
+
+    try {
+      console.log('🔄 Fetching upcoming items for:', user.email);
+      const res = await fetch(`/api/items/upcoming?email=${encodeURIComponent(user.email)}`);
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log('✅ Upcoming items data:', data);
+        setUpcomingItems(data);
+      } else {
+        console.error('❌ Failed to fetch upcoming items:', res.status);
+        const errorText = await res.text();
+        console.error('Error details:', errorText);
+      }
+    } catch (err) {
+      console.error("💥 Error fetching upcoming items:", err);
     }
-  } catch (err) {
-    console.error("💥 Error fetching upcoming items:", err);
-  }
-};
+  };
 
+  // Set up interval for refreshing upcoming items
   useEffect(() => {
     if (!user?.email) return;
 
     fetchUpcomingItems();
     const interval = setInterval(() => {
       fetchUpcomingItems();
-    }, 30 * 60 * 1000);
+    }, 30 * 60 * 1000); // Refresh every 30 minutes
 
     return () => clearInterval(interval);
   }, [user?.email]);
@@ -412,6 +467,8 @@ const fetchUpcomingItems = async () => {
   }, [activeTab, user?.email]);
 
   /* ---------------------- Modal States ---------------------- */
+  
+  // State for new subject creation
   const [newSubject, setNewSubject] = useState({
     name: "",
     is_major: false,
@@ -420,6 +477,7 @@ const fetchUpcomingItems = async () => {
     components: [] as ComponentInput[],
   });
 
+  // State for new component creation
   const [newComponent, setNewComponent] = useState<ComponentInput>({
     name: "",
     percentage: 0,
@@ -440,6 +498,7 @@ const fetchUpcomingItems = async () => {
         const res = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
         if (res.ok) {
           const data = await res.json();
+          // Map API data to our Subject interface
           const mapped: Subject[] = data.map((s: any) => ({
             ...s,
             id: s.id || s._id,
@@ -459,9 +518,14 @@ const fetchUpcomingItems = async () => {
   }, [status, user?.email]);
 
   /* ---------------------- Add/Update Component ---------------------- */
+
+  /**
+   * Handles adding or updating a component in the new subject form
+   */
   const handleAddOrUpdateComponent = () => {
     if (!newComponent.name.trim()) return alert("Component name required!");
 
+    // Check for duplicate priorities
     const duplicate = newSubject.components.some(
       (c) => c.priority === newComponent.priority && c.name !== newComponent.name
     );
@@ -470,11 +534,13 @@ const fetchUpcomingItems = async () => {
     const updated = [...newSubject.components];
     const idx = updated.findIndex((c) => c.name === newComponent.name);
 
+    // Update existing or add new component
     if (idx >= 0) updated[idx] = newComponent;
     else updated.push(newComponent);
 
     setNewSubject({ ...newSubject, components: updated });
 
+    // Reset component form
     setNewComponent({
       name: "",
       percentage: 0,
@@ -483,6 +549,10 @@ const fetchUpcomingItems = async () => {
   };
 
   /* ---------------------- Remove Component ---------------------- */
+
+  /**
+   * Removes a component from the new subject form
+   */
   const handleRemoveComponent = (index: number) => {
     const updated = [...newSubject.components];
     updated.splice(index, 1);
@@ -490,6 +560,10 @@ const fetchUpcomingItems = async () => {
   };
 
   /* ---------------------- Save Subject ---------------------- */
+
+  /**
+   * Saves the new subject to the database
+   */
   const handleSaveSubject = async () => {
     if (!user?.email || !newSubject.name.trim()) return;
 
@@ -512,6 +586,7 @@ const fetchUpcomingItems = async () => {
         const result = await res.json();
         console.log('Subject created:', result);
         
+        // Show success and reset form
         setShowSuccess(true);
         setShowModal(false);
         setNewSubject({
@@ -537,6 +612,7 @@ const fetchUpcomingItems = async () => {
           setSubjects(mapped);
         }
         
+        // Refresh upcoming items
         await fetchUpcomingItems();
       } else {
         const errorData = await res.json();
@@ -551,6 +627,10 @@ const fetchUpcomingItems = async () => {
   };
 
   /* ---------------------- Delete Subject ---------------------- */
+
+  /**
+   * Deletes a subject with confirmation
+   */
   const handleDeleteSubject = async (subjectId: string) => {
     if (!window.confirm('Are you sure you want to delete this subject?')) return;
 
@@ -571,6 +651,10 @@ const fetchUpcomingItems = async () => {
   };
 
   /* ---------------------- Handle Modal Close ---------------------- */
+
+  /**
+   * Resets modal state when closed
+   */
   const handleModalClose = () => {
     setShowModal(false);
     setNewSubject({
@@ -587,10 +671,15 @@ const fetchUpcomingItems = async () => {
     });
   };
 
+  // Show loading state while checking authentication
   if (status === "loading")
     return <div className="flex justify-center items-center h-screen text-lg">Loading...</div>;
 
   /* ---------------------- Format Date ---------------------- */
+
+  /**
+   * Formats date string to readable format
+   */
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -629,6 +718,7 @@ const fetchUpcomingItems = async () => {
           <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
         </div>
 
+        {/* Navigation Tabs */}
         <div className="flex-1 flex justify-center">
           <div className="flex gap-80">
             {["subjects", "pending items", "history"].map((tab) => (
@@ -647,6 +737,7 @@ const fetchUpcomingItems = async () => {
           </div>
         </div>
 
+        {/* Profile Section */}
         <div className="flex-1 flex justify-end">
           <button onClick={() => router.push("/profile")} className="group">
             <Image
@@ -662,7 +753,8 @@ const fetchUpcomingItems = async () => {
 
       {/* MAIN CONTENT */}
       <main className="p-6 relative z-10 overflow-y-auto">
-        {/* SUBJECTS TAB */}
+        
+        {/* SUBJECTS TAB CONTENT */}
         {activeTab === "subjects" && (
           <div className="max-w-7xl mx-auto">
             {/* Header Section */}
@@ -686,7 +778,7 @@ const fetchUpcomingItems = async () => {
               </button>
             </div>
 
-            {/* Stats Overview */}
+            {/* Stats Overview Cards */}
             {subjects.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-100">
@@ -739,9 +831,10 @@ const fetchUpcomingItems = async () => {
               </div>
             )}
 
-            {/* SUBJECT CARDS - 4 CARDS PER ROW */}
+            {/* SUBJECT CARDS GRID - 4 CARDS PER ROW */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {subjects.map((subj) => {
+                // Calculate current performance metrics
                 const currentPercentage = computeRawGrade(subj.components);
                 const currentGrade = percentageToGradeScale(currentPercentage);
                 const targetGrade = subj.target_grade ? parseFloat(subj.target_grade.toString()) : 0;
@@ -798,6 +891,7 @@ const fetchUpcomingItems = async () => {
                             )}
                           </div>
                         </div>
+                        {/* Delete Button */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -880,7 +974,7 @@ const fetchUpcomingItems = async () => {
                 );
               })}
 
-              {/* Empty State */}
+              {/* Empty State for Subjects */}
               {subjects.length === 0 && (
                 <div className="col-span-full text-center py-20 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
                   <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
@@ -905,7 +999,7 @@ const fetchUpcomingItems = async () => {
           </div>
         )}
 
-        {/* PENDING ITEMS TAB */}
+        {/* PENDING ITEMS TAB CONTENT */}
         {activeTab === "pending items" && (
           <div className="max-w-6xl mx-auto">
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
@@ -984,6 +1078,7 @@ const fetchUpcomingItems = async () => {
                               </span>
                             </div>
                             
+                            {/* Item Details Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
                               <div className="flex items-center gap-2">
                                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1011,6 +1106,7 @@ const fetchUpcomingItems = async () => {
                               </div>
                             </div>
 
+                            {/* Score Information */}
                             <div className="flex items-center gap-4 text-sm">
                               <div className="flex items-center gap-2">
                                 <span className="font-medium text-gray-700">Score:</span>
@@ -1029,6 +1125,7 @@ const fetchUpcomingItems = async () => {
                               )}
                             </div>
                           </div>
+                          {/* Navigation Button */}
                           <button
                             onClick={() => item.subjectId && router.push(`/dashboard/subject/${item.subjectId}`)}
                             className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm flex items-center gap-2"
@@ -1070,7 +1167,7 @@ const fetchUpcomingItems = async () => {
           </div>
         )}
 
-        {/* HISTORY TAB */}
+        {/* HISTORY TAB CONTENT */}
         {activeTab === "history" && (
           <div className="max-w-6xl mx-auto">
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
@@ -1168,9 +1265,10 @@ const fetchUpcomingItems = async () => {
               </div>
             </div>
             
+            {/* Modal Content */}
             <div className="p-6 max-h-[calc(85vh-80px)] overflow-y-auto">
               <div className="space-y-5">
-                {/* Subject Name */}
+                {/* Subject Name Input */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Subject Name *
@@ -1213,8 +1311,9 @@ const fetchUpcomingItems = async () => {
                   </div>
                 </div>
 
+                {/* Type and Target Grade */}
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Type */}
+                  {/* Type Selection */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Type
@@ -1231,7 +1330,7 @@ const fetchUpcomingItems = async () => {
                     </select>
                   </div>
 
-                  {/* Target Grade */}
+                  {/* Target Grade Selection */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Target Grade
@@ -1349,7 +1448,7 @@ const fetchUpcomingItems = async () => {
                 </div>
               </div>
 
-              {/* Footer */}
+              {/* Modal Footer */}
               <div className="flex justify-between pt-6 mt-6 border-t border-gray-200">
                 <button
                   onClick={handleModalClose}

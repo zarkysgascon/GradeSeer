@@ -5,6 +5,9 @@ import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
 /* -------------------- Types -------------------- */
+// Define the structure for different data objects used throughout the app
+
+// Represents a single assessment item (quiz, exam, assignment, etc.)
 interface ItemInput {
   id?: string
   name: string
@@ -15,23 +18,26 @@ interface ItemInput {
   topic?: string | null
 }
 
+// Represents a grading component (exams, quizzes, projects, etc.)
 interface ComponentInput {
   id: string
   name: string
-  percentage: number
+  percentage: number  // Weight of this component in final grade
   priority: number
   grade?: number | null
-  items?: ItemInput[]
+  items?: ItemInput[]  // All assessment items under this component
 }
 
+// Represents a subject/course with all its components
 interface Subject {
   id: string
   name: string
-  target_grade?: number | null
+  target_grade?: number | null  // User's target grade for this subject
   color: string
   components: ComponentInput[]
 }
 
+// Represents a message in the AI chat
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -39,6 +45,7 @@ interface ChatMessage {
   timestamp: Date
 }
 
+// Extended user information from the session
 interface ExtendedUser {
   id?: string
   name?: string | null
@@ -47,6 +54,11 @@ interface ExtendedUser {
 }
 
 /* -------------------- Helper Functions -------------------- */
+
+/**
+ * Validates if a date string is in correct format (YYYY-MM-DD)
+ * and has valid day/month values
+ */
 function validateDate(dateString: string): boolean {
   if (!dateString) return false
   const m = dateString.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
@@ -60,10 +72,16 @@ function validateDate(dateString: string): boolean {
   return true
 }
 
-/* -------------------- Grade Computation -------------------- */
+/* -------------------- Grade Computation Functions -------------------- */
+
+/**
+ * Calculates the actual grade for a component based on completed items only
+ * Returns percentage grade (0-100)
+ */
 function computeRawComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
 
+  // Filter out items without valid scores
   const validItems = items.filter((item) => 
     item.score !== null && item.score !== undefined && 
     item.max !== null && item.max !== undefined && 
@@ -72,16 +90,21 @@ function computeRawComponentGrade(items: ItemInput[]): number {
   
   if (validItems.length === 0) return 0
 
+  // Calculate total score and maximum possible score
   const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0)
   const totalMax = validItems.reduce((sum, item) => sum + (item.max || 0), 0)
 
   return totalMax > 0 ? Number(((totalScore / totalMax) * 100).toFixed(2)) : 0
 }
 
+/**
+ * Calculates projected grade assuming 75% on all missing/unscored items
+ * Used to predict final grade if student performs at passing level on remaining items
+ */
 function computeProjectedComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
 
-  const passingScorePercentage = 75
+  const passingScorePercentage = 75  // Assume 75% on missing items
 
   let totalScore = 0
   let totalMax = 0
@@ -89,6 +112,7 @@ function computeProjectedComponentGrade(items: ItemInput[]): number {
   items.forEach((item) => {
     if (item.max !== null && item.max !== undefined && item.max > 0) {
       const hasScore = item.score !== null && item.score !== undefined
+      // Use actual score if available, otherwise use projected passing score
       const itemScore = hasScore ? item.score! : (passingScorePercentage / 100) * item.max
       
       totalScore += itemScore
@@ -99,6 +123,10 @@ function computeProjectedComponentGrade(items: ItemInput[]): number {
   return totalMax > 0 ? Number(((totalScore / totalMax) * 100).toFixed(2)) : 0
 }
 
+/**
+ * Calculates overall raw grade for the subject based on completed items only
+ * Weighted average of all component grades
+ */
 function computeRawGrade(components: ComponentInput[]): number {
   if (!components || components.length === 0) return 0
 
@@ -107,6 +135,7 @@ function computeRawGrade(components: ComponentInput[]): number {
 
   components.forEach((component) => {
     const componentGrade = computeRawComponentGrade(component.items || [])
+    // Multiply grade by component weight (percentage)
     totalWeightedGrade += componentGrade * (component.percentage / 100)
     totalWeight += component.percentage / 100
   })
@@ -114,6 +143,9 @@ function computeRawGrade(components: ComponentInput[]): number {
   return totalWeight > 0 ? Number((totalWeightedGrade / totalWeight).toFixed(2)) : 0
 }
 
+/**
+ * Calculates projected overall grade assuming 75% on all missing items
+ */
 function computeProjectedGrade(components: ComponentInput[]): number {
   if (!components || components.length === 0) return 0
 
@@ -129,6 +161,10 @@ function computeProjectedGrade(components: ComponentInput[]): number {
   return totalWeight > 0 ? Number((totalWeightedGrade / totalWeight).toFixed(2)) : 0
 }
 
+/**
+ * Converts percentage grade (0-100) to PH grading scale (1.0-5.0)
+ * 1.0 is highest, 5.0 is failing
+ */
 function percentageToGradeScale(percentage: number): number {
   if (percentage >= 98) return 1.0
   if (percentage >= 95) return 1.25
@@ -143,9 +179,13 @@ function percentageToGradeScale(percentage: number): number {
   if (percentage >= 68) return 3.5
   if (percentage >= 65) return 3.75
   if (percentage >= 60) return 4.0
-  return 5.0
+  return 5.0  // Failing grade
 }
 
+/**
+ * Calculates what score you need on a specific item to achieve passing grade
+ * Helps students understand what they need to pass
+ */
 function calculateTargetScoreForPassing(
   component: ComponentInput, 
   currentItem: ItemInput, 
@@ -156,10 +196,12 @@ function calculateTargetScoreForPassing(
   const currentItems = component.items || []
   const otherItems = currentItems.filter(item => item.id !== currentItem.id)
   
+  // Calculate scores from other items in the same component
   const otherValidItems = otherItems.filter(item => item.score !== null && item.max !== null && item.max! > 0)
   const otherTotalScore = otherValidItems.reduce((sum, item) => sum + (item.score || 0), 0)
   const otherTotalMax = otherValidItems.reduce((sum, item) => sum + (item.max || 0), 0)
 
+  // Calculate required score to reach passing threshold
   const totalMax = otherTotalMax + currentItem.max
   const requiredTotalScore = (passingThreshold / 100) * totalMax
   const requiredItemScore = requiredTotalScore - otherTotalScore
@@ -168,6 +210,10 @@ function calculateTargetScoreForPassing(
 }
 
 /* -------------------- Custom Date Input Component -------------------- */
+/**
+ * Custom date input with validation and proper formatting
+ * Ensures dates are always valid (day 1-31, year 4 digits)
+ */
 const CustomDateInput = ({ 
   value, 
   onChange, 
@@ -179,6 +225,7 @@ const CustomDateInput = ({
 }) => {
   const [displayValue, setDisplayValue] = useState(value || "");
 
+  // Sync with parent value
   useEffect(() => {
     setDisplayValue(value || "");
   }, [value]);
@@ -187,6 +234,7 @@ const CustomDateInput = ({
     const newValue = e.target.value;
     setDisplayValue(newValue);
     
+    // Only update parent when we have a complete valid date
     if (newValue.length === 10) {
       const date = new Date(newValue);
       const day = date.getDate();
@@ -201,6 +249,7 @@ const CustomDateInput = ({
   };
 
   const handleBlur = () => {
+    // Validate on blur and revert if invalid
     if (displayValue && displayValue.length === 10) {
       const date = new Date(displayValue);
       const day = date.getDate();
@@ -226,6 +275,7 @@ const CustomDateInput = ({
       onBlur={handleBlur}
       className={className}
       onKeyDown={(e) => {
+        // Only allow numbers and dashes, prevent invalid characters
         if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab') {
           return;
         }
@@ -238,9 +288,21 @@ const CustomDateInput = ({
 };
 
 /* -------------------- AI Service -------------------- */
+/**
+ * Handles all AI-related functionality including:
+ * - Fallback responses when AI is unavailable
+ * - Model discovery and selection
+ * - Chat message processing
+ */
 class AIService {
+  /**
+   * Provides intelligent fallback responses when AI service is unavailable
+   * Analyzes subject data to give meaningful insights
+   */
   private getFallbackResponse(userMessage: string, subject: Subject | null): string {
     if (!subject) return "No subject context available.";
+    
+    // Analyze subject data for intelligent responses
     const msg = (userMessage || '').toLowerCase()
     const comps = subject.components || []
     const rawPct = computeRawGrade(comps)
@@ -254,6 +316,7 @@ class AIService {
     const weaknesses = [...compGrades].sort((a, b) => a.g - b.g).slice(0, 2)
     const status = target > 0 ? (current >= target ? '✅ Above target' : '⚠️ Below target') : 'Set a target to compute status'
 
+    // Handle different types of questions with appropriate responses
     if (msg.includes('strength') || msg.includes('weak')) {
       const lines = [
         `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
@@ -269,7 +332,7 @@ class AIService {
       const upcomingInPrimary = upcoming.filter(u => u.comp.name === primary?.name).slice(0,3)
       const lines = [
         `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
-        `� Plan:`,
+        `📝 Plan:`,
         `${primary ? `1. Prioritize ${primary.name} — raise average above ${Math.max(75, Math.round(primary.g+5))}%` : '1. Log more assessments to compute a plan'}`,
         `${upcomingInPrimary.length ? upcomingInPrimary.map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : (upcoming.length ? upcoming.slice(0,2).map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : '2. No upcoming assessments — maintain consistency in weakest areas')}`,
         `💡 Tips: Focus study on weakest topics, practice past papers, and aim for steady improvement rather than one-off spikes.`
@@ -297,6 +360,7 @@ class AIService {
       return lines.join('\n')
     }
 
+    // Default response with overview
     const lines = [
       `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
       `🎯 Next Focus:`,
@@ -306,47 +370,71 @@ class AIService {
     return lines.join('\n')
   }
 
+  /**
+   * Discovers available Gemini AI models and caches the selection
+   */
   private async discoverModel(apiKey: string): Promise<string> {
+    // Check cache first
     const cached = typeof window !== 'undefined' ? localStorage.getItem('gemini:model') : null
     if (cached) return cached
+    
+    // Fetch available models from API
     const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
       headers: { 'x-goog-api-key': apiKey }
     })
     if (!res.ok) return 'gemini-pro'
+    
     const j = await res.json()
     const names: string[] = Array.isArray(j?.models) ? j.models.map((m: any) => String(m?.name || '').replace(/^models\//,'')).filter(Boolean) : []
+    
+    // Prefer newer models, fallback to older ones
     const pick = names.find(n => n.startsWith('gemini-1.5')) || names.find(n => n.startsWith('gemini-pro')) || names.find(n => n.startsWith('gemini-1.0')) || names[0]
     const chosen = pick || 'gemini-pro'
+    
+    // Cache the selection
     if (typeof window !== 'undefined') localStorage.setItem('gemini:model', chosen)
     return chosen
   }
 
+  /**
+   * Main method to send chat messages to AI service
+   * Handles API calls, retries, and fallbacks
+   */
   async sendChatMessage(messages: ChatMessage[], userMessage: string, subject: Subject | null): Promise<string> {
     try {
       if (!subject) return "No subject context available.";
+      
+      // Try server-side API first
       const history = messages.slice(-6).map(m => m.content)
       const serverRes = await fetch(`/api/ai/subject/${subject.id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage, history })
       })
+      
       if (serverRes.ok) {
         const serverData = await serverRes.json()
         const text = String(serverData?.response || '')
         if (text) return text
       }
+      
+      // Fallback to direct Gemini API
       const keys = [
         ...((process.env.NEXT_PUBLIC_GEMINI_API_KEYS || '').split(',').map(s => s.trim()).filter(Boolean)),
         ...(process.env.NEXT_PUBLIC_GEMINI_API_KEY ? [process.env.NEXT_PUBLIC_GEMINI_API_KEY] : [])
       ].filter((v, i, a) => v && a.indexOf(v) === i)
+      
       if (!keys.length) return 'Public AI key missing. Add NEXT_PUBLIC_GEMINI_API_KEY.'
 
+      // Prepare conversation history and prompt
       const hist = messages.slice(-6).map(msg => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}`).join('\n\n')
       const prompt = `Subject: ${subject.name}\nTarget: ${subject.target_grade || ''}\n\n${hist}\n\nQuestion: ${userMessage}`
 
+      // Try each API key with different models
       for (const key of keys) {
         const discovered = await this.discoverModel(key)
         const candidates = [discovered, discovered.includes('flash') ? 'gemini-pro' : 'gemini-1.5-flash']
+        
         for (const model of candidates) {
           const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
           let r = await fetch(apiUrl, {
@@ -358,6 +446,8 @@ class AIService {
               generationConfig: { temperature: 0.7, maxOutputTokens: 1000, candidateCount: 1 }
             })
           })
+          
+          // Handle rate limiting with retry
           if (r.status === 429) {
             const retry = Number(r.headers.get('Retry-After') || '2')
             const ms = Math.min(Math.max(retry, 1), 8) * 1000
@@ -372,6 +462,7 @@ class AIService {
               })
             })
           }
+          
           if (r.ok) {
             const data = await r.json()
             const parts = data?.candidates?.[0]?.content?.parts || []
@@ -379,10 +470,12 @@ class AIService {
             const text = p?.text || ''
             if (text) return text
           } else if (r.status === 404 || r.status === 429) {
-            continue
+            continue  // Try next model
           }
         }
       }
+      
+      // Final fallback to local analysis
       return this.getFallbackResponse(userMessage, subject)
     } catch (error) {
       return this.getFallbackResponse(userMessage, subject)
@@ -392,14 +485,23 @@ class AIService {
 
 const aiService = new AIService();
 
+/* -------------------- Main Component -------------------- */
+/**
+ * Main component for displaying and managing a single subject
+ * Handles all subject-related operations: viewing, editing, adding items, AI chat
+ */
 export default function SubjectDetail() {
-  const { id } = useParams()
-  const router = useRouter()
-  const { data: session, status } = useSession()
+  // Next.js hooks for routing and session management
+  const { id } = useParams()  // Get subject ID from URL
+  const router = useRouter()  // For navigation
+  const { data: session, status } = useSession()  // User authentication
   const user = session?.user as ExtendedUser | undefined
 
+  // State management for subject data and UI
   const [subject, setSubject] = useState<Subject | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // Modal states for adding/editing items
   const [showAddItemModal, setShowAddItemModal] = useState(false)
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null)
   const [newItem, setNewItem] = useState<ItemInput>({
@@ -412,50 +514,59 @@ export default function SubjectDetail() {
   })
   const [savingItem, setSavingItem] = useState(false)
   
-  const [editingItemId, setEditingItemId] = useState<string | null>(null)
-  const [editScore, setEditScore] = useState<number | null>(null)
-  const [editMax, setEditMax] = useState<number | null>(null)
+  // REMOVED: Item editing states for inline score editing
+  // const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  // const [editScore, setEditScore] = useState<number | null>(null)
+  // const [editMax, setEditMax] = useState<number | null>(null)
   
+  // Subject editing states
   const [isEditingName, setIsEditingName] = useState(false)
   const [editingName, setEditingName] = useState("")
   const [renamingSubject, setRenamingSubject] = useState(false)
 
+  // Component editing states
   const [editingComponentId, setEditingComponentId] = useState<string | null>(null)
   const [editingComponentName, setEditingComponentName] = useState("")
   const [editingComponentPercentage, setEditingComponentPercentage] = useState(0)
   const [updatingComponent, setUpdatingComponent] = useState(false)
 
+  // Target grade editing states
   const [isEditingTargetGrade, setIsEditingTargetGrade] = useState(false)
   const [editingTargetGrade, setEditingTargetGrade] = useState<number | null>(null)
   const [updatingTargetGrade, setUpdatingTargetGrade] = useState(false)
 
+  // Item modal states
   const [showEditItemModal, setShowEditItemModal] = useState(false)
   const [editingItem, setEditingItem] = useState<ItemInput | null>(null)
   const [editingItemComponentId, setEditingItemComponentId] = useState<string | null>(null)
 
+  // Dropdown menu state
   const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null)
 
   // AI Chat State
+  const [showAIChat, setShowAIChat] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [userInput, setUserInput] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
 
-  // Finishing course state
+  // Course completion state
   const [finishingCourse, setFinishingCourse] = useState(false)
   const [finishLoading, setFinishLoading] = useState(false)
 
+  // Refs and storage keys
   const chatContainerRef = useRef<HTMLDivElement>(null)
-  const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
+  // REMOVED: Local storage key for inline edits since we removed that functionality
+  // const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
   const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : "gradeHistory:guest";
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll chat to bottom when new messages arrive
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
   }, [chatMessages])
 
-  // Initialize with welcome message
+  // Initialize AI chat with welcome message based on subject data
   useEffect(() => {
     if (subject && chatMessages.length === 0) {
       const allItems = (subject.components || []).flatMap(c => c.items || [])
@@ -465,6 +576,7 @@ export default function SubjectDetail() {
       const rawPct = computeRawGrade(subject.components)
       const currentGrade = percentageToGradeScale(rawPct)
       const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
+      
       let content = ''
       if (completed === 0) {
         content = `📊 ${subject.name} Analysis\n\nCurrent Status: You haven't logged any grades yet (${progress}% progress).\n\nNext Steps:\n1. Add your assessment items\n2. Set your target to ${target || 3.0}\n3. Log grades as you get them`
@@ -472,114 +584,131 @@ export default function SubjectDetail() {
         const status = target > 0 ? (currentGrade >= target ? 'ABOVE TARGET ✅' : 'BELOW TARGET ⚠️') : 'Status available once a target is set'
         content = `📊 ${subject.name} Analysis\n\nCurrent Grade: ${currentGrade.toFixed(2)} (target ${target || 0}) - ${status}\n\nAsk me for prioritized actions based on weights and upcoming assessments.`
       }
+      
       const welcomeMessage: ChatMessage = { id: '1', role: 'assistant', content, timestamp: new Date() }
       setChatMessages([welcomeMessage])
     }
   }, [subject])
 
   /* -------------------- Finish Subject Function -------------------- */
-// In your subject page component
-// In your subject page - UPDATED FINISH FUNCTION
-const handleFinishSubject = async () => {
-  if (!session?.user?.email) {
-    console.log('❌ No user session found');
-    return;
-  }
-  
-  if (!subject?.id) {
-    console.log('❌ No subject ID found');
-    return;
-  }
-  
-  try {
-    console.log('🔄 Starting finish process for subject:', subject.id);
-    
-    const response = await fetch(`/api/subjects/${subject.id}/finish`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        user_email: session.user.email
-      }),
-    });
-
-    const responseText = await response.text();
-    let result;
-    try {
-      result = responseText ? JSON.parse(responseText) : {};
-    } catch (parseError) {
-      console.error('❌ Failed to parse response:', parseError);
-      result = {};
+  /**
+   * Marks a subject as completed and moves it to history
+   * Saves final grade and creates historical record
+   */
+  const handleFinishSubject = async () => {
+    if (!session?.user?.email) {
+      console.log('❌ No user session found');
+      return;
     }
     
-    if (response.ok) {
-      console.log('✅ Finish API success:', result);
+    if (!subject?.id) {
+      console.log('❌ No subject ID found');
+      return;
+    }
+    
+    try {
+      console.log('🔄 Starting finish process for subject:', subject.id);
       
-      // 🔥 CRITICAL FIX: Store history record in localStorage immediately
-      if (result.history_record) {
-        const userHistoryKey = `user_history_${session.user.email}`;
-        const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey) || '[]');
-        
-        const newHistoryRecord = {
-          ...result.history_record,
-          // Ensure all fields are present
-          id: result.history_record.id || `local_${Date.now()}`,
-          subject_id: result.history_record.subject_id || subject.id,
-          user_email: result.history_record.user_email || session.user.email,
-          course_name: result.history_record.course_name || subject.name,
-          target_grade: result.history_record.target_grade || subject.target_grade?.toString() || '0',
-          final_grade: result.history_record.final_grade || result.final_grade || '0.00',
-          status: result.history_record.status || result.status || 'reached',
-          completed_at: result.history_record.completed_at || new Date().toISOString(),
-          created_at: result.history_record.created_at || new Date().toISOString()
-        };
-        
-        const updatedHistory = [newHistoryRecord, ...existingHistory];
-        localStorage.setItem(userHistoryKey, JSON.stringify(updatedHistory));
-        console.log('💾 History record stored locally:', newHistoryRecord);
+      // Call API to finish subject
+      const response = await fetch(`/api/subjects/${subject.id}/finish`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_email: session.user.email
+        }),
+      });
+
+      const responseText = await response.text();
+      let result;
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('❌ Failed to parse response:', parseError);
+        result = {};
       }
       
-      // Set flag to refresh history from localStorage
-      localStorage.setItem('shouldRefreshHistory', 'true');
-      
-      console.log('🏁 Subject finished, redirecting to dashboard...');
-      router.push('/dashboard');
-    } else {
-      console.error('❌ Finish API error:', result);
-      alert('Failed to finish subject: ' + (result.error || result.message || 'Unknown error'));
+      if (response.ok) {
+        console.log('✅ Finish API success:', result);
+        
+        // Store history record in localStorage for immediate access
+        if (result.history_record) {
+          const userHistoryKey = `user_history_${session.user.email}`;
+          const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey) || '[]');
+          
+          const newHistoryRecord = {
+            ...result.history_record,
+            id: result.history_record.id || `local_${Date.now()}`,
+            subject_id: result.history_record.subject_id || subject.id,
+            user_email: result.history_record.user_email || session.user.email,
+            course_name: result.history_record.course_name || subject.name,
+            target_grade: result.history_record.target_grade || subject.target_grade?.toString() || '0',
+            final_grade: result.history_record.final_grade || result.final_grade || '0.00',
+            status: result.history_record.status || result.status || 'reached',
+            completed_at: result.history_record.completed_at || new Date().toISOString(),
+            created_at: result.history_record.created_at || new Date().toISOString()
+          };
+          
+          const updatedHistory = [newHistoryRecord, ...existingHistory];
+          localStorage.setItem(userHistoryKey, JSON.stringify(updatedHistory));
+          console.log('💾 History record stored locally:', newHistoryRecord);
+        }
+        
+        // Set flag to refresh history from localStorage
+        localStorage.setItem('shouldRefreshHistory', 'true');
+        
+        console.log('🏁 Subject finished, redirecting to dashboard...');
+        router.push('/dashboard');
+      } else {
+        console.error('❌ Finish API error:', result);
+        alert('Failed to finish subject: ' + (result.error || result.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('💥 Finish subject error:', error);
+      alert('Error finishing subject: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
-  } catch (error) {
-    console.error('💥 Finish subject error:', error);
-    alert('Error finishing subject: ' + (error instanceof Error ? error.message : 'Unknown error'));
-  }
-};
-  const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
-    try {
-      const raw = localStorage.getItem(localKey)
-      if (!raw) return {}
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === "object") return parsed
-      return {}
-    } catch {
-      return {}
-    }
-  }
+  };
 
-  const saveLocalEdit = (itemId: string, values: { score: number | null; max: number | null }) => {
-    const current = loadLocalEdits()
-    current[itemId] = values
-    localStorage.setItem(localKey, JSON.stringify(current))
-  }
+  // REMOVED: Local storage functions for inline score editing
+  // /**
+  //  * Loads locally saved edits from localStorage
+  //  * This allows users to see their unsaved changes even after page refresh
+  //  */
+  // const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
+  //   try {
+  //     const raw = localStorage.getItem(localKey)
+  //     if (!raw) return {}
+  //     const parsed = JSON.parse(raw)
+  //     if (parsed && typeof parsed === "object") return parsed
+  //     return {}
+  //   } catch {
+  //     return {}
+  //   }
+  // }
 
-  /* -------------------- Fetch Subject -------------------- */
+  // /**
+  //  * Saves item edits to localStorage before syncing with server
+  //  * Provides offline capability and prevents data loss
+  //  */
+  // const saveLocalEdit = (itemId: string, values: { score: number | null; max: number | null }) => {
+  //   const current = loadLocalEdits()
+  //   current[itemId] = values
+  //   localStorage.setItem(localKey, JSON.stringify(current))
+  // }
+
+  /* -------------------- Fetch Subject Data -------------------- */
+  /**
+   * Fetches subject data from API
+   * Runs when component mounts or subject ID changes
+   */
   useEffect(() => {
     if (!id) return
 
     const fetchSubject = async () => {
       try {
         const res = await fetch(`/api/subjects/${id}`, {
-          cache: "no-store",
+          cache: "no-store", // Prevent caching to get fresh data
         })
 
         if (!res.ok) {
@@ -589,24 +718,11 @@ const handleFinishSubject = async () => {
 
         const data = await res.json()
         
-        // Apply local edits if present
-        const localEdits = loadLocalEdits()
+        // REMOVED: Local edits application since we removed inline editing
         const patched: Subject = {
           ...data,
-          color: data.color || '#4F46E5',
-          components: (data.components || []).map((comp: ComponentInput) => ({
-            ...comp,
-            items: (comp.items || []).map((it: ItemInput) => {
-              const key = String(it.id ?? "")
-              const override = localEdits[key]
-              if (!override) return it
-              return {
-                ...it,
-                score: override.score,
-                max: override.max ?? it.max ?? null,
-              }
-            }),
-          })),
+          color: data.color || '#4F46E5', // Default color if none provided
+          components: data.components || [],
         }
         setSubject(patched)
         setEditingTargetGrade(data.target_grade ? parseFloat(data.target_grade) : null)
@@ -621,21 +737,27 @@ const handleFinishSubject = async () => {
     fetchSubject()
   }, [id])
 
+  // Sync editing states with subject data when it changes
   useEffect(() => {
     if (subject?.name) setEditingName(subject.name)
     if (subject?.target_grade) setEditingTargetGrade(parseFloat(subject.target_grade.toString()))
   }, [subject?.name, subject?.target_grade])
 
+  // Refresh subject data when target grade changes
   useEffect(() => {
     if (subject) {
       setSubject(prev => prev ? { ...prev } : null)
     }
   }, [subject?.target_grade])
 
-  // New Chat Functions
+  /* -------------------- AI Chat Functions -------------------- */
+  /**
+   * Handles sending user messages to AI and updating chat
+   */
   const handleSendMessage = async () => {
     if (!userInput.trim() || !subject) return
 
+    // Add user message to chat immediately for better UX
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -648,6 +770,7 @@ const handleFinishSubject = async () => {
     setAiLoading(true)
 
     try {
+      // Send to AI service and get response
       const response = await aiService.sendChatMessage(chatMessages, userInput, subject)
       
       const assistantMessage: ChatMessage = {
@@ -672,6 +795,9 @@ const handleFinishSubject = async () => {
     }
   }
 
+  /**
+   * Handles Enter key press for sending messages
+   */
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -679,6 +805,10 @@ const handleFinishSubject = async () => {
     }
   }
 
+  /**
+   * Generates context-aware quick questions based on subject data
+   * These help users get started with the AI assistant
+   */
   const quickQuestions = useMemo(() => {
     if (!subject) return [] as string[]
     const allItems = (subject.components || []).flatMap(c => c.items || [])
@@ -689,6 +819,8 @@ const handleFinishSubject = async () => {
     const upcomingItems = allItems.filter(i => i?.score === null || i?.score === undefined)
     const safetyZone = target > 0 ? (current >= target ? 'green' : rawPct >= 71 ? 'yellow' : 'red') : (rawPct >= 75 ? 'green' : rawPct >= 65 ? 'yellow' : 'red')
     const qs: string[] = []
+    
+    // Generate relevant questions based on current academic situation
     if (target > 0 && current < target) qs.push("What do I need to reach my target?")
     const nextBig = upcomingItems
       .map(i => ({ i, comp: (subject.components || []).find(c => (c.items || []).some(ci => ci.id === i.id)) }))
@@ -696,13 +828,21 @@ const handleFinishSubject = async () => {
     if (nextBig?.i && nextBig.comp) qs.push(`How should I prepare for ${nextBig.i.name}?`)
     if (completedItems.length > 0) qs.push("What are my strengths and weaknesses?")
     if (safetyZone === 'red') qs.push("Am I at risk of failing?")
-    return qs.slice(0, 4)
+    
+    return qs.slice(0, 4) // Return max 4 questions
   }, [subject])
 
+  /**
+   * Pre-fills chat input with quick question when clicked
+   */
   const handleQuickQuestion = (question: string) => {
     setUserInput(question)
   }
 
+  /* -------------------- Subject Management Functions -------------------- */
+  /**
+   * Renames the current subject
+   */
   const handleRenameSubject = async () => {
     if (!subject?.id) return
     const trimmedName = editingName.trim()
@@ -738,9 +878,13 @@ const handleFinishSubject = async () => {
     }
   }
 
+  /**
+   * Updates the target grade for the subject
+   */
   const handleUpdateTargetGrade = async () => {
     if (!subject?.id) return
 
+    // Validate target grade range (PH grading system: 1.0-5.0)
     if (editingTargetGrade === null || editingTargetGrade < 1.0 || editingTargetGrade > 5.0) {
       alert("Target grade must be between 1.0 and 5.0")
       return
@@ -776,6 +920,9 @@ const handleFinishSubject = async () => {
     }
   }
 
+  /**
+   * Updates component name and percentage weight
+   */
   const handleUpdateComponent = async (componentId: string) => {
     if (!subject?.id) return
     const trimmedName = editingComponentName.trim()
@@ -820,13 +967,19 @@ const handleFinishSubject = async () => {
     }
   }
 
+  /**
+   * Opens the edit item modal with pre-filled data
+   */
   const handleOpenEditItemModal = (item: ItemInput, componentId: string) => {
     setEditingItem(item)
     setEditingItemComponentId(componentId)
     setShowEditItemModal(true)
-    setDropdownOpenId(null)
+    setDropdownOpenId(null) // Close dropdown when opening modal
   }
 
+  /**
+   * Updates an existing item with new data
+   */
   const handleUpdateItem = async () => {
     if (!editingItem || !editingItemComponentId || !subject?.id) return
 
@@ -836,12 +989,13 @@ const handleFinishSubject = async () => {
       return
     }
 
+    // Validate date format
     if (editingItem.date && !validateDate(editingItem.date)) {
       alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
       return;
     }
 
-    // Validation for score and max
+    // Validation for score and max values
     if (editingItem.score !== null && editingItem.max !== null) {
       if (editingItem.max! <= 0) {
         alert("Max must be greater than 0")
@@ -876,6 +1030,7 @@ const handleFinishSubject = async () => {
         const result = await res.json()
         console.log('✅ Item updated successfully:', result)
         
+        // Update local state with the updated item
         setSubject(prev => {
           if (!prev) return prev
           return {
@@ -899,6 +1054,7 @@ const handleFinishSubject = async () => {
       } else {
         let errorMessage = "Failed to update item"
         
+        // Handle different types of error responses
         try {
           const contentType = res.headers.get("content-type")
           if (contentType && contentType.includes("application/json")) {
@@ -930,100 +1086,24 @@ const handleFinishSubject = async () => {
     }
   }
 
-  const handleUpdateItemScore = async (itemId: string, score: number | null, max: number | null) => {
-    if (!subject?.id) return
+  // REMOVED: Inline score editing function
+  // /**
+  //  * Updates only the score and max values for an item (inline editing)
+  //  */
+  // const handleUpdateItemScore = async (itemId: string, score: number | null, max: number | null) => {
+  //   // ... removed function implementation
+  // }
 
-    // Validation checks
-    if (max !== null && max <= 0) {
-      alert("Max must be greater than 0")
-      return
-    }
-    if (score !== null && max !== null && score > max) {
-      alert("Score cannot exceed Max")
-      return
-    }
-
-    try {
-      const requestBody = {
-        score: score !== null ? Number(score) : null, 
-        max: max !== null ? Number(max) : null 
-      }
-
-      console.log('🔄 Updating item score:', itemId, requestBody)
-
-      const res = await fetch(`/api/items/${itemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      })
-
-      if (res.ok) {
-        const result = await res.json()
-        console.log('✅ Item score updated successfully:', result)
-        
-        setSubject((prev) => {
-          if (!prev) return prev
-          const updated: Subject = {
-            ...prev,
-            components: prev.components.map((comp) => ({
-              ...comp,
-              items: (comp.items || []).map((it) =>
-                String(it.id) === String(itemId)
-                  ? { 
-                      ...it, 
-                      score: score, 
-                      max: max ?? it.max ?? null 
-                    }
-                  : it
-              ),
-            })),
-          }
-          return updated
-        })
-
-        saveLocalEdit(String(itemId), { score, max })
-        
-        setEditingItemId(null)
-        setEditScore(null)
-        setEditMax(null)
-      } else {
-        let errorMessage = "Failed to update item score"
-        
-        try {
-          const contentType = res.headers.get("content-type")
-          if (contentType && contentType.includes("application/json")) {
-            const errorData = await res.json()
-            errorMessage = errorData.error || errorMessage
-          } else {
-            const text = await res.text()
-            console.error('Non-JSON error response:', text)
-            if (res.status === 405) {
-              errorMessage = "Method not allowed. Please check your API route."
-            } else if (res.status === 404) {
-              errorMessage = "Item not found."
-            } else {
-              errorMessage = `Server error: ${res.status} ${res.statusText}`
-            }
-          }
-        } catch (parseError) {
-          console.error('Error parsing error response:', parseError)
-          errorMessage = `Network error: ${res.status} ${res.statusText}`
-        }
-        
-        alert(errorMessage)
-      }
-    } catch (err) {
-      console.error("Item score update failed:", err)
-      alert("Network error: Failed to update item score. Please check your connection.")
-    }
-  }
-
+  /**
+   * Adds a new item to a component
+   */
   const handleAddItem = async (componentId: string) => {
     if (!newItem.name.trim()) {
       alert("Item name is required!")
       return
     }
 
+    // Validate date
     if (newItem.date && !validateDate(newItem.date)) {
       alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
       return;
@@ -1065,6 +1145,7 @@ const handleFinishSubject = async () => {
         const result = await res.json()
         console.log('✅ Item created successfully:', result)
         
+        // Update local state with new item
         setSubject(prev => {
           if (!prev) return prev
           return {
@@ -1085,6 +1166,7 @@ const handleFinishSubject = async () => {
           }
         })
 
+        // Reset form and close modal
         setShowAddItemModal(false)
         setNewItem({
           name: "",
@@ -1127,9 +1209,13 @@ const handleFinishSubject = async () => {
     }
   }
 
+  /**
+   * Deletes an item with confirmation
+   */
   const handleDeleteItem = async (itemId: string) => {
     if (!subject?.id) return
 
+    // Confirm deletion to prevent accidents
     if (window.confirm("Are you sure you want to delete this item?")) {
       try {
         const res = await fetch(`/api/items/${itemId}`, {
@@ -1137,6 +1223,7 @@ const handleFinishSubject = async () => {
         })
 
         if (res.ok) {
+          // Remove item from local state
           setSubject(prev => {
             if (!prev) return prev
             return {
@@ -1172,20 +1259,25 @@ const handleFinishSubject = async () => {
         alert("Network error: Failed to delete item. Please check your connection.")
       }
     }
-    setDropdownOpenId(null)
+    setDropdownOpenId(null) // Close dropdown after action
   }
 
+  /**
+   * Calculates progress and grade for a component
+   */
   const calculateComponentProgress = (component: ComponentInput) => {
     const grade = computeRawComponentGrade(component.items || [])
     return {
       grade,
       scaledGrade: percentageToGradeScale(grade),
-      progress: Math.min(100, grade),
+      progress: Math.min(100, grade), // Cap at 100% for visual display
     }
   }
 
+  // Show loading state while fetching data
   if (loading) return <div className="h-screen flex justify-center items-center text-xl">Loading…</div>
 
+  // Show error state if subject not found
   if (!subject)
     return (
       <div className="h-screen flex flex-col justify-center items-center text-xl">
@@ -1199,6 +1291,7 @@ const handleFinishSubject = async () => {
       </div>
     )
 
+  // Calculate grade metrics for display
   const rawPercentage = computeRawGrade(subject.components)
   const projectedPercentage = computeProjectedGrade(subject.components)
   const rawGrade = percentageToGradeScale(rawPercentage)
@@ -1209,6 +1302,7 @@ const handleFinishSubject = async () => {
   const effectivePassingMark = targetGrade > 0 ? 
     Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark // Adjust passing mark based on target grade
 
+  /* -------------------- Render UI -------------------- */
   return (
     <div className="min-h-screen bg-gray-100 p-10 flex justify-center relative">
       {/* FLOATING BACK BUTTON - TOP LEFT */}
@@ -1232,6 +1326,175 @@ const handleFinishSubject = async () => {
           Back to Dashboard
         </button>
       </div>
+
+      {/* AI ASSISTANT FLOATING BUTTON */}
+      <button
+        onClick={() => setShowAIChat(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
+        aria-label="Open AI Study Assistant"
+      >
+        {/* Grade Seer Logo Icon */}
+        <div className="relative flex items-center justify-center">
+          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center p-1">
+            <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs font-bold">GS</span>
+            </div>
+          </div>
+        </div>
+        <div className="absolute -top-2 -right-2 w-5 h-5 bg-green-400 rounded-full flex items-center justify-center border-2 border-white">
+          <span className="text-xs font-bold text-white">AI</span>
+        </div>
+      </button>
+
+      {/* AI CHAT POPUP MODAL */}
+      {showAIChat && (
+        <div className="fixed inset-0 z-50 flex items-end justify-end p-4 sm:items-center sm:justify-center">
+          {/* Transparent Backdrop */}
+          <div 
+            className="absolute inset-0 bg-transparent transition-opacity"
+            onClick={() => setShowAIChat(false)}
+          />
+          
+          {/* Chat Modal */}
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-md h-[600px] flex flex-col transform transition-all border border-white/20">
+            {/* Chat Header with Grade Seer Logo */}
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 rounded-t-2xl text-white">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                    <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 text-xs font-bold">GS</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Grade Seer AI</h3>
+                    <p className="text-sm opacity-90">Your academic companion</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAIChat(false)}
+                  className="text-white hover:text-gray-200 transition p-1 rounded-full hover:bg-white/20"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Chat Messages */}
+            <div 
+              ref={chatContainerRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4 bg-transparent"
+            >
+              {chatMessages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex items-start gap-3 ${
+                    message.role === 'user' ? 'flex-row-reverse' : ''
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1 ${
+                    message.role === 'user' 
+                      ? 'bg-blue-500' 
+                      : 'bg-gradient-to-r from-blue-500 to-purple-600'
+                  }`}>
+                    {message.role === 'user' ? (
+                      <span className="text-white text-xs font-bold">U</span>
+                    ) : (
+                      <span className="text-white text-xs font-bold">GS</span>
+                    )}
+                  </div>
+                  <div className={`flex-1 ${
+                    message.role === 'user' ? 'text-right' : ''
+                  }`}>
+                    <p className={`text-sm whitespace-pre-wrap ${
+                      message.role === 'user' 
+                        ? 'bg-blue-100 text-blue-900' 
+                        : 'bg-white/80 text-gray-800 backdrop-blur-sm'
+                    } rounded-lg px-3 py-2 inline-block max-w-[80%]`}>
+                      {message.content}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              
+              {aiLoading && (
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shrink-0 mt-1">
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 inline-block">
+                      Grade Seer is thinking...
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Questions */}
+            <div className="px-4 pt-2">
+              <div className="grid grid-cols-2 gap-2">
+                {quickQuestions.map((question, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleQuickQuestion(question)}
+                    className="text-xs bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 rounded px-2 py-1 transition-colors text-left backdrop-blur-sm"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Chat Input */}
+            <div className="p-4 border-t border-gray-200/50">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Ask Grade Seer about your grades, study tips..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white/80 backdrop-blur-sm"
+                  disabled={aiLoading}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={aiLoading || !userInput.trim()}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {aiLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="22" y1="2" x2="11" y2="13"></line>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                  )}
+                  Send
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-gray-500 text-center">
+                <p>Powered by Grade Seer AI • Ask about grades, study strategies, or academic advice</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MAIN MODAL CARD */}
       <div className="w-[1100px] rounded-3xl shadow-2xl p-8">
@@ -1601,70 +1864,13 @@ const handleFinishSubject = async () => {
                           </div>
                         </div>
 
-                        {/* Score - Editable */}
-                        <div className="relative">
+                        {/* Score - Display Only (No Editing) */}
+                        <div>
                           <div className="text-sm text-gray-500">Score</div>
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-sm font-medium">
                               {item.score ?? "—"} / {item.max ?? "—"}
                             </span>
-                            {editingItemId === String(item.id) && (
-                              <div
-                                className="absolute left-0 top-full z-20 mt-1 w-max min-w-[260px] p-3 rounded-md border border-gray-200 bg-white shadow-lg flex items-center gap-2"
-                                role="dialog"
-                              >
-                                <input
-                                  type="number"
-                                  className="w-16 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  value={editScore ?? ""}
-                                  onChange={(e) =>
-                                    setEditScore(e.target.value === "" ? null : Number.parseInt(e.target.value))
-                                  }
-                                  placeholder="score"
-                                  min={0}
-                                />
-                                <span className="text-gray-500">/</span>
-                                <input
-                                  type="number"
-                                  className="w-16 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  value={editMax ?? ""}
-                                  onChange={(e) =>
-                                    setEditMax(e.target.value === "" ? null : Number.parseInt(e.target.value))
-                                  }
-                                  placeholder="max"
-                                  min={1}
-                                />
-                                <button
-                                  onClick={() => {
-                                    const s = editScore ?? null
-                                    const m = editMax ?? null
-                                    if (m !== null && m <= 0) {
-                                      alert("Max must be greater than 0")
-                                      return
-                                    }
-                                    if (s !== null && m !== null && s > m) {
-                                      alert("Score cannot exceed Max")
-                                      return
-                                    }
-                                    
-                                    handleUpdateItemScore(String(item.id), s, m)
-                                  }}
-                                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setEditingItemId(null)
-                                    setEditScore(null)
-                                    setEditMax(null)
-                                  }}
-                                  className="px-3 py-1 bg-gray-100 text-gray-800 rounded text-sm hover:bg-gray-200"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
                           </div>
                         </div>
 
@@ -1714,32 +1920,7 @@ const handleFinishSubject = async () => {
                             {dropdownOpenId === String(item.id) && (
                               <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-30">
                                 <div className="py-1">
-                                  <button
-                                    onClick={() => {
-                                      setEditingItemId(String(item.id))
-                                      setEditScore(item.score ?? null)
-                                      setEditMax(item.max ?? null)
-                                      setDropdownOpenId(null)
-                                    }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="16"
-                                      height="16"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      className="mr-2"
-                                    >
-                                      <path d="M12 20h9" />
-                                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                                    </svg>
-                                    Edit Score
-                                  </button>
+                                  {/* REMOVED: Edit Score option */}
                                   <button
                                     onClick={() => handleOpenEditItemModal(item, component.id)}
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -1880,138 +2061,9 @@ const handleFinishSubject = async () => {
               </div>
             </div>
 
-            {/* AI Chatbox */}
-            <div className="bg-white rounded-xl border border-gray-300 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Study Assistant</h3>
-              <div className="space-y-4">
-                {/* Chat Messages Area */}
-                <div 
-                  ref={chatContainerRef}
-                  className="h-48 overflow-y-auto border border-gray-200 rounded-lg bg-gray-50 p-4 space-y-3"
-                >
-                  {chatMessages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex items-start gap-3 ${
-                        message.role === 'user' ? 'flex-row-reverse' : ''
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1 ${
-                        message.role === 'user' 
-                          ? 'bg-blue-500' 
-                          : 'bg-green-500'
-                      }`}>
-                        {message.role === 'user' ? (
-                          <span className="text-white text-xs font-bold">U</span>
-                        ) : (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-3 h-3 text-white"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-                            <path d="m9 12 2 2 4-4" />
-                          </svg>
-                        )}
-                      </div>
-                      <div className={`flex-1 ${
-                        message.role === 'user' ? 'text-right' : ''
-                      }`}>
-                        <p className={`text-sm whitespace-pre-wrap ${
-                          message.role === 'user' 
-                            ? 'bg-blue-100 text-blue-900' 
-                            : 'bg-white text-gray-800'
-                        } rounded-lg px-3 py-2 inline-block max-w-[80%]`}>
-                          {message.content}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {aiLoading && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shrink-0 mt-1">
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-600 bg-white rounded-lg px-3 py-2 inline-block">
-                          Thinking...
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Quick Questions */}
-                <div className="grid grid-cols-2 gap-2">
-                  {quickQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleQuickQuestion(question)}
-                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded px-2 py-1 transition-colors text-left"
-                    >
-                      {question}
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Input Area */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Ask about your grades, study tips, or anything else..."
-                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    disabled={aiLoading}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={aiLoading || !userInput.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                  >
-                    {aiLoading ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                      </svg>
-                    )}
-                    Send
-                  </button>
-                </div>
-
-                {/* Quick Tips */}
-                <div className="border-t pt-4">
-                  <p className="text-xs text-gray-600 text-center">
-                    Ask me about study strategies, grade analysis, time management, or academic advice!
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* AI Insights */}
-            <div className="bg-white rounded-xl border border-gray-300 p-6 mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Insights</h3>
+            <div className="bg-white rounded-xl border border-gray-300 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Grade Seer Insights</h3>
               <div className="space-y-3 text-sm text-gray-800">
                 <div>
                   <span className="font-medium">Status:</span>
