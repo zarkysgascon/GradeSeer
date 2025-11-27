@@ -903,6 +903,8 @@ export default function Dashboard() {
 
       if (res.ok) {
         setSubjects(subjects.filter(s => s.id !== subjectId));
+        // Refresh upcoming items after deletion
+        await fetchUpcomingItems();
       } else {
         alert('Failed to delete subject');
       }
@@ -1045,7 +1047,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Rest of your existing dashboard content remains the same... */}
             {/* Stats Overview */}
             {subjects.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -1267,23 +1268,484 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* PENDING ITEMS TAB - Keep existing code */}
+        {/* PENDING ITEMS TAB */}
         {activeTab === "pending items" && (
-          // ... your existing pending items code
-          <div>Pending Items Content</div>
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Pending Items
+                  </h2>
+                  <p className="text-gray-600 mt-2">
+                    Items that need your attention - add scores to complete them
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={fetchUpcomingItems}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              {/* Pending Items Content */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
+                {upcomingItems.length === 0 ? (
+                  // Empty State - No Pending Items
+                  <div className="text-center py-16 text-gray-500">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
+                      <span className="text-4xl">✅</span>
+                    </div>
+                    <p className="text-xl font-semibold mb-2">No pending items!</p>
+                    <p className="text-sm max-w-md mx-auto mb-6">
+                      Great job! You've scored all your items. 
+                      Add new items to your subjects or create new subjects to see them here.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={() => setShowModal(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-medium flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add New Subject
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("subjects")}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-medium flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        View Subjects
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // Pending Items List
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto p-4">
+                    {upcomingItems.map((item, index) => (
+                      <div
+                        key={item.id || index}
+                        className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm group"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-3">
+                              <h4 className="font-semibold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">
+                                {item.name}
+                              </h4>
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                ⏳ Pending
+                              </span>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                </svg>
+                                <span><strong>Subject:</strong> {item.subjectName || 'Unknown'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span><strong>Component:</strong> {item.componentName || 'Unknown'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span><strong>Due Date:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'No date'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span><strong>Topic:</strong> {item.topic || '—'}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Score:</span>
+                                <span className="px-2 py-1 bg-gray-100 rounded text-gray-600">
+                                  {item.score !== null && item.score !== undefined ? item.score : '—'} / {item.max !== null && item.max !== undefined ? item.max : '—'}
+                                </span>
+                              </div>
+                              {item.score === null || item.score === undefined ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  Needs Scoring
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Completed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => item.subjectId && router.push(`/dashboard/subject/${item.subjectId}`)}
+                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            View Subject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Stats Row */}
+              {upcomingItems.length > 0 && (
+                <div className="grid grid-cols-3 gap-6 mt-8 pt-8 border-t border-gray-200">
+                  <div className="text-center p-6 bg-blue-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-blue-600">{upcomingItems.length}</div>
+                    <div className="text-sm text-gray-600 font-medium">Total Items</div>
+                  </div>
+                  <div className="text-center p-6 bg-yellow-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-yellow-600">
+                      {upcomingItems.filter(item => item.score === null || item.score === undefined).length}
+                    </div>
+                    <div className="text-sm text-gray-600 font-medium">Pending</div>
+                  </div>
+                  <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-green-600">
+                      {upcomingItems.filter(item => item.score !== null && item.score !== undefined).length}
+                    </div>
+                    <div className="text-sm text-gray-600 font-medium">Completed</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
-        {/* HISTORY TAB - Keep existing code */}
+        {/* HISTORY TAB */}
         {activeTab === "history" && (
-          // ... your existing history code
-          <div>History Content</div>
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Grade History
+                </h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={fetchHistory}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              {/* History Table */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
+                {history.length === 0 ? (
+                  <div className="text-center py-16 text-gray-500">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
+                      <span className="text-4xl">📚</span>
+                    </div>
+                    <p className="text-xl font-semibold mb-2">No history yet</p>
+                    <p className="text-sm max-w-md mx-auto">Complete subjects to see your grade history here.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50/80 border-b border-gray-200">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Course</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Target Grade</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Final Grade</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Completed</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {history.map((record) => (
+                          <tr key={record.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{record.course_name}</td>
+                            <td className="px-6 py-4 text-sm text-gray-600">{record.target_grade}</td>
+                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">{record.final_grade}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                record.status === 'reached' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {record.status === 'reached' ? 'Target Reached' : 'Target Missed'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {formatDate(record.completed_at)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </main>
 
-      {/* ADD SUBJECT MODAL - Keep existing code */}
+      {/* ADD SUBJECT MODAL */}
       {showModal && (
-        // ... your existing add subject modal code
-        <div>Add Subject Modal</div>
+        <div 
+          className="fixed inset-0 flex justify-center items-center bg-black/60 backdrop-blur-sm z-50 p-4"
+          onClick={handleModalClose}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden border border-gray-200 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Create New Subject</h2>
+                  <p className="text-blue-100 text-sm">Add a subject to track your progress</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 max-h-[calc(85vh-80px)] overflow-y-auto">
+              <div className="space-y-5">
+                {/* Subject Name */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Subject Name *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Mathematics, Science..."
+                    value={newSubject.name}
+                    onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                  />
+                </div>
+
+                {/* Color Selection */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Subject Color
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {predefinedColors.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setNewSubject({ ...newSubject, color })}
+                        className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                          newSubject.color === color ? 'border-gray-800 scale-110 shadow-md' : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                    <input
+                      type="color"
+                      value={newSubject.color}
+                      onChange={(e) => setNewSubject({ ...newSubject, color: e.target.value })}
+                      className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-600">Custom color</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Type */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Type
+                    </label>
+                    <select
+                      value={newSubject.is_major ? "major" : "minor"}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value="major">Major</option>
+                      <option value="minor">Minor</option>
+                    </select>
+                  </div>
+
+                  {/* Target Grade */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Target Grade
+                    </label>
+                    <select
+                      value={newSubject.target_grade}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value={0}>Select Grade</option>
+                      <option value={1.00}>1.00</option>
+                      <option value={1.25}>1.25</option>
+                      <option value={1.50}>1.50</option>
+                      <option value={1.75}>1.75</option>
+                      <option value={2.00}>2.00</option>
+                      <option value={2.25}>2.25</option>
+                      <option value={2.50}>2.50</option>
+                      <option value={2.75}>2.75</option>
+                      <option value={3.00}>3.00</option>
+                      <option value={4.00}>4.00</option>
+                      <option value={5.00}>5.00</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Components Section */}
+                <div className="border-t pt-5">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Grading Components</h3>
+                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {newSubject.components.length} added
+                    </span>
+                  </div>
+
+                  {/* Components List */}
+                  <div className="border rounded-lg p-3 max-h-32 overflow-y-auto mb-4 bg-gray-50">
+                    {newSubject.components.length === 0 ? (
+                      <div className="text-center py-4 text-gray-400">
+                        <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p className="text-sm">No components yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {newSubject.components.map((c, i) => (
+                          <div key={i} className="flex items-center gap-2 p-2 bg-white rounded border">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700 truncate">{c.name}</span>
+                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                  {c.percentage}%
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveComponent(i)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add Component Form */}
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-gray-700 mb-3 text-sm">Add Component</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        className="p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        value={newComponent.name}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                          setNewComponent({ ...newComponent, name: e.target.value })
+                        }
+                      />
+                      <NumberInput
+                        placeholder="%"
+                        value={newComponent.percentage}
+                        onChange={(value: number) =>
+                          setNewComponent({ ...newComponent, percentage: value })
+                        }
+                        className="p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        min="0"
+                        max="100"
+                      />
+                      <NumberInput
+                        placeholder="Priority"
+                        value={newComponent.priority}
+                        onChange={(value: number) =>
+                          setNewComponent({ ...newComponent, priority: value })
+                        }
+                        className="p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        min="1"
+                      />
+                    </div>
+                    <button
+                      onClick={handleAddOrUpdateComponent}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Component
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-between pt-6 mt-6 border-t border-gray-200">
+                <button
+                  onClick={handleModalClose}
+                  className="px-4 py-2.5 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSubject}
+                  disabled={loading || !newSubject.name.trim()}
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Create Subject
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* GPA CALCULATOR MODAL */}
