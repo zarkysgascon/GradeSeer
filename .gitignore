@@ -19,3 +19,5 @@ coverage/
 # Local planning docs (not for commit)
 tasks/todo.md
 .trae/
+
+node_modules/

@@ -819,6 +819,9 @@ export default function Dashboard() {
     percentage: 0,
     priority: 1,
   });
+  // Subject delete confirmation modal state
+  const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   /* ---------------------- Auth Redirect ---------------------- */
   useEffect(() => {
@@ -949,20 +952,29 @@ export default function Dashboard() {
   };
 
   /* ---------------------- Delete Subject ---------------------- */
-  const handleDeleteSubject = async (subjectId: string) => {
-    if (!window.confirm('Are you sure you want to delete this subject?')) return;
+  // Open delete confirmation modal (actual deletion performed in confirmDeleteSubject)
+  const handleDeleteSubject = (subjectId: string) => {
+    setSubjectToDelete(subjectId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteSubject = async () => {
+    if (!subjectToDelete) return;
 
     try {
-      const res = await fetch(`/api/subjects/${subjectId}`, {
+      const res = await fetch(`/api/subjects/${subjectToDelete}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
-        setSubjects(subjects.filter(s => s.id !== subjectId));
+        setSubjects(prev => prev.filter(s => s.id !== subjectToDelete));
         // Refresh upcoming items after deletion
         await fetchUpcomingItems();
+        setShowDeleteModal(false);
+        setSubjectToDelete(null);
       } else {
-        alert('Failed to delete subject');
+        const errText = await res.text();
+        alert(`Failed to delete subject: ${errText || res.statusText}`);
       }
     } catch (err) {
       console.error("Error deleting subject:", err);
@@ -1787,6 +1799,30 @@ export default function Dashboard() {
       )}
 
       {/* GPA CALCULATOR MODAL */}
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50" onClick={() => { setShowDeleteModal(false); setSubjectToDelete(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-2">Delete Subject</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this subject? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setSubjectToDelete(null); }}
+                className="px-4 py-2 bg-gray-200 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteSubject}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <GPACalculatorModal
         isOpen={showGPAModal}
         onClose={() => setShowGPAModal(false)}
