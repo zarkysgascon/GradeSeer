@@ -299,32 +299,54 @@ export default function Dashboard() {
   const user = session?.user as ExtendedUser | undefined;
 
   /* ---------------------- Fetch History ---------------------- */
-  const fetchHistory = async () => {
-    if (!user?.email) {
-      console.log('❌ No user email available for fetching history');
-      return;
-    }
+const fetchHistory = async () => {
+  if (!user?.email) {
+    console.log('❌ No user email available for fetching history');
+    return;
+  }
 
-    try {
-      console.log('🔄 Fetching history for:', user.email);
+  try {
+    console.log('🔄 Fetching history for:', user.email);
+    
+    // 🔥 Check localStorage first for immediate results
+    const localHistoryKey = `user_history_${user.email}`;
+    const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
+    
+    if (localHistory.length > 0) {
+      console.log('📱 Using local history data:', localHistory.length, 'records');
+      setHistory(localHistory);
+    }
+    
+    // Still try to fetch from API for eventual consistency
+    const res = await fetch(`/api/subjects/history?email=${encodeURIComponent(user.email)}`);
+    
+    if (res.ok) {
+      const apiHistory = await res.json();
+      console.log('🌐 API history data:', apiHistory.length, 'records');
       
-      const res = await fetch(`/api/subjects/history?email=${encodeURIComponent(user.email)}`);
+      // Merge local and API history, remove duplicates
+      const mergedHistory = [...localHistory, ...apiHistory].filter((record, index, self) => 
+        index === self.findIndex(r => r.id === record.id)
+      );
       
-      if (!res.ok) {
-        console.error('❌ History fetch failed:', res.status, res.statusText);
-        const errorText = await res.text();
-        console.error('Error response:', errorText);
-        return;
+      if (mergedHistory.length > localHistory.length) {
+        console.log('🔄 Updating with merged history:', mergedHistory.length, 'records');
+        setHistory(mergedHistory);
+        // Update localStorage with merged data
+        localStorage.setItem(localHistoryKey, JSON.stringify(mergedHistory));
       }
-
-      const data = await res.json();
-      console.log('✅ History data received:', data);
-      setHistory(data);
-    } catch (err) {
-      console.error("💥 Error fetching history:", err);
+    } else {
+      console.log('🌐 API history unavailable, using local data only');
     }
-  };
-
+    
+  } catch (err) {
+    console.error("💥 Error fetching history:", err);
+    // Fallback to local storage
+    const localHistoryKey = `user_history_${user.email}`;
+    const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
+    setHistory(localHistory);
+  }
+};
   /* ---------------------- Fetch Updated Profile Image ---------------------- */
   useEffect(() => {
     if (!user?.email) return;
