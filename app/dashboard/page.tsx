@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import DashboardSearch from "./search";
 
+
 /* ------------------------- Interfaces ------------------------- */
 interface ComponentInput {
   id?: string;
@@ -240,12 +241,18 @@ const NumberInput = ({
   onChange, 
   placeholder, 
   className = "",
+  min,
+  max,
+  maxDigits,
   ...props 
 }: {
   value: number;
   onChange: (value: number) => void;
   placeholder?: string;
   className?: string;
+  min?: number;
+  max?: number;
+  maxDigits?: number;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'>) => {
   const [displayValue, setDisplayValue] = useState(value === 0 ? "" : value.toString());
 
@@ -253,8 +260,42 @@ const NumberInput = ({
     setDisplayValue(value === 0 ? "" : value.toString());
   }, [value]);
 
+  const clamp = (n: number) => {
+    let v = n;
+    if (typeof min === 'number' && v < min) v = min;
+    if (typeof max === 'number' && v > max) v = max;
+    return v;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+
+    // If maxDigits is provided, enforce digit-length (trim extras) instead of clamping to max numeric value.
+    if (typeof maxDigits === 'number') {
+      // Keep only optional leading '-' and digits
+      const matched = newValue.match(/^-?\d*/);
+      const raw = matched ? matched[0] : '';
+      // Remove leading '-' for digit counting
+      const isNegative = raw.startsWith('-');
+      const digits = isNegative ? raw.slice(1) : raw;
+      if (digits.length > maxDigits) {
+        const trimmedDigits = digits.slice(0, maxDigits);
+        const finalStr = (isNegative ? '-' : '') + trimmedDigits;
+        setDisplayValue(finalStr);
+        const parsed = parseInt(finalStr, 10);
+        if (!isNaN(parsed)) onChange(parsed);
+        return;
+      }
+      setDisplayValue(raw);
+      if (raw === '' || raw === '-') {
+        onChange(0);
+      } else {
+        const parsed = parseInt(raw, 10);
+        if (!isNaN(parsed)) onChange(parsed);
+      }
+      return;
+    }
+
     setDisplayValue(newValue);
     
     if (newValue === "") {
@@ -262,8 +303,33 @@ const NumberInput = ({
     } else {
       const numValue = parseInt(newValue, 10);
       if (!isNaN(numValue)) {
-        onChange(numValue);
+        const final = clamp(numValue);
+        onChange(final);
+        setDisplayValue(final.toString());
       }
+    }
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (value === 0) {
+      setDisplayValue("");
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (displayValue === "") {
+      setDisplayValue(value === 0 ? "" : value.toString());
+      return;
+    }
+    const numValue = parseInt(displayValue, 10);
+    if (!isNaN(numValue)) {
+      const final = clamp(numValue);
+      if (final !== numValue) {
+        setDisplayValue(final.toString());
+        onChange(final);
+      }
+    } else {
+      setDisplayValue(value === 0 ? "" : value.toString());
     }
   };
 
@@ -273,6 +339,8 @@ const NumberInput = ({
       value={displayValue}
       onChange={handleChange}
       placeholder={placeholder || "0"}
+      min={min}
+      max={max}
       className={`${className} ${value === 0 ? "text-gray-400" : "text-gray-900"}`}
       {...props}
     />
@@ -552,7 +620,7 @@ const GPACalculatorModal = ({
 };
 
 /* ---------------------- Dashboard Component ---------------------- */
-export default function Dashboard() {
+export default function Dashboard() { 
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -788,6 +856,9 @@ export default function Dashboard() {
     percentage: 0,
     priority: 1,
   });
+  // Subject delete confirmation modal state
+  const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   /* ---------------------- Auth Redirect ---------------------- */
   useEffect(() => {
@@ -918,20 +989,29 @@ export default function Dashboard() {
   };
 
   /* ---------------------- Delete Subject ---------------------- */
-  const handleDeleteSubject = async (subjectId: string) => {
-    if (!window.confirm('Are you sure you want to delete this subject?')) return;
+  // Open delete confirmation modal (actual deletion performed in confirmDeleteSubject)
+  const handleDeleteSubject = (subjectId: string) => {
+    setSubjectToDelete(subjectId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteSubject = async () => {
+    if (!subjectToDelete) return;
 
     try {
-      const res = await fetch(`/api/subjects/${subjectId}`, {
+      const res = await fetch(`/api/subjects/${subjectToDelete}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
-        setSubjects(subjects.filter(s => s.id !== subjectId));
+        setSubjects(prev => prev.filter(s => s.id !== subjectToDelete));
         // Refresh upcoming items after deletion
         await fetchUpcomingItems();
+        setShowDeleteModal(false);
+        setSubjectToDelete(null);
       } else {
-        alert('Failed to delete subject');
+        const errText = await res.text();
+        alert(`Failed to delete subject: ${errText || res.statusText}`);
       }
     } catch (err) {
       console.error("Error deleting subject:", err);
@@ -1631,91 +1711,32 @@ export default function Dashboard() {
 
       {/* ADD SUBJECT MODAL */}
       {showModal && (
-        <div 
-          className="fixed inset-0 flex justify-center items-center bg-black/60 backdrop-blur-sm z-50 p-4"
-          onClick={handleModalClose}
-        >
-          <div 
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden border border-gray-200 animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">Create New Subject</h2>
-                  <p className="text-blue-100 text-sm">Add a subject to track your progress</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-6 max-h-[calc(85vh-80px)] overflow-y-auto">
-              <div className="space-y-5">
-                {/* Subject Name */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Subject Name *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Mathematics, Science..."
-                    value={newSubject.name}
-                    onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
-                  />
-                </div>
+        <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
+          <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
+            <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
+            <h2 className="text-xl font-bold mb-4 text-center">Add  t</h2>
 
-                {/* Color Selection */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Subject Color
-                  </label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {predefinedColors.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setNewSubject({ ...newSubject, color })}
-                        className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                          newSubject.color === color ? 'border-gray-800 scale-110 shadow-md' : 'border-gray-300 hover:border-gray-400'
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
-                    <input
-                      type="color"
-                      value={newSubject.color}
-                      onChange={(e) => setNewSubject({ ...newSubject, color: e.target.value })}
-                      className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer"
-                    />
-                    <span className="text-sm text-gray-600">Custom color</span>
-                  </div>
-                </div>
+            {/* Subject Name */}
+            <input
+              type="text"
+              placeholder="Subject name"
+              value={newSubject.name}
+              onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
+              maxLength={50}
+              className="w-full p-2 border rounded mb-3"
+            />
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Type */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Type
-                    </label>
-                    <select
-                      value={newSubject.is_major ? "major" : "minor"}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                        setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
-                      }
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                    >
-                      <option value="major">Major</option>
-                      <option value="minor">Minor</option>
-                    </select>
-                  </div>
+            {/* Type */}
+            <select
+              value={newSubject.is_major ? "major" : "minor"}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
+              }
+              className="w-full p-2 border rounded mb-3"
+            >
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+            </select>
 
                   {/* Units */}
                   <div>
@@ -1811,51 +1832,46 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  {/* Add Component Form */}
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <h4 className="font-medium text-gray-700 mb-3 text-sm">Add Component</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
-                      <input
-                        type="text"
-                        placeholder="Name"
-                        className="p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        value={newComponent.name}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                          setNewComponent({ ...newComponent, name: e.target.value })
-                        }
-                      />
-                      <NumberInput
-                        placeholder="%"
-                        value={newComponent.percentage}
-                        onChange={(value: number) =>
-                          setNewComponent({ ...newComponent, percentage: value })
-                        }
-                        className="p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        min="0"
-                        max="100"
-                      />
-                      <NumberInput
-                        placeholder="Priority"
-                        value={newComponent.priority}
-                        onChange={(value: number) =>
-                          setNewComponent({ ...newComponent, priority: value })
-                        }
-                        className="p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        min="1"
-                      />
-                    </div>
-                    <button
-                      onClick={handleAddOrUpdateComponent}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add Component
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {/* Add Component */}
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                placeholder="Component Name"
+                className="flex-1 p-2 border rounded"
+                maxLength={80}
+                value={newComponent.name}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
+                }
+              />
+              <NumberInput
+                placeholder="%"
+                value={newComponent.percentage}
+                onChange={(value: number) =>
+                  setNewComponent({ ...newComponent, percentage: value })
+                }
+                min={0}
+                max={100}
+                className="w-20 p-2 border rounded"
+              />
+              <NumberInput
+                placeholder="P"
+                value={newComponent.priority}
+                onChange={(value: number) =>
+                  setNewComponent({ ...newComponent, priority: value })
+                }
+                min={0}
+                maxDigits={4}
+                className="w-20 p-2 border rounded"
+              />
+            </div>
+
+            <button
+              onClick={handleAddOrUpdateComponent}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded mb-4"
+            >
+              + Add Component
+            </button>
 
               {/* Footer */}
               <div className="flex justify-between pt-6 mt-6 border-t border-gray-200">
@@ -1890,10 +1906,33 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
       )}
 
       {/* GPA CALCULATOR MODAL */}
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50" onClick={() => { setShowDeleteModal(false); setSubjectToDelete(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-2">Delete Subject</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this subject? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setSubjectToDelete(null); }}
+                className="px-4 py-2 bg-gray-200 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteSubject}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <GPACalculatorModal
         isOpen={showGPAModal}
         onClose={() => setShowGPAModal(false)}
