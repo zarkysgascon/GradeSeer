@@ -7,6 +7,11 @@ const nextConfig = {
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
   },
+  turbopack: {
+    // Use the directory of this config file as the Turbopack root
+    // this prevents Next.js from inferring an incorrect workspace root
+    root: __dirname,
+  },
 };
 
 export default nextConfig;

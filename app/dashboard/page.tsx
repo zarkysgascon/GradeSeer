@@ -4,6 +4,7 @@ import { useEffect, useState, ChangeEvent, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import DashboardSearch from "./search";
 
 /* ------------------------- Interfaces ------------------------- */
 interface ComponentInput {
@@ -56,18 +57,6 @@ interface ExtendedUser {
   name?: string | null;
   email?: string | null;
   image?: string | null;
-}
-
-interface Notification {
-  id: string;
-  type: 'quiz' | 'assignment' | 'exam' | 'general';
-  title: string;
-  message: string;
-  subjectId?: string;
-  subjectName?: string;
-  dueDate?: string;
-  read: boolean;
-  createdAt: string;
 }
 
 /* ------------------------- Calculations ------------------------- */
@@ -574,8 +563,6 @@ export default function Dashboard() {
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
   const [assistantMessages, setAssistantMessages] = useState<{ id: string; role: 'user'|'assistant'; content: string; timestamp: Date; }[]>([]);
   const [assistantInput, setAssistantInput] = useState("");
@@ -586,6 +573,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (assistantOpen) inputRef.current?.focus();
   }, [assistantOpen]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // GPA Calculator States
   const [showGPAModal, setShowGPAModal] = useState(false);
@@ -982,7 +970,18 @@ export default function Dashboard() {
     });
   };
 
+    /* ---------------------- Handle Subject Card Click ---------------------- */  // ← ADDED HERE
+  const handleSubjectClick = (subjectId: string) => {
+    // Navigate to subject page with showGraph parameter to auto-open the modal
+    router.push(`dashboard/subject/${subjectId}?showGraph=true`)
+  }
+
   /* ---------------------- UI Return ---------------------- */
+  const displayedSubjects = subjects.filter((s) => {
+    if (!searchQuery || !searchQuery.trim()) return true;
+    const first = searchQuery.trim()[0].toLowerCase();
+    return s.name.toLowerCase().startsWith(first);
+  });
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
       {/* Animated Background */}
@@ -1050,11 +1049,17 @@ export default function Dashboard() {
             
             {/* Header Section */}
             <div className="flex justify-between items-center mb-8">
-              <div className="flex-1 flex justify-center">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  My Subjects
-                </h1>
-              </div>
+                <div className="flex-1 flex justify-center">
+                  <div className="w-96">
+                    <DashboardSearch
+                      items={subjects.map((s) => s.name)}
+                      maxResults={5}
+                      placeholder="Search subjects..."
+                      className="w-full"
+                      onSearch={(q) => setSearchQuery(q)}
+                    />
+                  </div>
+                </div>
               
               <div className="flex-1 flex justify-center">
                 <button
@@ -1139,8 +1144,8 @@ export default function Dashboard() {
             )}
 
             {/* SUBJECT CARDS - 4 CARDS PER ROW */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {subjects.map((subj) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {displayedSubjects.map((subj) => {
                 const currentPercentage = computeRawGrade(subj.components);
                 const currentGrade = percentageToGradeScale(currentPercentage);
                 const targetGrade = subj.target_grade ? parseFloat(subj.target_grade.toString()) : 0;
@@ -1167,7 +1172,7 @@ export default function Dashboard() {
                 return (
                   <div
                     key={subj.id}
-                    onClick={() => router.push(`/dashboard/subject/${subj.id}`)}
+                    onClick={() => handleSubjectClick(subj.id)}
                     className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg cursor-pointer hover:shadow-2xl border border-gray-100 transition-all duration-300 hover:scale-105 overflow-hidden"
                   >
                     {/* Color Header */}
@@ -1267,7 +1272,7 @@ export default function Dashboard() {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          router.push(`/dashboard/subject/${subj.id}`);
+                          handleSubjectClick(subj.id);
                         }}
                         className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600"
                       >
@@ -1281,7 +1286,7 @@ export default function Dashboard() {
                 );
               })}
 
-              {/* Empty State */}
+              {/* Empty State: no subjects at all */}
               {subjects.length === 0 && (
                 <div className="col-span-full text-center py-20 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
                   <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
@@ -1300,6 +1305,14 @@ export default function Dashboard() {
                     </svg>
                     Create Your First Subject
                   </button>
+                </div>
+              )}
+
+              {/* No matches for current search */}
+              {subjects.length > 0 && displayedSubjects.length === 0 && (
+                <div className="col-span-full text-center py-12 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">No subjects start with “{searchQuery.trim()[0]}”</h3>
+                  <p className="text-sm text-gray-600">Try a different letter or clear the search.</p>
                 </div>
               )}
             </div>

@@ -4,6 +4,8 @@ import { useEffect, useState, useRef, useMemo } from "react"
 import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
+import SubjectGraphModal from '@/app/components/SubjectGraphModal'
+import CongratsModal from '@/app/components/CongratsModal'
 
 /* -------------------- Types -------------------- */
 interface ItemInput {
@@ -393,6 +395,14 @@ export default function SubjectDetail() {
   const [editingItemComponentId, setEditingItemComponentId] = useState<string | null>(null)
 
   const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null)
+  
+
+  // Congrats Modal
+  const [showCongratsModal, setShowCongratsModal] = useState(false)
+
+
+  // Graph Modal
+  const [showGraphModal, setShowGraphModal] = useState(false)
 
   // AI Chat State
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -439,6 +449,22 @@ export default function SubjectDetail() {
       }
       const welcomeMessage: ChatMessage = { id: '1', role: 'assistant', content, timestamp: new Date() }
       setChatMessages([welcomeMessage])
+    }
+  }, [subject])
+
+
+
+  useEffect(() => {
+  const searchParams = new URLSearchParams(window.location.search)
+  const showGraphParam = searchParams.get('showGraph')
+  
+  if (showGraphParam === 'true' && subject) {
+    setShowGraphModal(true)
+    
+      // Clean up URL without page reload
+      const url = new URL(window.location.href)
+      url.searchParams.delete('showGraph')
+      window.history.replaceState({}, '', url.toString())
     }
   }, [subject])
 
@@ -508,8 +534,10 @@ const handleFinishSubject = async () => {
       // Set flag to refresh history from localStorage
       localStorage.setItem('shouldRefreshHistory', 'true');
       
-      console.log('🏁 Subject finished, redirecting to dashboard...');
-      router.push('/dashboard');
+      // Show congrats modal instead of immediate redirect
+      console.log('🎉 Showing congrats modal');
+      setShowCongratsModal(true);
+      
     } else {
       console.error('❌ Finish API error:', result);
       alert('Failed to finish subject: ' + (result.error || result.message || 'Unknown error'));
@@ -520,6 +548,13 @@ const handleFinishSubject = async () => {
   }
 };
 
+  // Congrats Model
+  const handleCongratsModalClose = () => {
+        setShowCongratsModal(false);
+        // Redirect to dashboard after modal closes
+        console.log('🏁 Congrats modal closed, redirecting to dashboard...');
+        router.push('/dashboard');
+      };  
   // ADDED: Units update handler
   const handleUpdateUnits = async () => {
     if (!subject?.id) return
@@ -2377,6 +2412,18 @@ const handleFinishSubject = async () => {
           </div>
         </div>
       )}
+
+      <SubjectGraphModal
+          isOpen={showGraphModal}
+          onClose={() => setShowGraphModal(false)}
+          subjectName={subject.name}
+          components={subject.components}
+          subjectColor={subject.color}
+        />
+        <CongratsModal 
+          isOpen={showCongratsModal}
+          onClose={handleCongratsModalClose}
+        />
     </div>
   )
 }
