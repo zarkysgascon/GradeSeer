@@ -3,10 +3,12 @@ import { db } from "@/lib/db";
 import { items } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 
-export async function PATCH(req: Request) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const { id } = await params;
     if (!id) {
       return NextResponse.json({ error: "Item ID is required" }, { status: 400 });
     }
@@ -49,10 +51,12 @@ export async function PATCH(req: Request) {
   }
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const { id } = await params;
     if (!id) {
       return NextResponse.json({ error: "Item ID is required" }, { status: 400 });
     }
