@@ -927,6 +927,19 @@ export default function Dashboard() {
   /* ---------------------- Save Subject ---------------------- */
   const handleSaveSubject = async () => {
     if (!user?.email || !newSubject.name.trim()) return;
+    const totalPct = newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0);
+    if (newSubject.components.length === 0) {
+      alert("Add at least one grading component.");
+      return;
+    }
+    if (totalPct > 100) {
+      alert("Total component percentage must be 100% or less.");
+      return;
+    }
+    if (!newSubject.target_grade || newSubject.target_grade === 0) {
+      alert("Select a target grade.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -1714,6 +1727,7 @@ export default function Dashboard() {
         <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
           <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
             <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
+            <h2 className="text-xl font-bold mb-4 text-center">Add Subject</h2>
             <h2 className="text-xl font-bold mb-4 text-center">Add subject</h2>
 
             {/* Subject Name */}
@@ -1883,7 +1897,13 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={handleSaveSubject}
-                  disabled={loading || !newSubject.name.trim()}
+                  disabled={
+                    loading ||
+                    !newSubject.name.trim() ||
+                    newSubject.components.length === 0 ||
+                    (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
+                    !newSubject.target_grade || newSubject.target_grade === 0
+                  }
                   className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
                 >
                   {loading ? (
