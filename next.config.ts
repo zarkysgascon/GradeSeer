@@ -3,14 +3,22 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'platform-lookaside.fbsbx.com' },
-      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      {
+        protocol: 'https',
+        hostname: 'platform-lookaside.fbsbx.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
     ],
   },
   turbopack: {
-    // Use the directory of this config file as the Turbopack root
-    // this prevents Next.js from inferring an incorrect workspace root
-    root: __dirname,
+    // Explicitly set the turbopack root to this project to avoid
+    // Next.js inferring the workspace root incorrectly when multiple
+    // lockfiles are present.
+    // Use an absolute path on Windows to satisfy Next.js requirement.
+    root: 'C:\\Users\\gsidr\\Downloads\\GradeSeer\\GradeSeer',
   },
 };
 
