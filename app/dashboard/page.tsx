@@ -1594,6 +1594,28 @@ export default function Dashboard() {
                     </select>
                   </div>
 
+                  {/* Units */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Units
+                    </label>
+                    <select
+                      value={newSubject.units}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value={1}>1 Unit</option>
+                      <option value={2}>2 Units</option>
+                      <option value={3}>3 Units</option>
+                      <option value={4}>4 Units</option>
+                      <option value={5}>5 Units</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   {/* Target Grade */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
