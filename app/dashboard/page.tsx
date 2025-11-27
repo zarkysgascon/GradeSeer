@@ -1048,31 +1048,11 @@ const fetchHistory = async () => {
 
               {/* History Table */}
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
-                {history.length === 0 && (
+                {history.length === 0 ? (
                   <div className="text-center py-16 text-gray-500">
                     <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
                       <span className="text-4xl">📚</span>
                     </div>
-<<<<<<< HEAD
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* HISTORY TAB (Placeholder) */}
-        {activeTab === "history" && (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold mb-6">Grade History</h2>
-              <div className="text-center py-8 text-gray-500">
-                <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <p className="text-lg">Grade history coming soon</p>
-                <p className="text-sm">Track your grade progress over time</p>
-=======
                     <p className="text-xl font-semibold mb-2">No history yet</p>
                     <p className="text-sm max-w-md mx-auto">Complete subjects to see your grade history here.</p>
                   </div>
@@ -1112,7 +1092,6 @@ const fetchHistory = async () => {
                     </table>
                   </div>
                 )}
->>>>>>> origin/main
               </div>
             </div>
           </div>

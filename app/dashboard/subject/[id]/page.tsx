@@ -48,13 +48,16 @@ interface ExtendedUser {
 
 /* -------------------- Helper Functions -------------------- */
 function validateDate(dateString: string): boolean {
-  if (!dateString) return true // Empty date is valid
-  
-  const date = new Date(dateString);
-  const day = date.getDate();
-  const year = date.getFullYear();
-  
-  return day >= 1 && day <= 31 && year >= 1000 && year <= 9999;
+  if (!dateString) return false
+  const m = dateString.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!m) return false
+  const year = Number(m[1])
+  const month = Number(m[2])
+  const day = Number(m[3])
+  if (String(year).length !== 4) return false
+  if (month < 1 || month > 12) return false
+  if (day < 1 || day > 31) return false
+  return true
 }
 
 /* -------------------- Grade Computation -------------------- */
@@ -2332,17 +2335,4 @@ const handleFinishSubject = async () => {
       )}
     </div>
   )
-}
-
-function validateDate(dateStr: string): boolean {
-  if (!dateStr) return false
-  const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
-  if (!m) return false
-  const year = Number(m[1])
-  const month = Number(m[2])
-  const day = Number(m[3])
-  if (String(year).length !== 4) return false
-  if (month < 1 || month > 12) return false
-  if (day < 1 || day > 31) return false
-  return true
 }
