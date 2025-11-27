@@ -38,8 +38,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen bg-white relative overflow-hidden">
-      {/* LEFT PANEL */}
+    <div className="flex min-h-screen bg-white relative overflow-hidden">
+      {/* LEFT PANEL - Hidden on mobile */}
       <div
         className="hidden md:flex w-1/2 items-center justify-center relative bg-gradient-to-br from-indigo-700 via-indigo-600 to-purple-600 overflow-visible z-20 shadow-[20px_0_80px_-10px_rgba(0,0,0,0.6)]"
       >
@@ -49,72 +49,76 @@ export default function LoginPage() {
         {/* Soft right-side highlight (adds glassy rim) */}
         <div className="absolute inset-y-0 right-0 w-[6px] bg-white/70 blur-[3px] opacity-20 rounded-full"></div>
 
-       {/* Glassy surface overlay */}
+        {/* Glassy surface overlay */}
         <div className="absolute inset-0 rounded-r-[60px] bg-gradient-to-tr from-white/20 via-transparent to-white/10 opacity-40 pointer-events-none"></div> 
 
         {/* Floating Icons */}
         <div className="absolute inset-0 opacity-70 pointer-events-none z-0">
-          <div className="absolute text-white text-[60px] animate-float-slow top-10 left-16">📘</div>
-          <div className="absolute text-white text-[65px] animate-float-fast top-16 right-20">💡</div>
-          <div className="absolute text-white text-[70px] animate-float-mid top-1/3 left-12">🧠</div>
-          <div className="absolute text-white text-[65px] animate-float-slow top-1/2 right-16">📖</div>
-          <div className="absolute text-white text-[60px] animate-float-mid bottom-1/3 left-1/3">🎓</div>
-          <div className="absolute text-white text-[75px] animate-float-fast bottom-16 right-24">📐</div>
-          <div className="absolute text-white text-[65px] animate-float-slow bottom-10 left-1/5">✏️</div>
+          <div className="absolute text-white text-[40px] sm:text-[50px] md:text-[60px] animate-float-slow top-10 left-8 md:left-16">📘</div>
+          <div className="absolute text-white text-[45px] sm:text-[55px] md:text-[65px] animate-float-fast top-16 right-10 md:right-20">💡</div>
+          <div className="absolute text-white text-[50px] sm:text-[60px] md:text-[70px] animate-float-mid top-1/3 left-6 md:left-12">🧠</div>
+          <div className="absolute text-white text-[45px] sm:text-[55px] md:text-[65px] animate-float-slow top-1/2 right-8 md:right-16">📖</div>
+          <div className="absolute text-white text-[40px] sm:text-[50px] md:text-[60px] animate-float-mid bottom-1/3 left-1/4 md:left-1/3">🎓</div>
+          <div className="absolute text-white text-[55px] sm:text-[65px] md:text-[75px] animate-float-fast bottom-16 right-14 md:right-24">📐</div>
+          <div className="absolute text-white text-[45px] sm:text-[55px] md:text-[65px] animate-float-slow bottom-10 left-1/6 md:left-1/5">✏️</div>
         </div>
 
         {/* Logo and text */}
-        <div className="text-white text-center px-8 z-10 drop-shadow-lg">
-          <h1 className="text-5xl font-bold mb-3">Welcome to GradeSeer</h1>
-          <p className="text-lg opacity-90 max-w-md mx-auto">
+        <div className="text-white text-center px-6 md:px-8 z-10 drop-shadow-lg">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-3">Welcome to GradeSeer</h1>
+          <p className="text-base md:text-lg opacity-90 max-w-xs md:max-w-md mx-auto">
             AI-powered academic insights — know your grades before they arrive.
           </p>
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
-      <div className="flex w-full md:w-1/2 items-center justify-center bg-white relative z-10">
-        <div className="z-10 bg-white rounded-2xl shadow-xl p-10 w-full max-w-md mx-4">
+      {/* RIGHT PANEL - Full width on mobile */}
+      <div className="flex w-full md:w-1/2 items-center justify-center bg-white relative z-10 py-8 md:py-0">
+        <div className="z-10 bg-white rounded-xl md:rounded-2xl shadow-lg md:shadow-xl p-6 sm:p-8 md:p-10 w-full max-w-md mx-4">
           {/* Logo */}
           <div className="flex flex-col items-center mb-6">
             <Image
               src="/gslogo.png"
               alt="GradeSeer Logo"
-              width={80}
-              height={80}
-              className="mb-2"
+              width={60}
+              height={60}
+              className="mb-2 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16"
             />
-            <h1 className="text-2xl font-bold text-gray-800">GradeSeer</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">GradeSeer</h1>
           </div>
 
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-700 mb-4 text-center sm:text-left">
             Sign in to continue
           </h2>
 
           <form onSubmit={handleCredentialsLogin} className="space-y-4">
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border border-gray-300 p-3 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              required
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="border border-gray-300 p-3 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              required
-            />
+            <div>
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="border border-gray-300 p-3 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
+                required
+              />
+            </div>
+            <div>
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="border border-gray-300 p-3 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
+                required
+              />
+            </div>
 
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-500 text-sm mt-2 text-center sm:text-left">{error}</p>}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-md hover:bg-indigo-700 transition"
+              className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-md hover:bg-indigo-700 transition disabled:opacity-70 text-sm sm:text-base"
             >
               {loading ? "Signing In..." : "Sign In"}
             </button>
@@ -122,28 +126,30 @@ export default function LoginPage() {
 
           <div className="flex items-center justify-center my-6">
             <div className="border-t border-gray-300 flex-grow"></div>
-            <span className="text-gray-400 px-3 text-sm">or</span>
+            <span className="text-gray-400 px-3 text-xs sm:text-sm">or</span>
             <div className="border-t border-gray-300 flex-grow"></div>
           </div>
 
           <div className="space-y-3">
             <button
               onClick={() => handleOAuthLogin("google")}
-              className="flex items-center justify-center w-full bg-gradient-to-r from-[#4285F4] via-[#34A853] to-[#FBBC05] text-white font-semibold py-3 rounded-md shadow-md hover:opacity-90 transition"
+              disabled={loading}
+              className="flex items-center justify-center w-full bg-gradient-to-r from-[#4285F4] via-[#34A853] to-[#FBBC05] text-white font-semibold py-3 rounded-md shadow-md hover:opacity-90 transition disabled:opacity-70 text-sm sm:text-base"
             >
               Continue with Google
             </button>
 
             <button
               onClick={() => handleOAuthLogin("facebook")}
-              className="flex items-center justify-center w-full bg-gradient-to-r from-[#1877F2] to-[#4E69A2] text-white font-semibold py-3 rounded-md shadow-md hover:opacity-90 transition"
+              disabled={loading}
+              className="flex items-center justify-center w-full bg-gradient-to-r from-[#1877F2] to-[#4E69A2] text-white font-semibold py-3 rounded-md shadow-md hover:opacity-90 transition disabled:opacity-70 text-sm sm:text-base"
             >
               Continue with Facebook
             </button>
           </div>
 
-          <p className="text-gray-500 text-sm mt-6 text-center">
-            Don’t have an account?{" "}
+          <p className="text-gray-500 text-xs sm:text-sm mt-6 text-center">
+            Don't have an account?{" "}
             <a
               href="/signup"
               className="text-indigo-600 font-semibold hover:underline"
