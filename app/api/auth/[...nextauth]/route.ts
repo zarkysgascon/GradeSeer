@@ -1,4 +1,4 @@
-import NextAuth, { AuthOptions } from "next-auth";
+import NextAuth, { AuthOptions, DefaultSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import FacebookProvider from "next-auth/providers/facebook";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -6,6 +6,25 @@ import { db } from "@/lib/drizzle";
 import { users } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+
+// Add this type declaration at the top of the file
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    id: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+  }
+}
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -30,10 +49,17 @@ export const authOptions: AuthOptions = {
         if (result.length === 0) return null;
 
         const user = result[0];
-        const isValid = await bcrypt.compare(credentials.password, user.password ?? "");
+        
+        if (!user.password) return null;
+        
+        const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) return null;
 
-        return { id: user.id, name: user.name, email: user.email };
+        return { 
+          id: user.id.toString(),
+          name: user.name, 
+          email: user.email 
+        };
       },
     }),
   ],
@@ -42,7 +68,6 @@ export const authOptions: AuthOptions = {
   },
   callbacks: {
     async signIn({ user, account }) {
-      // Create user in DB if signing in via Google/Facebook
       if (account?.provider === "google" || account?.provider === "facebook") {
         const existing = await db.select().from(users).where(eq(users.email, user.email!));
         if (existing.length === 0) {
@@ -58,11 +83,11 @@ export const authOptions: AuthOptions = {
       return true;
     },
     async session({ session, token }) {
-      if (token?.sub && session?.user) session.user.id = token.sub;
+      if (token?.id && session?.user) session.user.id = token.id;
       return session;
     },
     async jwt({ token, user }) {
-      if (user) token.sub = user.id;
+      if (user) token.id = user.id;
       return token;
     },
   },
