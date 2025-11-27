@@ -1714,7 +1714,7 @@ export default function Dashboard() {
         <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
           <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
             <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
-            <h2 className="text-xl font-bold mb-4 text-center">Add  t</h2>
+            <h2 className="text-xl font-bold mb-4 text-center">Add subject</h2>
 
             {/* Subject Name */}
             <input
