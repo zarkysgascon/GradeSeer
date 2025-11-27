@@ -38,6 +38,18 @@ interface Subject {
   color: string;
   components: ComponentInput[];
   items?: ItemInput[];
+  units?: number;
+}
+
+interface HistoryRecord {
+  id: string;
+  subject_id: string;
+  user_email: string;
+  course_name: string;
+  target_grade: string;
+  final_grade: string;
+  status: 'reached' | 'missed';
+  completed_at: string;
 }
 
 interface ExtendedUser {
@@ -59,14 +71,6 @@ interface Notification {
   createdAt: string;
 }
 
-interface HistoryEntry {
-  id: string;
-  subjectName: string;
-  rawGrade: number;
-  targetGrade: number;
-  completedAt: string;
-}
-
 /* ------------------------- Calculations ------------------------- */
 function computeRawGrade(components: ComponentInput[]) {
   if (!components || components.length === 0) return 0;
@@ -78,7 +82,6 @@ function computeRawGrade(components: ComponentInput[]) {
     const componentGrade = computeComponentGrade(component);
     const weight = component.percentage / 100;
     
-    // Only add to total if the component has items with scores
     if (component.items && component.items.length > 0) {
       const hasScores = component.items.some(item => 
         item.score !== null && item.score !== undefined
@@ -91,7 +94,6 @@ function computeRawGrade(components: ComponentInput[]) {
     }
   });
 
-  // If no components have scores yet, return 0
   if (totalWeight === 0) return 0;
   
   return Number(totalWeightedGrade.toFixed(2));
@@ -119,7 +121,6 @@ function computeComponentGrade(component: ComponentInput): number {
   return Number(percentage.toFixed(2));
 }
 
-// FIXED: Completion progress based on items with scores
 function computeCompletionProgress(subject: Subject): number {
   if (!subject.components || subject.components.length === 0) return 0;
   
@@ -130,7 +131,6 @@ function computeCompletionProgress(subject: Subject): number {
     if (component.items && component.items.length > 0) {
       component.items.forEach((item) => {
         totalItems++;
-        // Count as completed if item has a score
         if (item.score !== null && item.score !== undefined) {
           completedItems++;
         }
@@ -142,7 +142,7 @@ function computeCompletionProgress(subject: Subject): number {
   return progress;
 }
 
-// Convert percentage grade to Philippine transmuted grade (1.0-5.0 scale)
+// Philippine Grading System: 1.00 (Highest) to 5.00 (Lowest), 3.00+ is failing
 function percentageToGradeScale(percentage: number): number {
   if (percentage >= 97) return 1.0;
   if (percentage >= 94) return 1.25;
@@ -152,9 +152,17 @@ function percentageToGradeScale(percentage: number): number {
   if (percentage >= 82) return 2.25;
   if (percentage >= 79) return 2.5;
   if (percentage >= 76) return 2.75;
-  if (percentage >= 75) return 3.0;
-  if (percentage >= 72) return 4.0;
-  return 5.0;
+  if (percentage >= 75) return 3.0;  // Passing grade
+  if (percentage >= 72) return 4.0;  // Conditional failure
+  return 5.0; // Failure
+}
+
+function getGradeStatus(grade: number): { status: string; color: string; bgColor: string } {
+  if (grade <= 1.75) return { status: "Excellent", color: "text-green-600", bgColor: "bg-green-100" };
+  if (grade <= 2.50) return { status: "Very Good", color: "text-blue-600", bgColor: "bg-blue-100" };
+  if (grade <= 3.00) return { status: "Passing", color: "text-yellow-600", bgColor: "bg-yellow-100" };
+  if (grade <= 4.00) return { status: "Conditional", color: "text-orange-600", bgColor: "bg-orange-100" };
+  return { status: "Failed", color: "text-red-600", bgColor: "bg-red-100" };
 }
 
 /* ---------------------- Utility Functions ---------------------- */
@@ -172,7 +180,6 @@ const predefinedColors = [
 
 const BackgroundImage = () => (
   <div className="fixed inset-0 -z-10 overflow-hidden">
-    {/* Gradient background */}
     <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-400"></div>
     
     {/* Single floating image */}
@@ -351,6 +358,278 @@ const NumberInput = ({
   );
 };
 
+/* ---------------------- GPA Calculator Modal ---------------------- */
+const GPACalculatorModal = ({ 
+  isOpen, 
+  onClose, 
+  subjects,
+  selectedSubjects,
+  onAddSubject,
+  onRemoveSubject,
+  onCalculate,
+  onReset,
+  gpaResult 
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  subjects: Subject[];
+  selectedSubjects: Subject[];
+  onAddSubject: (subject: Subject) => void;
+  onRemoveSubject: (subjectId: string) => void;
+  onCalculate: () => void;
+  onReset: () => void;
+  gpaResult: { gpa: number; totalWeightedScore: number; totalUnits: number } | null;
+}) => {
+  if (!isOpen) return null;
+
+  const availableSubjects = subjects.filter(subject => 
+    !selectedSubjects.find(s => s.id === subject.id)
+  );
+
+  return (
+    <div className="fixed inset-0 flex justify-center items-center bg-black/60 backdrop-blur-sm z-50 p-4">
+      <div 
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden border border-gray-200 animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">GPA Calculator</h2>
+                <p className="text-blue-100 text-sm">Calculate your General Weighted Average (GWA)</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-6 max-h-[calc(90vh-80px)] overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Available Subjects */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800">Available Subjects</h3>
+              <p className="text-sm text-gray-600">Drag or click subjects to add them to calculation</p>
+              
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 min-h-[200px] max-h-[300px] overflow-y-auto">
+                {availableSubjects.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <p>No subjects available</p>
+                    <p className="text-sm">All subjects are already selected</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {availableSubjects.map(subject => {
+                      const currentPercentage = computeRawGrade(subject.components);
+                      const currentGrade = percentageToGradeScale(currentPercentage);
+                      const gradeStatus = getGradeStatus(currentGrade);
+                      
+                      return (
+                        <div
+                          key={subject.id}
+                          onClick={() => onAddSubject(subject)}
+                          className="p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all duration-200 group"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-gray-900 group-hover:text-blue-600 truncate">
+                                {subject.name}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeStatus.bgColor} ${gradeStatus.color}`}>
+                                  {currentGrade.toFixed(2)} - {gradeStatus.status}
+                                </span>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                  {subject.units || 3} units
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-gray-900">
+                                {currentPercentage.toFixed(1)}%
+                              </div>
+                              <button className="text-blue-600 hover:text-blue-700 p-1 rounded transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Selected Subjects & Calculation */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-800">Selected Subjects</h3>
+                <span className="text-sm text-gray-500">
+                  {selectedSubjects.length} subject{selectedSubjects.length !== 1 ? 's' : ''} selected
+                </span>
+              </div>
+              
+              <div className="border-2 border-gray-200 rounded-lg p-4 min-h-[200px] max-h-[300px] overflow-y-auto">
+                {selectedSubjects.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p>No subjects selected</p>
+                    <p className="text-sm">Add subjects from the left panel</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedSubjects.map(subject => {
+                      const currentPercentage = computeRawGrade(subject.components);
+                      const currentGrade = percentageToGradeScale(currentPercentage);
+                      const gradeStatus = getGradeStatus(currentGrade);
+                      const weightedScore = currentGrade * (subject.units || 3);
+                      
+                      return (
+                        <div
+                          key={subject.id}
+                          className="p-3 border border-gray-200 rounded-lg bg-gray-50"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-gray-900">{subject.name}</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeStatus.bgColor} ${gradeStatus.color}`}>
+                                  Grade: {currentGrade.toFixed(2)}
+                                </span>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                  Units: {subject.units || 3}
+                                </span>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  Weighted: {weightedScore.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => onRemoveSubject(subject.id)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded transition-colors ml-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Calculation Results */}
+              {gpaResult && (
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-3">GPA Calculation Result</h4>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-green-600">{gpaResult.gpa.toFixed(2)}</div>
+                      <div className="text-xs text-gray-600">GWA/GPA</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-blue-600">{gpaResult.totalWeightedScore}</div>
+                      <div className="text-xs text-gray-600">Total Weighted</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-purple-600">{gpaResult.totalUnits}</div>
+                      <div className="text-xs text-gray-600">Total Units</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 p-3 bg-white rounded border">
+                    <div className="text-sm text-gray-700">
+                      <strong>Formula:</strong> GPA = Σ(Grade × Units) ÷ Σ(Units)
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      <strong>Calculation:</strong> {gpaResult.totalWeightedScore} ÷ {gpaResult.totalUnits} = {gpaResult.gpa.toFixed(2)}
+                    </div>
+                    <div className={`mt-2 text-sm font-medium ${
+                      gpaResult.gpa <= 1.75 ? 'text-green-600' :
+                      gpaResult.gpa <= 2.50 ? 'text-blue-600' :
+                      gpaResult.gpa <= 3.00 ? 'text-yellow-600' :
+                      gpaResult.gpa <= 4.00 ? 'text-orange-600' : 'text-red-600'
+                    }`}>
+                      Status: {getGradeStatus(gpaResult.gpa).status}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={onReset}
+                  disabled={selectedSubjects.length === 0}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={onCalculate}
+                  disabled={selectedSubjects.length === 0}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Calculate GPA
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Philippine Grading System Legend */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <h4 className="font-semibold text-gray-800 mb-3">Philippine Grading System</h4>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+              <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span>1.00-1.75: Excellent</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span>1.76-2.50: Very Good</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <span>2.51-3.00: Passing</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-orange-50 rounded">
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <span>3.01-4.00: Conditional</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-red-50 rounded">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <span>4.01-5.00: Failed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ---------------------- Dashboard Component ---------------------- */
 export default function Dashboard() { 
   const { data: session, status } = useSession();
@@ -360,69 +639,114 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
+
+  // GPA Calculator States
+  const [showGPAModal, setShowGPAModal] = useState(false);
+  const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);
+  const [gpaResult, setGpaResult] = useState<{ gpa: number; totalWeightedScore: number; totalUnits: number } | null>(null);
 
   const user = session?.user as ExtendedUser | undefined;
 
-  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : null;
+  /* ---------------------- GPA Calculator Functions ---------------------- */
+  const calculateGPA = (subjects: Subject[]) => {
+    let totalWeightedScore = 0;
+    let totalUnits = 0;
+    
+    subjects.forEach(subject => {
+      const currentPercentage = computeRawGrade(subject.components);
+      const currentGrade = percentageToGradeScale(currentPercentage);
+      const units = subject.units || 3;
+      
+      totalWeightedScore += currentGrade * units;
+      totalUnits += units;
+    });
+    
+    const gpa = totalUnits > 0 ? totalWeightedScore / totalUnits : 0;
+    
+    return {
+      gpa: Number(gpa.toFixed(2)),
+      totalWeightedScore: Number(totalWeightedScore.toFixed(2)),
+      totalUnits
+    };
+  };
 
-  /* ---------------------- Test Email Function ---------------------- */
-  const sendTestEmail = async () => {
+  const handleAddSubject = (subject: Subject) => {
+    if (!selectedSubjects.find(s => s.id === subject.id)) {
+      setSelectedSubjects(prev => [...prev, subject]);
+    }
+  };
+
+  const handleRemoveSubject = (subjectId: string) => {
+    setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
+  };
+
+  const handleCalculateGPA = () => {
+    const result = calculateGPA(selectedSubjects);
+    setGpaResult(result);
+  };
+
+  const handleResetCalculator = () => {
+    setSelectedSubjects([]);
+    setGpaResult(null);
+  };
+
+  const handleOpenGPAModal = () => {
+    setShowGPAModal(true);
+    setSelectedSubjects([]);
+    setGpaResult(null);
+  };
+
+  /* ---------------------- Fetch History ---------------------- */
+  const fetchHistory = async () => {
     if (!user?.email) {
-      alert('Please log in to test email');
+      console.log('❌ No user email available for fetching history');
       return;
     }
 
     try {
-      const res = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: user.email,
-          subject: 'GradeSeer Test Email',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
-                <h1 style="margin: 0; font-size: 24px;">GradeSeer</h1>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Test Email Successful! 🎉</p>
-              </div>
-              <div style="padding: 30px; background: #f8f9fa;">
-                <h2 style="color: #333; margin-bottom: 20px;">Email System Working</h2>
-                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                  <p style="color: #666; line-height: 1.6;">Congratulations! Your email system is working correctly.</p>
-                  <p style="color: #666; line-height: 1.6;">You will receive notifications for:</p>
-                  <ul style="color: #666; line-height: 1.6;">
-                    <li>Upcoming quizzes and assignments</li>
-                    <li>Exam reminders</li>
-                    <li>Grade updates</li>
-                    <li>Important announcements</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          `
-        }),
-      });
-
-      const result = await res.json();
+      console.log('🔄 Fetching history for:', user.email);
       
-      if (result.success) {
-        if (result.service === 'development') {
-          alert('Development mode: Email simulation successful! Check browser console for details.');
-        } else {
-          alert('Test email sent successfully! Check your inbox.');
+      // First try API
+      const res = await fetch(`/api/subjects/history?email=${encodeURIComponent(user.email)}`);
+      
+      if (res.ok) {
+        const apiHistory = await res.json();
+        console.log('🌐 API history data:', apiHistory.length, 'records');
+        
+        if (apiHistory.length > 0) {
+          setHistory(apiHistory);
+          // Also update localStorage as backup
+          const localHistoryKey = `user_history_${user.email}`;
+          localStorage.setItem(localHistoryKey, JSON.stringify(apiHistory));
+          return;
         }
-      } else {
-        alert('Failed to send test email: ' + (result.message || 'Unknown error'));
       }
+      
+      // If API fails or returns empty, try localStorage
+      console.log('🌐 API returned empty or failed, trying localStorage...');
+      const localHistoryKey = `user_history_${user.email}`;
+      const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
+      
+      if (localHistory.length > 0) {
+        console.log('📱 Using local history data:', localHistory.length, 'records');
+        setHistory(localHistory);
+      } else {
+        console.log('💡 No history data found anywhere');
+        setHistory([]);
+      }
+      
     } catch (err) {
-      console.error('Error sending test email:', err);
-      alert('Error sending test email');
+      console.error("💥 Error fetching history:", err);
+      // Final fallback to local storage
+      const localHistoryKey = `user_history_${user.email}`;
+      const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
+      setHistory(localHistory);
     }
   };
 
@@ -448,29 +772,23 @@ export default function Dashboard() {
     if (!user?.email) return;
 
     try {
-      const res = await fetch(`/api/items/upcoming?email=${encodeURIComponent(user.email!)}`);
+      console.log('🔄 Fetching upcoming items for:', user.email);
+      const res = await fetch(`/api/items/upcoming?email=${encodeURIComponent(user.email)}`);
+      
       if (res.ok) {
         const data = await res.json();
+        console.log('✅ Upcoming items data:', data);
         setUpcomingItems(data);
+      } else {
+        console.error('❌ Failed to fetch upcoming items:', res.status);
+        const errorText = await res.text();
+        console.error('Error details:', errorText);
       }
     } catch (err) {
-      console.error("Error fetching upcoming items:", err);
+      console.error("💥 Error fetching upcoming items:", err);
     }
   };
 
-  useEffect(() => {
-    if (!user?.email || subjects.length === 0) return;
-
-    fetchUpcomingItems();
-    
-    const interval = setInterval(() => {
-      fetchUpcomingItems();
-    }, 30 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [subjects, user?.email]);
-
-  // Add real-time updates
   useEffect(() => {
     if (!user?.email) return;
 
@@ -482,6 +800,22 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [user?.email]);
 
+  /* ---------------------- Fetch History when tab is active ---------------------- */
+  useEffect(() => {
+    if (activeTab === "history" && user?.email) {
+      console.log('📊 History tab activated, fetching history...');
+      
+      // Check if we need to refresh after finishing a subject
+      const shouldRefresh = localStorage.getItem('shouldRefreshHistory');
+      if (shouldRefresh === 'true') {
+        console.log('🔄 Auto-refreshing history after subject completion');
+        localStorage.removeItem('shouldRefreshHistory');
+      }
+      
+      fetchHistory();
+    }
+  }, [activeTab, user?.email]);
+
   /* ---------------------- Modal States ---------------------- */
   const [newSubject, setNewSubject] = useState({
     name: "",
@@ -489,6 +823,7 @@ export default function Dashboard() {
     target_grade: 0,
     color: generateColor(),
     components: [] as ComponentInput[],
+    units: 3,
   });
 
   const [newComponent, setNewComponent] = useState<ComponentInput>({
@@ -516,6 +851,7 @@ export default function Dashboard() {
             id: s.id || s._id,
             components: s.components || [],
             color: s.color || generateColor(),
+            units: s.units || 3,
           }));
           setSubjects(mapped);
         } else {
@@ -528,42 +864,6 @@ export default function Dashboard() {
 
     fetchSubjects();
   }, [status, user?.email]);
-
-  /* ---------------------- Fetch History ---------------------- */
-  const fetchHistory = useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (!historyStorageKey) {
-      setHistoryEntries([]);
-      return;
-    }
-    try {
-      const stored = localStorage.getItem(historyStorageKey);
-      const parsed = stored ? JSON.parse(stored) : [];
-      setHistoryEntries(
-        (Array.isArray(parsed) ? parsed : []).map((entry: any, idx: number) => ({
-          id: entry.id ?? `${idx}-${entry.subjectName ?? "subject"}`,
-          subjectName: entry.subjectName ?? "Unnamed Subject",
-          rawGrade: Number(entry.rawGrade ?? 0),
-          targetGrade: Number(entry.targetGrade ?? 0),
-          completedAt: entry.completedAt ?? new Date().toISOString(),
-        }))
-      );
-    } catch (err) {
-      console.error("Error loading history:", err);
-      setHistoryEntries([]);
-    }
-  }, [historyStorageKey]);
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handler = () => fetchHistory();
-    window.addEventListener("history-updated", handler);
-    return () => window.removeEventListener("history-updated", handler);
-  }, [fetchHistory]);
 
   /* ---------------------- Add/Update Component ---------------------- */
   const handleAddOrUpdateComponent = () => {
@@ -612,6 +912,7 @@ export default function Dashboard() {
           color: newSubject.color,
           components: newSubject.components,
           user_email: user.email,
+          units: newSubject.units || 3,
         }),
       });
 
@@ -619,10 +920,7 @@ export default function Dashboard() {
         const result = await res.json();
         console.log('Subject created:', result);
         
-        // Show success message
         setShowSuccess(true);
-        
-        // Reset form
         setShowModal(false);
         setNewSubject({
           name: "",
@@ -630,10 +928,24 @@ export default function Dashboard() {
           target_grade: 0,
           color: generateColor(),
           components: [],
+          units: 3,
         });
         
-        // Hide success message after 3 seconds
         setTimeout(() => setShowSuccess(false), 3000);
+        
+        // Refresh subjects list
+        const refreshRes = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          const mapped: Subject[] = data.map((s: any) => ({
+            ...s,
+            id: s.id || s._id,
+            components: s.components || [],
+            color: s.color || generateColor(),
+            units: s.units || 3,
+          }));
+          setSubjects(mapped);
+        }
         
         await fetchUpcomingItems();
       } else {
@@ -659,6 +971,8 @@ export default function Dashboard() {
 
       if (res.ok) {
         setSubjects(subjects.filter(s => s.id !== subjectId));
+        // Refresh upcoming items after deletion
+        await fetchUpcomingItems();
       } else {
         alert('Failed to delete subject');
       }
@@ -671,13 +985,13 @@ export default function Dashboard() {
   /* ---------------------- Handle Modal Close ---------------------- */
   const handleModalClose = () => {
     setShowModal(false);
-    // Reset form when closing
     setNewSubject({
       name: "",
       is_major: false,
       target_grade: 0,
       color: generateColor(),
       components: [],
+      units: 3,
     });
     setNewComponent({
       name: "",
@@ -688,6 +1002,16 @@ export default function Dashboard() {
 
   if (status === "loading")
     return <div className="flex justify-center items-center h-screen text-lg">Loading...</div>;
+
+  /* ---------------------- Format Date ---------------------- */
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   /* ---------------------- UI Return ---------------------- */
   return (
@@ -749,30 +1073,46 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* MAIN - MADE SCROLLABLE */}
+      {/* MAIN CONTENT */}
       <main className="p-6 relative z-10 overflow-y-auto">
         {/* SUBJECTS TAB */}
         {activeTab === "subjects" && (
           <div className="max-w-7xl mx-auto">
             {/* Header Section */}
             <div className="flex justify-between items-center mb-8">
-              <div>
+              <div className="flex-1 flex justify-center">
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   My Subjects
                 </h1>
-                <p className="text-gray-600 mt-2">Track and manage your academic progress</p>
               </div>
-              <button
-                onClick={() => setShowModal(true)}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
-              >
-                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-                Add New Subject
-              </button>
+              
+              <div className="flex-1 flex justify-center">
+                <button
+                  onClick={handleOpenGPAModal}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                >
+                  <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  Calculate GPA
+                </button>
+              </div>
+
+              <div className="flex-1 flex justify-end">
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                >
+                  <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  Add New Subject
+                </button>
+              </div>
             </div>
 
             {/* Stats Overview */}
@@ -837,6 +1177,7 @@ export default function Dashboard() {
                 const completionProgress = computeCompletionProgress(subj);
                 const belowTarget = currentGrade > targetGrade;
                 const gradeDifference = currentGrade - targetGrade;
+                const gradeStatus = getGradeStatus(currentGrade);
 
                 // Calculate item counts for completion
                 let totalItems = 0;
@@ -880,6 +1221,9 @@ export default function Dashboard() {
                             }`}>
                               {subj.is_major ? 'Major' : 'Minor'}
                             </span>
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {subj.units || 3} units
+                            </span>
                             {belowTarget && (
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                 Needs Attention
@@ -904,9 +1248,7 @@ export default function Dashboard() {
                       <div className="flex justify-between items-center mb-4 p-3 bg-gray-50 rounded-xl">
                         <div className="text-center">
                           <p className="text-xs text-gray-600 font-medium">Raw</p>
-                          <p className={`text-lg font-bold ${
-                            belowTarget ? 'text-red-600' : 'text-green-600'
-                          }`}>
+                          <p className={`text-lg font-bold ${gradeStatus.color}`}>
                             {currentGrade.toFixed(2)}
                           </p>
                         </div>
@@ -999,13 +1341,17 @@ export default function Dashboard() {
           <div className="max-w-6xl mx-auto">
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Pending Items</h2>
+                <div>
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Pending Items
+                  </h2>
+                  <p className="text-gray-600 mt-2">
+                    Items that need your attention - add scores to complete them
+                  </p>
+                </div>
                 <div className="flex gap-3">
                   <button
-                    onClick={async () => {
-                      await fetchUpcomingItems();
-                      alert('Refreshed!');
-                    }}
+                    onClick={fetchUpcomingItems}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1016,66 +1362,111 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Pending Items List */}
-              <div>
+              {/* Pending Items Content */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
                 {upcomingItems.length === 0 ? (
-                  <div className="text-center py-16 text-gray-500 bg-gray-50/80 rounded-2xl">
+                  // Empty State - No Pending Items
+                  <div className="text-center py-16 text-gray-500">
                     <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
-                      <span className="text-4xl">📅</span>
+                      <span className="text-4xl">✅</span>
                     </div>
-                    <p className="text-xl font-semibold mb-2">No pending items</p>
-                    <p className="text-sm max-w-md mx-auto">All caught up! Add new items with due dates to see them here.</p>
+                    <p className="text-xl font-semibold mb-2">No pending items!</p>
+                    <p className="text-sm max-w-md mx-auto mb-6">
+                      Great job! You've scored all your items. 
+                      Add new items to your subjects or create new subjects to see them here.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={() => setShowModal(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-medium flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add New Subject
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("subjects")}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-medium flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        View Subjects
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  // Pending Items List
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto p-4">
                     {upcomingItems.map((item, index) => (
                       <div
                         key={item.id || index}
-                        className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm"
+                        className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm group"
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-4">
-                              <h4 className="font-semibold text-xl text-gray-900">{item.name}</h4>
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                                {item.componentName || 'Component'}
+                            <div className="flex items-center gap-3 mb-3">
+                              <h4 className="font-semibold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">
+                                {item.name}
+                              </h4>
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                ⏳ Pending
                               </span>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
-                              <div>
-                                <span className="font-medium">Subject:</span> {item.subjectName}
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                </svg>
+                                <span><strong>Subject:</strong> {item.subjectName || 'Unknown'}</span>
                               </div>
-                              <div>
-                                <span className="font-medium">Topic:</span> {item.topic || '—'}
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span><strong>Component:</strong> {item.componentName || 'Unknown'}</span>
                               </div>
-                              <div>
-                                <span className="font-medium">Due Date:</span>{' '}
-                                {item.date ? new Date(item.date).toLocaleDateString() : 'No date'}
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span><strong>Due Date:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'No date'}</span>
                               </div>
-                              <div>
-                                <span className="font-medium">Status:</span>{' '}
-                                <span className={`px-2 py-1 rounded-full text-xs ${
-                                  item.score !== null && item.score !== undefined 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {item.score !== null && item.score !== undefined ? 'Completed' : 'Pending'}
-                                </span>
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span><strong>Topic:</strong> {item.topic || '—'}</span>
                               </div>
                             </div>
-                            {item.score !== null && item.max !== null && (
-                              <div className="mt-3">
-                                <span className="font-medium text-gray-700">Score: </span>
-                                <span className="text-lg font-semibold text-blue-600">
-                                  {item.score}/{item.max}
+
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Score:</span>
+                                <span className="px-2 py-1 bg-gray-100 rounded text-gray-600">
+                                  {item.score !== null && item.score !== undefined ? item.score : '—'} / {item.max !== null && item.max !== undefined ? item.max : '—'}
                                 </span>
                               </div>
-                            )}
+                              {item.score === null || item.score === undefined ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  Needs Scoring
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Completed
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <button
                             onClick={() => item.subjectId && router.push(`/dashboard/subject/${item.subjectId}`)}
-                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm"
+                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm flex items-center gap-2"
                           >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
                             View Subject
                           </button>
                         </div>
@@ -1086,64 +1477,98 @@ export default function Dashboard() {
               </div>
 
               {/* Stats Row */}
-              <div className="grid grid-cols-3 gap-6 mt-8 pt-8 border-t border-gray-200">
-                <div className="text-center p-6 bg-blue-50/80 rounded-2xl backdrop-blur-sm">
-                  <div className="text-3xl font-bold text-blue-600">{upcomingItems.length}</div>
-                  <div className="text-sm text-gray-600 font-medium">Total Items</div>
-                </div>
-                <div className="text-center p-6 bg-yellow-50/80 rounded-2xl backdrop-blur-sm">
-                  <div className="text-3xl font-bold text-yellow-600">
-                    {upcomingItems.filter(item => item.score === null || item.score === undefined).length}
+              {upcomingItems.length > 0 && (
+                <div className="grid grid-cols-3 gap-6 mt-8 pt-8 border-t border-gray-200">
+                  <div className="text-center p-6 bg-blue-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-blue-600">{upcomingItems.length}</div>
+                    <div className="text-sm text-gray-600 font-medium">Total Items</div>
                   </div>
-                  <div className="text-sm text-gray-600 font-medium">Pending</div>
-                </div>
-                <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
-                  <div className="text-3xl font-bold text-green-600">
-                    {upcomingItems.filter(item => item.score !== null && item.score !== undefined).length}
+                  <div className="text-center p-6 bg-yellow-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-yellow-600">
+                      {upcomingItems.filter(item => item.score === null || item.score === undefined).length}
+                    </div>
+                    <div className="text-sm text-gray-600 font-medium">Pending</div>
                   </div>
-                  <div className="text-sm text-gray-600 font-medium">Completed</div>
+                  <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-green-600">
+                      {upcomingItems.filter(item => item.score !== null && item.score !== undefined).length}
+                    </div>
+                    <div className="text-sm text-gray-600 font-medium">Completed</div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
 
         {/* HISTORY TAB */}
         {activeTab === "history" && (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold mb-6">Grade History</h2>
-              {historyEntries.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="text-lg">No completed courses yet</p>
-                  <p className="text-sm">Use “Finish course” inside a subject to log it here.</p>
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Grade History
+                </h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={fetchHistory}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-gray-500 uppercase text-xs border-b">
-                        <th className="py-2 pr-4">Subject</th>
-                        <th className="py-2 pr-4">Target Grade</th>
-                        <th className="py-2 pr-4">Raw Grade</th>
-                        <th className="py-2">Finished</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historyEntries.map((entry) => (
-                        <tr key={entry.id} className="border-b last:border-b-0">
-                          <td className="py-3 pr-4 font-medium text-gray-900">{entry.subjectName}</td>
-                          <td className="py-3 pr-4">{entry.targetGrade.toFixed(2)}</td>
-                          <td className="py-3 pr-4">{entry.rawGrade.toFixed(2)}%</td>
-                          <td className="py-3 text-gray-600">
-                            {new Date(entry.completedAt).toLocaleDateString()}
-                          </td>
+              </div>
+
+              {/* History Table */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
+                {history.length === 0 ? (
+                  <div className="text-center py-16 text-gray-500">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
+                      <span className="text-4xl">📚</span>
+                    </div>
+                    <p className="text-xl font-semibold mb-2">No history yet</p>
+                    <p className="text-sm max-w-md mx-auto">Complete subjects to see your grade history here.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50/80 border-b border-gray-200">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Course</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Target Grade</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Final Grade</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Completed</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {history.map((record) => (
+                          <tr key={record.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{record.course_name}</td>
+                            <td className="px-6 py-4 text-sm text-gray-600">{record.target_grade}</td>
+                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">{record.final_grade}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                record.status === 'reached' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {record.status === 'reached' ? 'Target Reached' : 'Target Missed'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {formatDate(record.completed_at)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1178,69 +1603,99 @@ export default function Dashboard() {
               <option value="minor">Minor</option>
             </select>
 
-            {/* Target Grade */}
-            <select
-              value={newSubject.target_grade}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
-              }
-              className="w-full p-2 border rounded mb-3"
-            >
-              <option value={0}>Select Target Grade</option>
-              <option value={1.00}>1.00 - Excellent</option>
-              <option value={1.25}>1.25 - Superior</option>
-              <option value={1.50}>1.50 - Very Good</option>
-              <option value={1.75}>1.75 - Good</option>
-              <option value={2.00}>2.00 - Satisfactory</option>
-              <option value={2.25}>2.25 - Fairly Satisfactory</option>
-              <option value={2.50}>2.50 - Fair</option>
-              <option value={2.75}>2.75 - Passable</option>
-              <option value={3.00}>3.00 - Passing</option>
-            </select>
-
-            {/* Components */}
-            <h3 className="font-bold mb-1">Components</h3>
-            <div className="border rounded p-2 max-h-40 overflow-y-auto mb-4">
-              {newSubject.components.length === 0 && (
-                <p className="text-gray-400 text-center text-sm">No components yet</p>
-              )}
-
-              {newSubject.components.map((c, i) => (
-                <div key={i} className="flex gap-2 mb-2 text-sm">
-                  <input
-                    className="flex-1 p-1 border rounded"
-                    value={c.name}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      const updated = [...newSubject.components];
-                      updated[i].name = e.target.value;
-                      setNewSubject({ ...newSubject, components: updated });
-                    }}
-                  />
-                  <NumberInput
-                    value={c.percentage}
-                    onChange={(value: number) => {
-                      const updated = [...newSubject.components];
-                      updated[i].percentage = value;
-                      setNewSubject({ ...newSubject, components: updated });
-                    }}
-                    min={0}
-                    max={100}
-                    className="w-20 p-1 border rounded"
-                  />
-                  <NumberInput
-                    value={c.priority}
-                    onChange={(value: number) => {
-                      const updated = [...newSubject.components];
-                      updated[i].priority = value;
-                      setNewSubject({ ...newSubject, components: updated });
-                    }}
-                    min={0}
-                    maxDigits={4}
-                    className="w-20 p-1 border rounded"
-                  />
+                  {/* Units */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Units
+                    </label>
+                    <select
+                      value={newSubject.units}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value={1}>1 Unit</option>
+                      <option value={2}>2 Units</option>
+                      <option value={3}>3 Units</option>
+                      <option value={4}>4 Units</option>
+                      <option value={5}>5 Units</option>
+                    </select>
+                  </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Target Grade */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Target Grade
+                    </label>
+                    <select
+                      value={newSubject.target_grade}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value={0}>Select Grade</option>
+                      <option value={1.00}>1.00</option>
+                      <option value={1.25}>1.25</option>
+                      <option value={1.50}>1.50</option>
+                      <option value={1.75}>1.75</option>
+                      <option value={2.00}>2.00</option>
+                      <option value={2.25}>2.25</option>
+                      <option value={2.50}>2.50</option>
+                      <option value={2.75}>2.75</option>
+                      <option value={3.00}>3.00</option>
+                      <option value={4.00}>4.00</option>
+                      <option value={5.00}>5.00</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Components Section */}
+                <div className="border-t pt-5">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Grading Components</h3>
+                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {newSubject.components.length} added
+                    </span>
+                  </div>
+
+                  {/* Components List */}
+                  <div className="border rounded-lg p-3 max-h-32 overflow-y-auto mb-4 bg-gray-50">
+                    {newSubject.components.length === 0 ? (
+                      <div className="text-center py-4 text-gray-400">
+                        <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p className="text-sm">No components yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {newSubject.components.map((c, i) => (
+                          <div key={i} className="flex items-center gap-2 p-2 bg-white rounded border">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700 truncate">{c.name}</span>
+                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                  {c.percentage}%
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveComponent(i)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
             {/* Add Component */}
             <div className="flex gap-2 mb-3">
@@ -1317,6 +1772,19 @@ export default function Dashboard() {
             </div>
           </div>
       )}
+
+      {/* GPA CALCULATOR MODAL */}
+      <GPACalculatorModal
+        isOpen={showGPAModal}
+        onClose={() => setShowGPAModal(false)}
+        subjects={subjects}
+        selectedSubjects={selectedSubjects}
+        onAddSubject={handleAddSubject}
+        onRemoveSubject={handleRemoveSubject}
+        onCalculate={handleCalculateGPA}
+        onReset={handleResetCalculator}
+        gpaResult={gpaResult}
+      />
 
       {/* Add custom styles for floating animation */}
       <style jsx global>{`

@@ -1,38 +1,73 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { items } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
-export async function POST(req: Request) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: "Item ID is required" }, { status: 400 });
+    }
     const body = await req.json();
-    
-    console.log("Creating item with data:", body);
+
+    console.log("Updating item:", id, "with data:", body);
 
     // Validate required fields
-    if (!body.name?.trim()) {
+    if (body.name !== undefined && !body.name.trim()) {
       return NextResponse.json({ error: "Item name is required" }, { status: 400 });
     }
-    if (!body.component_id) {
-      return NextResponse.json({ error: "Component ID is required" }, { status: 400 });
-    }
 
-    const newItem = await db
-      .insert(items)
-      .values({
-        component_id: body.component_id,
-        name: body.name,
-        score: body.score,
-        max: body.max,
-        date: body.date,
-        target: body.target,
-        topic: body.topic || null, // THIS SAVES TOPIC TO DATABASE
-      })
+    // Prepare update data
+    const updateData: any = {};
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.score !== undefined) updateData.score = body.score;
+    if (body.max !== undefined) updateData.max = body.max;
+    if (body.date !== undefined) updateData.date = body.date;
+    if (body.target !== undefined) updateData.target = body.target;
+    if (body.topic !== undefined) updateData.topic = body.topic;
+
+    console.log("Update data:", updateData);
+
+    // Update the item
+    const updatedItem = await db
+      .update(items)
+      .set(updateData)
+      .where(eq(items.id, id))
       .returning();
 
-    console.log("Successfully created item:", newItem[0]);
-    return NextResponse.json(newItem[0]);
+    if (updatedItem.length === 0) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    console.log("Successfully updated item:", updatedItem[0]);
+    return NextResponse.json(updatedItem[0]);
   } catch (error) {
-    console.error("POST error:", error);
-    return NextResponse.json({ error: "Failed to create item" }, { status: 500 });
+    console.error("PATCH error:", error);
+    return NextResponse.json({ error: "Failed to update item" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: "Item ID is required" }, { status: 400 });
+    }
+
+    console.log("Deleting item:", id);
+
+    const result = await db.delete(items).where(eq(items.id, id));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE error:", error);
+    return NextResponse.json({ error: "Failed to delete item" }, { status: 500 });
   }
 }

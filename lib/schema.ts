@@ -18,9 +18,10 @@ export const subjects = pgTable("subjects", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   is_major: boolean("is_major").notNull().default(false),
-  user_email: text("user_email").notNull(), // Removed reference for now
+  user_email: text("user_email").notNull(),
   target_grade: text("target_grade"),
   color: varchar("color", { length: 25 }).default("#3B82F6"),
+  units: integer("units").default(3), // ADD THIS LINE - default to 3 units
 });
 
 /* ------------------ COMPONENTS TABLE ------------------ */
@@ -41,5 +42,19 @@ export const items = pgTable("items", {
   max: integer("max"),
   date: varchar("date", { length: 50 }),
   target: integer("target"),
-  topic: text("topic"), // NOW EXISTS
+  topic: text("topic"),
+});
+
+/* ------------------ SUBJECT HISTORY TABLE ------------------ */
+// lib/schema.ts - Update subject_history table
+export const subject_history = pgTable('subject_history', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  subject_id: uuid('subject_id').notNull(),
+  user_email: text('user_email').notNull(),
+  course_name: text('course_name').notNull(),
+  target_grade: text('target_grade').notNull(),
+  final_grade: text('final_grade').notNull(),
+  status: text('status').notNull(), // should be 'reached' or 'missed'
+  completed_at: timestamp('completed_at').defaultNow(),
+  units: integer('units').default(3), // ADD THIS LINE to store units in history
 });

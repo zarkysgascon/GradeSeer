@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
@@ -30,6 +30,7 @@ interface Subject {
   target_grade?: number | null
   color: string
   components: ComponentInput[]
+  units?: number // ADDED: Units field
 }
 
 interface ChatMessage {
@@ -37,6 +38,27 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+}
+
+interface ExtendedUser {
+  id?: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+}
+
+/* -------------------- Helper Functions -------------------- */
+function validateDate(dateString: string): boolean {
+  if (!dateString) return false
+  const m = dateString.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!m) return false
+  const year = Number(m[1])
+  const month = Number(m[2])
+  const day = Number(m[3])
+  if (String(year).length !== 4) return false
+  if (month < 1 || month > 12) return false
+  if (day < 1 || day > 31) return false
+  return true
 }
 
 /* -------------------- Grade Computation -------------------- */
@@ -220,110 +242,153 @@ const CustomDateInput = ({
 
 /* -------------------- AI Service -------------------- */
 class AIService {
-  private apiKey: string = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
-
   private getFallbackResponse(userMessage: string, subject: Subject | null): string {
-    return "I'm having trouble connecting to my AI service right now. Please check that your API key is properly configured and try again.";
+    if (!subject) return "No subject context available.";
+    const msg = (userMessage || '').toLowerCase()
+    const comps = subject.components || []
+    const rawPct = computeRawGrade(comps)
+    const current = percentageToGradeScale(rawPct)
+    const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
+    const items = comps.flatMap(c => (c.items || []).map(i => ({ i, comp: c })))
+    const upcoming = items.filter(x => x.i?.score === null || x.i?.score === undefined)
+      .sort((a, b) => Number(b.comp.percentage) - Number(a.comp.percentage))
+    const compGrades = comps.map(c => ({ name: c.name, g: computeRawComponentGrade(c.items || []), w: c.percentage }))
+    const strengths = [...compGrades].sort((a, b) => b.g - a.g).slice(0, 2)
+    const weaknesses = [...compGrades].sort((a, b) => a.g - b.g).slice(0, 2)
+    const status = target > 0 ? (current >= target ? '✅ Above target' : '⚠️ Below target') : 'Set a target to compute status'
+
+    if (msg.includes('strength') || msg.includes('weak')) {
+      const lines = [
+        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `💪 Strengths: ${strengths.length ? strengths.map(s => `${s.name} (${s.g.toFixed(1)}%)`).join(', ') : 'None logged yet'}`,
+        `⚠️ Weaknesses: ${weaknesses.length ? weaknesses.map(s => `${s.name} (${s.g.toFixed(1)}%)`).join(', ') : 'None identified'}`,
+        `🎯 Focus: ${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments'}`
+      ]
+      return lines.join('\n')
+    }
+
+    if (msg.includes('improve') || msg.includes('better') || msg.includes('increase')) {
+      const primary = weaknesses[0] || strengths[0]
+      const upcomingInPrimary = upcoming.filter(u => u.comp.name === primary?.name).slice(0,3)
+      const lines = [
+        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `� Plan:`,
+        `${primary ? `1. Prioritize ${primary.name} — raise average above ${Math.max(75, Math.round(primary.g+5))}%` : '1. Log more assessments to compute a plan'}`,
+        `${upcomingInPrimary.length ? upcomingInPrimary.map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : (upcoming.length ? upcoming.slice(0,2).map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : '2. No upcoming assessments — maintain consistency in weakest areas')}`,
+        `💡 Tips: Focus study on weakest topics, practice past papers, and aim for steady improvement rather than one-off spikes.`
+      ]
+      return lines.join('\n')
+    }
+
+    if (msg.includes('focus') || msg.includes('next') || msg.includes('priority')) {
+      const lines = [
+        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `🎯 Next Focus:`,
+        `${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments logged'}`,
+        `💡 Highest impact components: ${compGrades.sort((a,b)=>b.w-a.w).slice(0,2).map(c=>`${c.name} (${c.w}% weight)`).join(', ')}`
+      ]
+      return lines.join('\n')
+    }
+
+    if (msg.includes('risk') || msg.includes('fail')) {
+      const risky = weaknesses.slice(0,2)
+      const lines = [
+        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `⚠️ Risk Components: ${risky.length ? risky.map(r=>`${r.name} (${r.g.toFixed(1)}%)`).join(', ') : 'No risk detected'}`,
+        `🛡️ Mitigation: focus on weakest areas first, allocate more time to high-weight assessments, and aim for >=75% on upcoming items.`
+      ]
+      return lines.join('\n')
+    }
+
+    const lines = [
+      `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+      `🎯 Next Focus:`,
+      `${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments logged'}`,
+      `💡 Insights: Strongest: ${strengths[0] ? `${strengths[0].name} (${strengths[0].g.toFixed(1)}%)` : 'N/A'}, Weakest: ${weaknesses[0] ? `${weaknesses[0].name} (${weaknesses[0].g.toFixed(1)}%)` : 'N/A'}`
+    ]
+    return lines.join('\n')
+  }
+
+  private async discoverModel(apiKey: string): Promise<string> {
+    const cached = typeof window !== 'undefined' ? localStorage.getItem('gemini:model') : null
+    if (cached) return cached
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+      headers: { 'x-goog-api-key': apiKey }
+    })
+    if (!res.ok) return 'gemini-pro'
+    const j = await res.json()
+    const names: string[] = Array.isArray(j?.models) ? j.models.map((m: any) => String(m?.name || '').replace(/^models\//,'')).filter(Boolean) : []
+    const pick = names.find(n => n.startsWith('gemini-1.5')) || names.find(n => n.startsWith('gemini-pro')) || names.find(n => n.startsWith('gemini-1.0')) || names[0]
+    const chosen = pick || 'gemini-pro'
+    if (typeof window !== 'undefined') localStorage.setItem('gemini:model', chosen)
+    return chosen
   }
 
   async sendChatMessage(messages: ChatMessage[], userMessage: string, subject: Subject | null): Promise<string> {
     try {
-      // Enhanced debugging
-      console.log('=== 🔍 AI SERVICE DEBUG INFO ===');
-      console.log('API Key from env:', process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'PRESENT' : 'MISSING');
-      console.log('API Key length:', process.env.NEXT_PUBLIC_GEMINI_API_KEY?.length);
-      console.log('API Key starts with AIza:', process.env.NEXT_PUBLIC_GEMINI_API_KEY?.startsWith('AIza'));
-      console.log('Current this.apiKey:', this.apiKey ? `Present (length: ${this.apiKey.length})` : 'MISSING');
-      console.log('============================');
-
-      // If no API key, use fallback immediately
-      if (!this.apiKey || this.apiKey === '') {
-        console.error('❌ CRITICAL: No API key found in class instance');
-        return "Please configure your Gemini API key in the environment variables to use the AI chat feature.";
-      }
-
-      // Build conversation context
-      const conversationHistory = messages
-        .slice(-6)
-        .map(msg => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}`)
-        .join('\n\n');
-
-      let context = "You are a helpful AI tutor and study assistant. You help students with academic questions, study strategies, time management, and general learning advice.";
-      
-      if (subject) {
-        context += `\n\nThe student is currently viewing their "${subject.name}" subject but may ask about any academic topic.`;
-      }
-
-      const prompt = `${context}
-
-CONVERSATION HISTORY:
-${conversationHistory}
-
-STUDENT'S CURRENT QUESTION: ${userMessage}
-
-Please provide a helpful, engaging response. Answer their question directly and be conversational but informative.`;
-
-      console.log('🚀 Calling Gemini API...');
-
-      // Use the most common working model
-      const modelName = 'gemini-1.5-flash';
-      const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${this.apiKey}`;
-      
-      console.log('📡 API URL (key hidden):', apiUrl.replace(this.apiKey, 'API_KEY_REDACTED'));
-
-      const response = await fetch(apiUrl, {
+      if (!subject) return "No subject context available.";
+      const history = messages.slice(-6).map(m => m.content)
+      const serverRes = await fetch(`/api/ai/subject/${subject.id}/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1000,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage, history })
+      })
+      if (serverRes.ok) {
+        const serverData = await serverRes.json()
+        const text = String(serverData?.response || '')
+        if (text) return text
+      }
+      const keys = [
+        ...((process.env.NEXT_PUBLIC_GEMINI_API_KEYS || '').split(',').map(s => s.trim()).filter(Boolean)),
+        ...(process.env.NEXT_PUBLIC_GEMINI_API_KEY ? [process.env.NEXT_PUBLIC_GEMINI_API_KEY] : [])
+      ].filter((v, i, a) => v && a.indexOf(v) === i)
+      if (!keys.length) return 'Public AI key missing. Add NEXT_PUBLIC_GEMINI_API_KEY.'
+
+      const hist = messages.slice(-6).map(msg => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}`).join('\n\n')
+      const prompt = `Subject: ${subject.name}\nTarget: ${subject.target_grade || ''}\n\n${hist}\n\nQuestion: ${userMessage}`
+
+      for (const key of keys) {
+        const discovered = await this.discoverModel(key)
+        const candidates = [discovered, discovered.includes('flash') ? 'gemini-pro' : 'gemini-1.5-flash']
+        for (const model of candidates) {
+          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+          let r = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              systemInstruction: { role: 'system', parts: [{ text: 'You are a helpful academic advisor. Respond concisely with prioritized actions.' }] },
+              generationConfig: { temperature: 0.7, maxOutputTokens: 1000, candidateCount: 1 }
+            })
+          })
+          if (r.status === 429) {
+            const retry = Number(r.headers.get('Retry-After') || '2')
+            const ms = Math.min(Math.max(retry, 1), 8) * 1000
+            await new Promise(res => setTimeout(res, ms))
+            r = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                systemInstruction: { role: 'system', parts: [{ text: 'You are a helpful academic advisor. Respond concisely with prioritized actions.' }] },
+                generationConfig: { temperature: 0.7, maxOutputTokens: 1000, candidateCount: 1 }
+              })
+            })
           }
-        })
-      });
-
-      console.log('📨 Response status:', response.status);
-      console.log('📨 Response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ API call successful!');
-        
-        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-          const aiResponse = data.candidates[0].content.parts[0].text;
-          console.log('🎉 Got AI response:', aiResponse.substring(0, 100) + '...');
-          return aiResponse;
-        } else {
-          console.error('❌ No content in response:', data);
-          throw new Error('No content in API response');
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('❌ API Error Details:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
-        
-        if (response.status === 401 || response.status === 403) {
-          return "Authentication failed. Please check that your Gemini API key is valid and has the correct permissions.";
-        } else if (response.status === 404) {
-          return "The AI model is not available. Please try a different model or check the API documentation.";
-        } else {
-          return `API request failed with status ${response.status}. Please check your API key and try again.`;
+          if (r.ok) {
+            const data = await r.json()
+            const parts = data?.candidates?.[0]?.content?.parts || []
+            const p = parts.find((x: any) => typeof x?.text === 'string')
+            const text = p?.text || ''
+            if (text) return text
+          } else if (r.status === 404 || r.status === 429) {
+            continue
+          }
         }
       }
-
+      return this.getFallbackResponse(userMessage, subject)
     } catch (error) {
-      console.error('💥 AI service error:', error);
-      return this.getFallbackResponse(userMessage, subject);
+      return this.getFallbackResponse(userMessage, subject)
     }
   }
 }
@@ -333,8 +398,8 @@ const aiService = new AIService();
 export default function SubjectDetail() {
   const { id } = useParams()
   const router = useRouter()
-  const { data: session } = useSession()
-  const user = session?.user as { email?: string } | undefined
+  const { data: session, status } = useSession()
+  const user = session?.user as ExtendedUser | undefined
 
   const [subject, setSubject] = useState<Subject | null>(null)
   const [loading, setLoading] = useState(true)
@@ -367,6 +432,11 @@ export default function SubjectDetail() {
   const [editingTargetGrade, setEditingTargetGrade] = useState<number | null>(null)
   const [updatingTargetGrade, setUpdatingTargetGrade] = useState(false)
 
+  // ADDED: Units editing state
+  const [isEditingUnits, setIsEditingUnits] = useState(false)
+  const [editingUnits, setEditingUnits] = useState<number>(3)
+  const [updatingUnits, setUpdatingUnits] = useState(false)
+
   const [showEditItemModal, setShowEditItemModal] = useState(false)
   const [editingItem, setEditingItem] = useState<ItemInput | null>(null)
   const [editingItemComponentId, setEditingItemComponentId] = useState<string | null>(null)
@@ -380,6 +450,7 @@ export default function SubjectDetail() {
 
   // Finishing course state
   const [finishingCourse, setFinishingCourse] = useState(false)
+  const [finishLoading, setFinishLoading] = useState(false)
 
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
@@ -394,16 +465,142 @@ export default function SubjectDetail() {
   // Initialize with welcome message
   useEffect(() => {
     if (subject && chatMessages.length === 0) {
-      const welcomeMessage: ChatMessage = {
-        id: '1',
-        role: 'assistant',
-        content: `Hi! I'm your AI study assistant for ${subject.name}. I can help you analyze your performance, suggest study strategies, and provide academic advice. What would you like to know about your progress?`,
-        timestamp: new Date()
+      const allItems = (subject.components || []).flatMap(c => c.items || [])
+      const total = allItems.filter(i => i?.max && i.max > 0).length
+      const completed = allItems.filter(i => i?.score !== null && i?.score !== undefined && i?.max && i.max > 0).length
+      const progress = total === 0 ? 0 : Math.round((completed / total) * 100)
+      const rawPct = computeRawGrade(subject.components)
+      const currentGrade = percentageToGradeScale(rawPct)
+      const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
+      let content = ''
+      if (completed === 0) {
+        content = `📊 ${subject.name} Analysis\n\nCurrent Status: You haven't logged any grades yet (${progress}% progress).\n\nNext Steps:\n1. Add your assessment items\n2. Set your target to ${target || 3.0}\n3. Log grades as you get them`
+      } else {
+        const status = target > 0 ? (currentGrade >= target ? 'ABOVE TARGET ✅' : 'BELOW TARGET ⚠️') : 'Status available once a target is set'
+        content = `📊 ${subject.name} Analysis\n\nCurrent Grade: ${currentGrade.toFixed(2)} (target ${target || 0}) - ${status}\n\nAsk me for prioritized actions based on weights and upcoming assessments.`
       }
+      const welcomeMessage: ChatMessage = { id: '1', role: 'assistant', content, timestamp: new Date() }
       setChatMessages([welcomeMessage])
     }
   }, [subject])
-  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : "gradeHistory:guest";
+
+  /* -------------------- Finish Subject Function -------------------- */
+// In your subject page component
+// In your subject page - UPDATED FINISH FUNCTION
+const handleFinishSubject = async () => {
+  if (!session?.user?.email) {
+    console.log('❌ No user session found');
+    return;
+  }
+  
+  if (!subject?.id) {
+    console.log('❌ No subject ID found');
+    return;
+  }
+  
+  try {
+    console.log('🔄 Starting finish process for subject:', subject.id);
+    
+    const response = await fetch(`/api/subjects/${subject.id}/finish`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_email: session.user.email
+      }),
+    });
+
+    const responseText = await response.text();
+    let result;
+    try {
+      result = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      console.error('❌ Failed to parse response:', parseError);
+      result = {};
+    }
+    
+    if (response.ok) {
+      console.log('✅ Finish API success:', result);
+      
+      // 🔥 CRITICAL FIX: Store history record in localStorage immediately
+      if (result.history_record) {
+        const userHistoryKey = `user_history_${session.user.email}`;
+        const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey) || '[]');
+        
+        const newHistoryRecord = {
+          ...result.history_record,
+          // Ensure all fields are present
+          id: result.history_record.id || `local_${Date.now()}`,
+          subject_id: result.history_record.subject_id || subject.id,
+          user_email: result.history_record.user_email || session.user.email,
+          course_name: result.history_record.course_name || subject.name,
+          target_grade: result.history_record.target_grade || subject.target_grade?.toString() || '0',
+          final_grade: result.history_record.final_grade || result.final_grade || '0.00',
+          status: result.history_record.status || result.status || 'reached',
+          completed_at: result.history_record.completed_at || new Date().toISOString(),
+          created_at: result.history_record.created_at || new Date().toISOString()
+        };
+        
+        const updatedHistory = [newHistoryRecord, ...existingHistory];
+        localStorage.setItem(userHistoryKey, JSON.stringify(updatedHistory));
+        console.log('💾 History record stored locally:', newHistoryRecord);
+      }
+      
+      // Set flag to refresh history from localStorage
+      localStorage.setItem('shouldRefreshHistory', 'true');
+      
+      console.log('🏁 Subject finished, redirecting to dashboard...');
+      router.push('/dashboard');
+    } else {
+      console.error('❌ Finish API error:', result);
+      alert('Failed to finish subject: ' + (result.error || result.message || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('💥 Finish subject error:', error);
+    alert('Error finishing subject: ' + (error instanceof Error ? error.message : 'Unknown error'));
+  }
+};
+
+  // ADDED: Units update handler
+  const handleUpdateUnits = async () => {
+    if (!subject?.id) return
+
+    if (editingUnits < 1 || editingUnits > 10) {
+      alert("Units must be between 1 and 10")
+      return
+    }
+
+    setUpdatingUnits(true)
+    try {
+      const res = await fetch(`/api/subjects/${subject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          units: editingUnits,
+          name: subject.name,
+          target_grade: subject.target_grade
+        }),
+      })
+      
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Units update failed")
+      }
+
+      setSubject(prev => prev ? { 
+        ...prev, 
+        units: editingUnits
+      } : null)
+      
+      setIsEditingUnits(false)
+    } catch (err) {
+      console.error("Units update failed:", err)
+      alert("Failed to update units.")
+    } finally {
+      setUpdatingUnits(false)
+    }
+  }
 
   const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
     try {
@@ -421,47 +618,6 @@ export default function SubjectDetail() {
     const current = loadLocalEdits()
     current[itemId] = values
     localStorage.setItem(localKey, JSON.stringify(current))
-  }
-
-  const validateDate = (dateString: string): boolean => {
-    if (!dateString) return true;
-    
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const year = date.getFullYear();
-    
-    return day >= 1 && day <= 31 && year >= 1000 && year <= 9999;
-  };
-
-  const handleDateChange = (dateString: string, setItemFunction: (item: any) => void, currentItem: any) => {
-    if (dateString) {
-      if (validateDate(dateString)) {
-        setItemFunction({ ...currentItem, date: dateString });
-      } else {
-        alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
-      }
-    } else {
-      setItemFunction({ ...currentItem, date: "" });
-    }
-  };
-
-  const appendHistoryEntry = (entry: {
-    id: string;
-    subjectName: string;
-    rawGrade: number;
-    targetGrade: number;
-    completedAt: string;
-  }) => {
-    if (typeof window === "undefined") return;
-    try {
-      const existingRaw = localStorage.getItem(historyStorageKey);
-      const existing = existingRaw ? JSON.parse(existingRaw) : [];
-      const normalized = Array.isArray(existing) ? existing : [];
-      localStorage.setItem(historyStorageKey, JSON.stringify([entry, ...normalized]));
-      window.dispatchEvent(new Event("history-updated"));
-    } catch (err) {
-      console.error("Failed to cache history entry:", err);
-    }
   }
 
   /* -------------------- Fetch Subject -------------------- */
@@ -502,12 +658,12 @@ export default function SubjectDetail() {
         }
         setSubject(patched)
         setEditingTargetGrade(data.target_grade ? parseFloat(data.target_grade) : null)
+        setEditingUnits(data.units || 3) // ADDED: Initialize units
       } catch (err) {
         console.error("Subject fetch failed:", err)
         setSubject(null)
       } finally {
-        setLoading(false
-        )
+        setLoading(false)
       }
     }
 
@@ -517,7 +673,8 @@ export default function SubjectDetail() {
   useEffect(() => {
     if (subject?.name) setEditingName(subject.name)
     if (subject?.target_grade) setEditingTargetGrade(parseFloat(subject.target_grade.toString()))
-  }, [subject?.name, subject?.target_grade])
+    if (subject?.units) setEditingUnits(subject.units) // ADDED: Initialize units
+  }, [subject?.name, subject?.target_grade, subject?.units])
 
   useEffect(() => {
     if (subject) {
@@ -572,12 +729,25 @@ export default function SubjectDetail() {
     }
   }
 
-  const quickQuestions = [
-    "How can I improve my grades?",
-    "What should I focus on?",
-    "Study schedule suggestions?",
-    "How to prepare for exams?"
-  ]
+  const quickQuestions = useMemo(() => {
+    if (!subject) return [] as string[]
+    const allItems = (subject.components || []).flatMap(c => c.items || [])
+    const rawPct = computeRawGrade(subject.components)
+    const current = percentageToGradeScale(rawPct)
+    const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
+    const completedItems = allItems.filter(i => i?.score !== null && i?.score !== undefined)
+    const upcomingItems = allItems.filter(i => i?.score === null || i?.score === undefined)
+    const safetyZone = target > 0 ? (current >= target ? 'green' : rawPct >= 71 ? 'yellow' : 'red') : (rawPct >= 75 ? 'green' : rawPct >= 65 ? 'yellow' : 'red')
+    const qs: string[] = []
+    if (target > 0 && current < target) qs.push("What do I need to reach my target?")
+    const nextBig = upcomingItems
+      .map(i => ({ i, comp: (subject.components || []).find(c => (c.items || []).some(ci => ci.id === i.id)) }))
+      .sort((a, b) => (Number(b.comp?.percentage || 0) - Number(a.comp?.percentage || 0)))[0]
+    if (nextBig?.i && nextBig.comp) qs.push(`How should I prepare for ${nextBig.i.name}?`)
+    if (completedItems.length > 0) qs.push("What are my strengths and weaknesses?")
+    if (safetyZone === 'red') qs.push("Am I at risk of failing?")
+    return qs.slice(0, 4)
+  }, [subject])
 
   const handleQuickQuestion = (question: string) => {
     setUserInput(question)
@@ -777,17 +947,14 @@ export default function SubjectDetail() {
         setEditingItem(null)
         setEditingItemComponentId(null)
       } else {
-        // Enhanced error handling
         let errorMessage = "Failed to update item"
         
         try {
-          // Try to parse JSON error response
           const contentType = res.headers.get("content-type")
           if (contentType && contentType.includes("application/json")) {
             const errorData = await res.json()
             errorMessage = errorData.error || errorMessage
           } else {
-            // Handle non-JSON responses (like HTML error pages)
             const text = await res.text()
             console.error('Non-JSON error response:', text)
             if (res.status === 405) {
@@ -870,17 +1037,14 @@ export default function SubjectDetail() {
         setEditScore(null)
         setEditMax(null)
       } else {
-        // Handle different error cases properly
         let errorMessage = "Failed to update item score"
         
         try {
-          // Try to parse JSON error response
           const contentType = res.headers.get("content-type")
           if (contentType && contentType.includes("application/json")) {
             const errorData = await res.json()
             errorMessage = errorData.error || errorMessage
           } else {
-            // Handle non-JSON responses (like HTML error pages)
             const text = await res.text()
             console.error('Non-JSON error response:', text)
             if (res.status === 405) {
@@ -982,7 +1146,6 @@ export default function SubjectDetail() {
         })
         setSelectedComponent(null)
       } else {
-        // Enhanced error handling
         let errorMessage = "Failed to add item"
         
         try {
@@ -1092,46 +1255,9 @@ export default function SubjectDetail() {
   const projectedGrade = percentageToGradeScale(projectedPercentage)
   
   const targetGrade = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
-  const passingMark = 75
-  const effectivePassingMark = targetGrade > 0 ? Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark
-
-  const handleFinishCourse = async () => {
-    if (!subject) return
-    setFinishingCourse(true)
-    try {
-      const completedAt = new Date().toISOString()
-      const completionEntry = {
-        id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${subject.id}-${Date.now()}`,
-        subjectName: subject.name,
-        rawGrade: rawPercentage,
-        targetGrade,
-        completedAt,
-      }
-      appendHistoryEntry(completionEntry)
-      const res = await fetch("/api/history", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subjectId: subject.id,
-          subjectName: subject.name,
-          rawGrade: rawPercentage,
-          targetGrade,
-          completedAt,
-          userEmail: user?.email ?? null,
-        }),
-      })
-      if (res.ok) {
-        alert("Course saved to history.")
-      } else {
-        console.warn("History API not ready:", await res.text())
-      }
-    } catch (err) {
-      console.error("Finish course failed:", err)
-      alert("Failed to finish course.")
-    } finally {
-      setFinishingCourse(false)
-    }
-  }
+  const passingMark = 75 // Default passing mark in Philippine system
+  const effectivePassingMark = targetGrade > 0 ? 
+    Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark // Adjust passing mark based on target grade
 
   return (
     <div className="min-h-screen bg-gray-100 p-10 flex justify-center relative">
@@ -1162,19 +1288,14 @@ export default function SubjectDetail() {
         {/* HEADER */}
         <div 
           className="p-8 rounded-2xl text-white flex justify-between items-center shadow-lg relative overflow-hidden"
+          style={{ 
+            background: subject?.color 
+              ? `linear-gradient(135deg, ${subject.color} 0%, ${subject.color}dd 50%, ${subject.color}aa 100%)`
+              : 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%)'
+          }}
         >
-          {/* Background with proper color */}
-          <div 
-            className="absolute inset-0 z-0"
-            style={{ 
-              background: subject?.color 
-                ? `linear-gradient(135deg, ${subject.color} 0%, ${subject.color}dd 50%, ${subject.color}aa 100%)`
-                : 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%)'
-            }}
-          />
-          
           {/* Content */}
-          <div className="relative z-10 flex items-center gap-3">
+          <div className="flex items-center gap-3">
             {isEditingName ? (
               <>
                 <input
@@ -1241,7 +1362,7 @@ export default function SubjectDetail() {
           </div>
 
           {/* Grade Metrics */}
-          <div className="relative z-10 flex items-center gap-4">
+          <div className="flex items-center gap-4">
             {/* Grade Metrics with Icons */}
             <div className="flex gap-8 text-center">
               {/* Target Grade */}
@@ -1319,6 +1440,99 @@ export default function SubjectDetail() {
                         onClick={() => {
                           setEditingTargetGrade(subject.target_grade ? parseFloat(subject.target_grade.toString()) : null)
                           setIsEditingTargetGrade(true)
+                        }}
+                        className="p-1 text-white/70 hover:text-white transition"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ADDED: Units Display */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-6 h-6 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6" />
+                    <path d="M16 13H8" />
+                    <path d="M16 17H8" />
+                    <path d="M10 9H8" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm text-white/90">Units</div>
+                  {isEditingUnits ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={editingUnits || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? parseInt(e.target.value) : 0
+                          setEditingUnits(Math.max(1, Math.min(10, value)))
+                        }}
+                        className="w-16 text-2xl font-bold bg-white/20 border border-white/30 rounded px-1 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
+                        autoFocus
+                        min="1"
+                        max="10"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleUpdateUnits()
+                          if (e.key === "Escape") {
+                            setIsEditingUnits(false)
+                            setEditingUnits(subject?.units || 3)
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={handleUpdateUnits}
+                        disabled={updatingUnits}
+                        className="text-xs bg-white/20 hover:bg-white/30 rounded px-2 py-1 transition-colors"
+                      >
+                        {updatingUnits ? "Saving" : "✓"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditingUnits(false)
+                          setEditingUnits(subject?.units || 3)
+                        }}
+                        className="text-xs bg-white/10 hover:bg-white/20 rounded px-2 py-1 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl font-bold">
+                        {subject?.units || 3}
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Edit units"
+                        onClick={() => {
+                          setEditingUnits(subject?.units || 3)
+                          setIsEditingUnits(true)
                         }}
                         className="p-1 text-white/70 hover:text-white transition"
                       >
@@ -1825,7 +2039,7 @@ export default function SubjectDetail() {
                         message.role === 'user' ? 'flex-row-reverse' : ''
                       }`}
                     >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1 ${
                         message.role === 'user' 
                           ? 'bg-blue-500' 
                           : 'bg-green-500'
@@ -1867,7 +2081,7 @@ export default function SubjectDetail() {
                   
                   {aiLoading && (
                     <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shrink-0 mt-1">
                         <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       </div>
                       <div className="flex-1">
@@ -1937,31 +2151,118 @@ export default function SubjectDetail() {
                 </div>
               </div>
             </div>
+
+            {/* AI Insights */}
+            <div className="bg-white rounded-xl border border-gray-300 p-6 mt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Insights</h3>
+              <div className="space-y-3 text-sm text-gray-800">
+                <div>
+                  <span className="font-medium">Status:</span>
+                  <span className="ml-2">
+                    {(() => {
+                      const rawPct = computeRawGrade(subject.components)
+                      const curr = percentageToGradeScale(rawPct)
+                      const tgt = targetGrade
+                      if (tgt > 0) return curr >= tgt ? '✅ Above target' : '⚠️ Below target'
+                      return 'Set a target to track status'
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Gap to target:</span>
+                  <span className="ml-2">
+                    {(() => {
+                      const rawPct = computeRawGrade(subject.components)
+                      const curr = percentageToGradeScale(rawPct)
+                      const tgt = targetGrade
+                      if (!tgt) return 'N/A'
+                      const gap = Number((curr - tgt).toFixed(2))
+                      return `${gap > 0 ? '+' : ''}${gap}`
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Risk components:</span>
+                  <ul className="list-disc ml-6 mt-1">
+                    {subject.components
+                      .map(c => ({
+                        c,
+                        pct: computeRawComponentGrade(c.items || []),
+                        valid: (c.items || []).filter(i => i?.score !== null && i?.score !== undefined && i?.max && i.max > 0).length
+                      }))
+                      .filter(x => {
+                        if (x.valid === 0) return false
+                        const scaled = percentageToGradeScale(x.pct)
+                        return targetGrade > 0 ? scaled > targetGrade : x.pct < effectivePassingMark
+                      })
+                      .sort((a, b) => {
+                        const aScaled = percentageToGradeScale(a.pct)
+                        const bScaled = percentageToGradeScale(b.pct)
+                        const aGap = targetGrade > 0 ? Math.max(0, aScaled - targetGrade) : Math.max(0, effectivePassingMark - a.pct)
+                        const bGap = targetGrade > 0 ? Math.max(0, bScaled - targetGrade) : Math.max(0, effectivePassingMark - b.pct)
+                        const aImpact = Number(a.c.percentage) * aGap
+                        const bImpact = Number(b.c.percentage) * bGap
+                        return bImpact - aImpact
+                      })
+                      .slice(0, 3)
+                      .map(x => (
+                        <li key={x.c.id}>{x.c.name} ({x.c.percentage}% weight)</li>
+                      ))}
+                    {subject.components.filter(c => (c.items || []).length > 0).length === 0 && (
+                      <li>No data yet</li>
+                    )}
+                  </ul>
+                </div>
+                <div>
+                  <span className="font-medium">Upcoming priorities:</span>
+                  <ul className="list-disc ml-6 mt-1">
+                    {subject.components
+                      .flatMap(c => (c.items || []).map(i => ({ i, comp: c })))
+                      .filter(x => x.i.score === null || x.i.score === undefined)
+                      .sort((a, b) => Number(b.comp.percentage) - Number(a.comp.percentage))
+                      .slice(0, 3)
+                      .map(x => (
+                        <li key={`${x.comp.id}-${x.i.name}`}>{x.i.name} ({x.comp.name}, {x.comp.percentage}% weight)</li>
+                      ))}
+                    {subject.components.flatMap(c => c.items || []).filter(i => i.score === null || i.score === undefined).length === 0 && (
+                      <li>No upcoming assessments</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* FINISH SUBJECT BUTTON - BOTTOM RIGHT INSIDE SUBJECT */}
+        {/* BACK BUTTON */}
         <div className="flex justify-end mt-8">
           <button
-            onClick={() => {
-              // Placeholder function - does nothing
-              console.log("Finish Subject clicked - placeholder");
-            }}
-            className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-all duration-200"
+            onClick={handleFinishSubject}
+            disabled={finishLoading}
+            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-3 font-semibold disabled:bg-green-400 disabled:cursor-not-allowed"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-            Finish Subject
+            {finishLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Finishing...
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Finish Subject
+              </>
+            )}
           </button>
         </div>
       </div>
