@@ -19,5 +19,8 @@ coverage/
 # Local planning docs (not for commit)
 tasks/todo.md
 .trae/
+.vercel
+.env*.local
+
 
 node_modules/

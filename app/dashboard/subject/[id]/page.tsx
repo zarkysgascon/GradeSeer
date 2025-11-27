@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef, useMemo } from "react"
+import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import SubjectGraphModal from '@/app/components/SubjectGraphModal'
@@ -257,7 +258,7 @@ class AIService {
     const compGrades = comps.map(c => ({ name: c.name, g: computeRawComponentGrade(c.items || []), w: c.percentage }))
     const strengths = [...compGrades].sort((a, b) => b.g - a.g).slice(0, 2)
     const weaknesses = [...compGrades].sort((a, b) => a.g - b.g).slice(0, 2)
-    const status = target > 0 ? (current >= target ? '✅ Above target' : '⚠️ Below target') : 'Set a target to compute status'
+    const status = target > 0 ? (current <= target ? '✅ Above target' : '⚠️ Below target') : 'Set a target to compute status'
 
     if (msg.includes('strength') || msg.includes('weak')) {
       const lines = [
@@ -340,54 +341,6 @@ class AIService {
         const text = String(serverData?.response || '')
         if (text) return text
       }
-      const keys = [
-        ...((process.env.NEXT_PUBLIC_GEMINI_API_KEYS || '').split(',').map(s => s.trim()).filter(Boolean)),
-        ...(process.env.NEXT_PUBLIC_GEMINI_API_KEY ? [process.env.NEXT_PUBLIC_GEMINI_API_KEY] : [])
-      ].filter((v, i, a) => v && a.indexOf(v) === i)
-      if (!keys.length) return 'Public AI key missing. Add NEXT_PUBLIC_GEMINI_API_KEY.'
-
-      const hist = messages.slice(-6).map(msg => `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}`).join('\n\n')
-      const prompt = `Subject: ${subject.name}\nTarget: ${subject.target_grade || ''}\n\n${hist}\n\nQuestion: ${userMessage}`
-
-      for (const key of keys) {
-        const discovered = await this.discoverModel(key)
-        const candidates = [discovered, discovered.includes('flash') ? 'gemini-pro' : 'gemini-1.5-flash']
-        for (const model of candidates) {
-          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
-          let r = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              systemInstruction: { role: 'system', parts: [{ text: 'You are a helpful academic advisor. Respond concisely with prioritized actions.' }] },
-              generationConfig: { temperature: 0.7, maxOutputTokens: 1000, candidateCount: 1 }
-            })
-          })
-          if (r.status === 429) {
-            const retry = Number(r.headers.get('Retry-After') || '2')
-            const ms = Math.min(Math.max(retry, 1), 8) * 1000
-            await new Promise(res => setTimeout(res, ms))
-            r = await fetch(apiUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-              body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                systemInstruction: { role: 'system', parts: [{ text: 'You are a helpful academic advisor. Respond concisely with prioritized actions.' }] },
-                generationConfig: { temperature: 0.7, maxOutputTokens: 1000, candidateCount: 1 }
-              })
-            })
-          }
-          if (r.ok) {
-            const data = await r.json()
-            const parts = data?.candidates?.[0]?.content?.parts || []
-            const p = parts.find((x: any) => typeof x?.text === 'string')
-            const text = p?.text || ''
-            if (text) return text
-          } else if (r.status === 404 || r.status === 429) {
-            continue
-          }
-        }
-      }
       return this.getFallbackResponse(userMessage, subject)
     } catch (error) {
       return this.getFallbackResponse(userMessage, subject)
@@ -457,6 +410,8 @@ export default function SubjectDetail() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [userInput, setUserInput] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Finishing course state
   const [finishingCourse, setFinishingCourse] = useState(false)
@@ -472,6 +427,10 @@ export default function SubjectDetail() {
     }
   }, [chatMessages])
 
+  useEffect(() => {
+    if (assistantOpen) inputRef.current?.focus()
+  }, [assistantOpen])
+
   // Initialize with welcome message
   useEffect(() => {
     if (subject && chatMessages.length === 0) {
@@ -486,7 +445,7 @@ export default function SubjectDetail() {
       if (completed === 0) {
         content = `📊 ${subject.name} Analysis\n\nCurrent Status: You haven't logged any grades yet (${progress}% progress).\n\nNext Steps:\n1. Add your assessment items\n2. Set your target to ${target || 3.0}\n3. Log grades as you get them`
       } else {
-        const status = target > 0 ? (currentGrade >= target ? 'ABOVE TARGET ✅' : 'BELOW TARGET ⚠️') : 'Status available once a target is set'
+        const status = target > 0 ? (currentGrade <= target ? 'ABOVE TARGET ✅' : 'BELOW TARGET ⚠️') : 'Status available once a target is set'
         content = `📊 ${subject.name} Analysis\n\nCurrent Grade: ${currentGrade.toFixed(2)} (target ${target || 0}) - ${status}\n\nAsk me for prioritized actions based on weights and upcoming assessments.`
       }
       const welcomeMessage: ChatMessage = { id: '1', role: 'assistant', content, timestamp: new Date() }
@@ -2058,134 +2017,77 @@ const handleFinishSubject = async () => {
               </div>
             </div>
 
-            {/* AI Chatbox */}
-            <div className="bg-white rounded-xl border border-gray-300 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Study Assistant</h3>
-              <div className="space-y-4">
-                {/* Chat Messages Area */}
-                <div 
-                  ref={chatContainerRef}
-                  className="h-48 overflow-y-auto border border-gray-200 rounded-lg bg-gray-50 p-4 space-y-3"
-                >
-                  {chatMessages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex items-start gap-3 ${
-                        message.role === 'user' ? 'flex-row-reverse' : ''
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1 ${
-                        message.role === 'user' 
-                          ? 'bg-blue-500' 
-                          : 'bg-green-500'
-                      }`}>
-                        {message.role === 'user' ? (
-                          <span className="text-white text-xs font-bold">U</span>
-                        ) : (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-3 h-3 text-white"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-                            <path d="m9 12 2 2 4-4" />
-                          </svg>
-                        )}
-                      </div>
-                      <div className={`flex-1 ${
-                        message.role === 'user' ? 'text-right' : ''
-                      }`}>
-                        <p className={`text-sm whitespace-pre-wrap ${
-                          message.role === 'user' 
-                            ? 'bg-blue-100 text-blue-900' 
-                            : 'bg-white text-gray-800'
-                        } rounded-lg px-3 py-2 inline-block max-w-[80%]`}>
-                          {message.content}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {aiLoading && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shrink-0 mt-1">
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-600 bg-white rounded-lg px-3 py-2 inline-block">
-                          Thinking...
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+            {/* Assistant Floating Bubble */}
+            <button
+              aria-label="Open Assistant"
+              aria-expanded={assistantOpen}
+              aria-controls="subject-assistant"
+              onClick={() => setAssistantOpen(v => !v)}
+              className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-600 shadow-xl flex items-center justify-center z-50 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <Image src="/gslogo.png" alt="GradeSeer" width={28} height={28} />
+            </button>
 
-                {/* Quick Questions */}
-                <div className="grid grid-cols-2 gap-2">
-                  {quickQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleQuickQuestion(question)}
-                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded px-2 py-1 transition-colors text-left"
-                    >
-                      {question}
-                    </button>
-                  ))}
+            {assistantOpen && (
+              <div
+                id="subject-assistant"
+                className="fixed bottom-24 right-6 w-96 max-w-[90vw] h-96 rounded-2xl shadow-2xl border border-gray-200 bg-white/95 backdrop-blur-sm z-50 flex flex-col"
+                role="dialog"
+                aria-modal="true"
+              >
+                <div className="flex items-center justify-between p-3 border-b">
+                  <div className="flex items-center gap-2">
+                    <Image src="/gslogo.png" alt="GradeSeer" width={24} height={24} />
+                    <span className="text-sm font-semibold text-gray-800">GradeSeer Assistant</span>
+                  </div>
+                  <button
+                    onClick={() => setAssistantOpen(false)}
+                    className="p-2 rounded hover:bg-gray-100"
+                    aria-label="Close Assistant"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-                
-                {/* Input Area */}
-                <div className="flex gap-2">
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+                  {chatMessages.map((message) => (
+                    <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      {message.role === 'assistant' && (
+                        <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2" />
+                      )}
+                      <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>{message.content}</div>
+                    </div>
+                  ))}
+                  {aiLoading && <div className="text-sm text-gray-600">Thinking...</div>}
+                </div>
+                <div className="p-3 border-t flex gap-2">
                   <input
+                    ref={inputRef}
                     type="text"
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Ask about your grades, study tips, or anything else..."
+                    placeholder="Ask about this subject"
                     className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     disabled={aiLoading}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setAssistantOpen(false)
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (!aiLoading && userInput.trim()) handleSendMessage()
+                      }
+                    }}
                   />
                   <button
                     onClick={handleSendMessage}
                     disabled={aiLoading || !userInput.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
                   >
-                    {aiLoading ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                      </svg>
-                    )}
                     Send
                   </button>
                 </div>
-
-                {/* Quick Tips */}
-                <div className="border-t pt-4">
-                  <p className="text-xs text-gray-600 text-center">
-                    Ask me about study strategies, grade analysis, time management, or academic advice!
-                  </p>
-                </div>
               </div>
-            </div>
+            )}
 
             {/* AI Insights */}
             <div className="bg-white rounded-xl border border-gray-300 p-6 mt-6">
@@ -2198,7 +2100,7 @@ const handleFinishSubject = async () => {
                       const rawPct = computeRawGrade(subject.components)
                       const curr = percentageToGradeScale(rawPct)
                       const tgt = targetGrade
-                      if (tgt > 0) return curr >= tgt ? '✅ Above target' : '⚠️ Below target'
+                      if (tgt > 0) return curr <= tgt ? '✅ Above target' : '⚠️ Below target'
                       return 'Set a target to track status'
                     })()}
                   </span>
@@ -2211,7 +2113,7 @@ const handleFinishSubject = async () => {
                       const curr = percentageToGradeScale(rawPct)
                       const tgt = targetGrade
                       if (!tgt) return 'N/A'
-                      const gap = Number((curr - tgt).toFixed(2))
+                      const gap = Number((tgt - curr).toFixed(2))
                       return `${gap > 0 ? '+' : ''}${gap}`
                     })()}
                   </span>
