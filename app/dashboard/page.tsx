@@ -363,33 +363,27 @@ const fetchHistory = async () => {
   }, [user?.email]);
 
   /* ---------------------- Fetch Upcoming Items ---------------------- */
-  const fetchUpcomingItems = async () => {
-    if (!user?.email) return;
+const fetchUpcomingItems = async () => {
+  if (!user?.email) return;
 
-    try {
-      const res = await fetch(`/api/items/upcoming?email=${encodeURIComponent(user.email!)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setUpcomingItems(data);
-      }
-    } catch (err) {
-      console.error("Error fetching upcoming items:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (!user?.email || subjects.length === 0) return;
-
-    fetchUpcomingItems();
+  try {
+    console.log('🔄 Fetching upcoming items for:', user.email);
+    const res = await fetch(`/api/items/upcoming?email=${encodeURIComponent(user.email)}`);
     
-    const interval = setInterval(() => {
-      fetchUpcomingItems();
-    }, 30 * 60 * 1000);
+    if (res.ok) {
+      const data = await res.json();
+      console.log('✅ Upcoming items data:', data);
+      setUpcomingItems(data);
+    } else {
+      console.error('❌ Failed to fetch upcoming items:', res.status);
+      const errorText = await res.text();
+      console.error('Error details:', errorText);
+    }
+  } catch (err) {
+    console.error("💥 Error fetching upcoming items:", err);
+  }
+};
 
-    return () => clearInterval(interval);
-  }, [subjects, user?.email]);
-
-  // Add real-time updates
   useEffect(() => {
     if (!user?.email) return;
 
@@ -637,7 +631,7 @@ const fetchHistory = async () => {
 
         <div className="flex-1 flex justify-center">
           <div className="flex gap-80">
-            {["subjects", "items", "history"].map((tab) => (
+            {["subjects", "pending items", "history"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -916,13 +910,17 @@ const fetchHistory = async () => {
           <div className="max-w-6xl mx-auto">
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Pending Items</h2>
+                <div>
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Pending Items
+                  </h2>
+                  <p className="text-gray-600 mt-2">
+                    Items that need your attention - add scores to complete them
+                  </p>
+                </div>
                 <div className="flex gap-3">
                   <button
-                    onClick={async () => {
-                      await fetchUpcomingItems();
-                      alert('Refreshed!');
-                    }}
+                    onClick={fetchUpcomingItems}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -933,66 +931,111 @@ const fetchHistory = async () => {
                 </div>
               </div>
 
-              {/* Pending Items List */}
-              <div>
+              {/* Pending Items Content */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
                 {upcomingItems.length === 0 ? (
-                  <div className="text-center py-16 text-gray-500 bg-gray-50/80 rounded-2xl">
+                  // Empty State - No Pending Items
+                  <div className="text-center py-16 text-gray-500">
                     <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
-                      <span className="text-4xl">📅</span>
+                      <span className="text-4xl">✅</span>
                     </div>
-                    <p className="text-xl font-semibold mb-2">No pending items</p>
-                    <p className="text-sm max-w-md mx-auto">All caught up! Add new items with due dates to see them here.</p>
+                    <p className="text-xl font-semibold mb-2">No pending items!</p>
+                    <p className="text-sm max-w-md mx-auto mb-6">
+                      Great job! You've scored all your items. 
+                      Add new items to your subjects or create new subjects to see them here.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={() => setShowModal(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-medium flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add New Subject
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("subjects")}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-medium flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        View Subjects
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  // Pending Items List
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto p-4">
                     {upcomingItems.map((item, index) => (
                       <div
                         key={item.id || index}
-                        className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm"
+                        className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm group"
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-4">
-                              <h4 className="font-semibold text-xl text-gray-900">{item.name}</h4>
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                                {item.componentName || 'Component'}
+                            <div className="flex items-center gap-3 mb-3">
+                              <h4 className="font-semibold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">
+                                {item.name}
+                              </h4>
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                ⏳ Pending
                               </span>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
-                              <div>
-                                <span className="font-medium">Subject:</span> {item.subjectName}
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                </svg>
+                                <span><strong>Subject:</strong> {item.subjectName || 'Unknown'}</span>
                               </div>
-                              <div>
-                                <span className="font-medium">Topic:</span> {item.topic || '—'}
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span><strong>Component:</strong> {item.componentName || 'Unknown'}</span>
                               </div>
-                              <div>
-                                <span className="font-medium">Due Date:</span>{' '}
-                                {item.date ? new Date(item.date).toLocaleDateString() : 'No date'}
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span><strong>Due Date:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'No date'}</span>
                               </div>
-                              <div>
-                                <span className="font-medium">Status:</span>{' '}
-                                <span className={`px-2 py-1 rounded-full text-xs ${
-                                  item.score !== null && item.score !== undefined 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {item.score !== null && item.score !== undefined ? 'Completed' : 'Pending'}
-                                </span>
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span><strong>Topic:</strong> {item.topic || '—'}</span>
                               </div>
                             </div>
-                            {item.score !== null && item.max !== null && (
-                              <div className="mt-3">
-                                <span className="font-medium text-gray-700">Score: </span>
-                                <span className="text-lg font-semibold text-blue-600">
-                                  {item.score}/{item.max}
+
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-700">Score:</span>
+                                <span className="px-2 py-1 bg-gray-100 rounded text-gray-600">
+                                  {item.score !== null && item.score !== undefined ? item.score : '—'} / {item.max !== null && item.max !== undefined ? item.max : '—'}
                                 </span>
                               </div>
-                            )}
+                              {item.score === null || item.score === undefined ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  Needs Scoring
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Completed
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <button
                             onClick={() => item.subjectId && router.push(`/dashboard/subject/${item.subjectId}`)}
-                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm"
+                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm flex items-center gap-2"
                           >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
                             View Subject
                           </button>
                         </div>
@@ -1003,24 +1046,26 @@ const fetchHistory = async () => {
               </div>
 
               {/* Stats Row */}
-              <div className="grid grid-cols-3 gap-6 mt-8 pt-8 border-t border-gray-200">
-                <div className="text-center p-6 bg-blue-50/80 rounded-2xl backdrop-blur-sm">
-                  <div className="text-3xl font-bold text-blue-600">{upcomingItems.length}</div>
-                  <div className="text-sm text-gray-600 font-medium">Total Items</div>
-                </div>
-                <div className="text-center p-6 bg-yellow-50/80 rounded-2xl backdrop-blur-sm">
-                  <div className="text-3xl font-bold text-yellow-600">
-                    {upcomingItems.filter(item => item.score === null || item.score === undefined).length}
+              {upcomingItems.length > 0 && (
+                <div className="grid grid-cols-3 gap-6 mt-8 pt-8 border-t border-gray-200">
+                  <div className="text-center p-6 bg-blue-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-blue-600">{upcomingItems.length}</div>
+                    <div className="text-sm text-gray-600 font-medium">Total Items</div>
                   </div>
-                  <div className="text-sm text-gray-600 font-medium">Pending</div>
-                </div>
-                <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
-                  <div className="text-3xl font-bold text-green-600">
-                    {upcomingItems.filter(item => item.score !== null && item.score !== undefined).length}
+                  <div className="text-center p-6 bg-yellow-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-yellow-600">
+                      {upcomingItems.filter(item => item.score === null || item.score === undefined).length}
+                    </div>
+                    <div className="text-sm text-gray-600 font-medium">Pending</div>
                   </div>
-                  <div className="text-sm text-gray-600 font-medium">Completed</div>
+                  <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
+                    <div className="text-3xl font-bold text-green-600">
+                      {upcomingItems.filter(item => item.score !== null && item.score !== undefined).length}
+                    </div>
+                    <div className="text-sm text-gray-600 font-medium">Completed</div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
