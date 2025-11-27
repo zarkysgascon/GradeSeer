@@ -1719,7 +1719,7 @@ export default function Dashboard() {
             {/* Subject Name */}
             <input
               type="text"
-              placeholder="Subject name"
+              placeholder="Subject name ba"
               value={newSubject.name}
               onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
               maxLength={50}
