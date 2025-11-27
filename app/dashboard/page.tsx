@@ -287,13 +287,13 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState<"subjects" | "pending items" | "history">("subjects");
   const [showModal, setShowModal] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
 
   const user = session?.user as ExtendedUser | undefined;
