@@ -308,40 +308,38 @@ const fetchHistory = async () => {
   try {
     console.log('🔄 Fetching history for:', user.email);
     
-    // 🔥 Check localStorage first for immediate results
-    const localHistoryKey = `user_history_${user.email}`;
-    const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
-    
-    if (localHistory.length > 0) {
-      console.log('📱 Using local history data:', localHistory.length, 'records');
-      setHistory(localHistory);
-    }
-    
-    // Still try to fetch from API for eventual consistency
+    // First try API
     const res = await fetch(`/api/subjects/history?email=${encodeURIComponent(user.email)}`);
     
     if (res.ok) {
       const apiHistory = await res.json();
       console.log('🌐 API history data:', apiHistory.length, 'records');
       
-      // Merge local and API history, remove duplicates
-      const mergedHistory = [...localHistory, ...apiHistory].filter((record, index, self) => 
-        index === self.findIndex(r => r.id === record.id)
-      );
-      
-      if (mergedHistory.length > localHistory.length) {
-        console.log('🔄 Updating with merged history:', mergedHistory.length, 'records');
-        setHistory(mergedHistory);
-        // Update localStorage with merged data
-        localStorage.setItem(localHistoryKey, JSON.stringify(mergedHistory));
+      if (apiHistory.length > 0) {
+        setHistory(apiHistory);
+        // Also update localStorage as backup
+        const localHistoryKey = `user_history_${user.email}`;
+        localStorage.setItem(localHistoryKey, JSON.stringify(apiHistory));
+        return;
       }
+    }
+    
+    // If API fails or returns empty, try localStorage
+    console.log('🌐 API returned empty or failed, trying localStorage...');
+    const localHistoryKey = `user_history_${user.email}`;
+    const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
+    
+    if (localHistory.length > 0) {
+      console.log('📱 Using local history data:', localHistory.length, 'records');
+      setHistory(localHistory);
     } else {
-      console.log('🌐 API history unavailable, using local data only');
+      console.log('💡 No history data found anywhere');
+      setHistory([]);
     }
     
   } catch (err) {
     console.error("💥 Error fetching history:", err);
-    // Fallback to local storage
+    // Final fallback to local storage
     const localHistoryKey = `user_history_${user.email}`;
     const localHistory = JSON.parse(localStorage.getItem(localHistoryKey) || '[]');
     setHistory(localHistory);
@@ -639,7 +637,7 @@ const fetchHistory = async () => {
 
         <div className="flex-1 flex justify-center">
           <div className="flex gap-80">
-            {["subjects", "pending items", "history"].map((tab) => (
+            {["subjects", "items", "history"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
