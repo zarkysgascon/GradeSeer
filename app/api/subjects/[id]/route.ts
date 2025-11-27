@@ -114,6 +114,7 @@ export async function PUT(
         target_grade: body.target_grade,
         color: body.color,
         is_major: body.is_major,
+        units: body.units, // ADDED: Units field
       })
       .where(eq(subjects.id, subjectId));
 
@@ -160,7 +161,7 @@ export async function DELETE(
 }
 
 /* -----------------------------------------------------------
-   PARTIAL UPDATE SUBJECT (RENAME ONLY)
+   PARTIAL UPDATE SUBJECT (RENAME, TARGET GRADE, UNITS)
 ----------------------------------------------------------- */
 export async function PATCH(
   req: Request,
@@ -169,17 +170,21 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await req.json()
-    const nextName = body?.name?.trim()
+    
+    const updateData: any = {}
+    if (body.name !== undefined) updateData.name = body.name.trim()
+    if (body.target_grade !== undefined) updateData.target_grade = body.target_grade.toString()
+    if (body.units !== undefined) updateData.units = body.units // ADDED: Units field
 
-    if (!nextName) {
-      return NextResponse.json({ error: "Subject name is required" }, { status: 400 })
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
-    await db.update(subjects).set({ name: nextName }).where(eq(subjects.id, id))
+    await db.update(subjects).set(updateData).where(eq(subjects.id, id))
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("PATCH error:", error)
-    return NextResponse.json({ error: "Failed to rename subject" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to update subject" }, { status: 500 })
   }
 }

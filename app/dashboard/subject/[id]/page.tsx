@@ -30,6 +30,7 @@ interface Subject {
   target_grade?: number | null
   color: string
   components: ComponentInput[]
+  units?: number // ADDED: Units field
 }
 
 interface ChatMessage {
@@ -429,6 +430,11 @@ export default function SubjectDetail() {
   const [editingTargetGrade, setEditingTargetGrade] = useState<number | null>(null)
   const [updatingTargetGrade, setUpdatingTargetGrade] = useState(false)
 
+  // ADDED: Units editing state
+  const [isEditingUnits, setIsEditingUnits] = useState(false)
+  const [editingUnits, setEditingUnits] = useState<number>(3)
+  const [updatingUnits, setUpdatingUnits] = useState(false)
+
   const [showEditItemModal, setShowEditItemModal] = useState(false)
   const [editingItem, setEditingItem] = useState<ItemInput | null>(null)
   const [editingItemComponentId, setEditingItemComponentId] = useState<string | null>(null)
@@ -554,6 +560,47 @@ const handleFinishSubject = async () => {
     alert('Error finishing subject: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 };
+
+  // ADDED: Units update handler
+  const handleUpdateUnits = async () => {
+    if (!subject?.id) return
+
+    if (editingUnits < 1 || editingUnits > 10) {
+      alert("Units must be between 1 and 10")
+      return
+    }
+
+    setUpdatingUnits(true)
+    try {
+      const res = await fetch(`/api/subjects/${subject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          units: editingUnits,
+          name: subject.name,
+          target_grade: subject.target_grade
+        }),
+      })
+      
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Units update failed")
+      }
+
+      setSubject(prev => prev ? { 
+        ...prev, 
+        units: editingUnits
+      } : null)
+      
+      setIsEditingUnits(false)
+    } catch (err) {
+      console.error("Units update failed:", err)
+      alert("Failed to update units.")
+    } finally {
+      setUpdatingUnits(false)
+    }
+  }
+
   const loadLocalEdits = (): Record<string, { score: number | null; max: number | null }> => {
     try {
       const raw = localStorage.getItem(localKey)
@@ -610,6 +657,7 @@ const handleFinishSubject = async () => {
         }
         setSubject(patched)
         setEditingTargetGrade(data.target_grade ? parseFloat(data.target_grade) : null)
+        setEditingUnits(data.units || 3) // ADDED: Initialize units
       } catch (err) {
         console.error("Subject fetch failed:", err)
         setSubject(null)
@@ -624,7 +672,8 @@ const handleFinishSubject = async () => {
   useEffect(() => {
     if (subject?.name) setEditingName(subject.name)
     if (subject?.target_grade) setEditingTargetGrade(parseFloat(subject.target_grade.toString()))
-  }, [subject?.name, subject?.target_grade])
+    if (subject?.units) setEditingUnits(subject.units) // ADDED: Initialize units
+  }, [subject?.name, subject?.target_grade, subject?.units])
 
   useEffect(() => {
     if (subject) {
@@ -1390,6 +1439,99 @@ const handleFinishSubject = async () => {
                         onClick={() => {
                           setEditingTargetGrade(subject.target_grade ? parseFloat(subject.target_grade.toString()) : null)
                           setIsEditingTargetGrade(true)
+                        }}
+                        className="p-1 text-white/70 hover:text-white transition"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ADDED: Units Display */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-6 h-6 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6" />
+                    <path d="M16 13H8" />
+                    <path d="M16 17H8" />
+                    <path d="M10 9H8" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm text-white/90">Units</div>
+                  {isEditingUnits ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={editingUnits || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? parseInt(e.target.value) : 0
+                          setEditingUnits(Math.max(1, Math.min(10, value)))
+                        }}
+                        className="w-16 text-2xl font-bold bg-white/20 border border-white/30 rounded px-1 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50"
+                        autoFocus
+                        min="1"
+                        max="10"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleUpdateUnits()
+                          if (e.key === "Escape") {
+                            setIsEditingUnits(false)
+                            setEditingUnits(subject?.units || 3)
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={handleUpdateUnits}
+                        disabled={updatingUnits}
+                        className="text-xs bg-white/20 hover:bg-white/30 rounded px-2 py-1 transition-colors"
+                      >
+                        {updatingUnits ? "Saving" : "✓"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditingUnits(false)
+                          setEditingUnits(subject?.units || 3)
+                        }}
+                        className="text-xs bg-white/10 hover:bg-white/20 rounded px-2 py-1 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl font-bold">
+                        {subject?.units || 3}
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Edit units"
+                        onClick={() => {
+                          setEditingUnits(subject?.units || 3)
+                          setIsEditingUnits(true)
                         }}
                         className="p-1 text-white/70 hover:text-white transition"
                       >

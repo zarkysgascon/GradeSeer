@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { subjects, components, items } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 
-// Simple UUID v4 generator (no external package needed)
+// Simple UUID v4 generator
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
 }
 
 /* -----------------------------------------------------------
-   CREATE SUBJECT - FIXED: Return complete subject data with color
+   CREATE SUBJECT - FIXED: Return complete subject data with color and units
    POST /api/subjects
 ----------------------------------------------------------- */
 export async function POST(req: Request) {
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     // Generate UUID for the new subject
     const subjectId = generateUUID();
 
-    // Insert subject WITH COLOR - ensure color has a default
+    // Insert subject WITH COLOR AND UNITS - ensure color has a default
     const inserted = await db
       .insert(subjects)
       .values({
@@ -92,6 +92,7 @@ export async function POST(req: Request) {
         is_major: body.is_major,
         target_grade: body.target_grade?.toString() || null,
         color: body.color || '#3B82F6', // Ensure color has a default
+        units: body.units || 3, // ADDED: Units field with default
       })
       .returning();
 
@@ -122,13 +123,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // Return the complete subject data INCLUDING COMPONENTS AND ITEMS
+    // Return the complete subject data INCLUDING COMPONENTS, ITEMS, AND UNITS
     return NextResponse.json({
       id: newSubject.id,
       name: newSubject.name,
       is_major: newSubject.is_major,
       target_grade: newSubject.target_grade,
       color: newSubject.color, // THIS IS CRITICAL
+      units: newSubject.units || 3, // ADDED: Include units
       user_email: newSubject.user_email,
       components: createdComponents // Include the components structure
     }, { status: 201 });
