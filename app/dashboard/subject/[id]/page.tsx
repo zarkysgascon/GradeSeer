@@ -73,6 +73,8 @@ function computeRawComponentGrade(items: ItemInput[]): number {
     item.max > 0
   )
   
+  // use != null to check both null and undefined
+  // Removed duplicate declaration of validItems
   if (validItems.length === 0) return 0
 
   const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0)
@@ -462,7 +464,6 @@ export default function SubjectDetail() {
 
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
-  const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : "gradeHistory:guest";
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -2316,14 +2317,21 @@ const handleFinishSubject = async () => {
           <div className="bg-white rounded-2xl shadow-2xl w-96 p-6 relative z-10 border border-gray-200">
             <h2 className="text-xl font-bold mb-4 text-center">Add New Item</h2>
 
-            <div className="space-y-3">
+              <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
                 <input
                   type="text"
                   placeholder="Item Name"
                   value={newItem.name}
-                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                  // allow letters and spaces only, limit to 50 characters
+                onChange={(e) => {
+                  const raw = e.target.value
+                  const sanitized = raw.replace(/[^A-Za-z\s]/g, "").slice(0, 50)
+                  setNewItem({ ...newItem, name: sanitized })
+                }}
+                maxLength={50}
+                pattern="[A-Za-z ]*"
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -2346,12 +2354,17 @@ const handleFinishSubject = async () => {
                   <input
                     type="number"
                     placeholder="Score"
-                    value={newItem.score || ""}
-                    onChange={(e) =>
-                      setNewItem({ ...newItem, score: e.target.value ? Number.parseInt(e.target.value) : null })
-                    }
+                    value={newItem.score ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                    const digits = raw.replace(/\D/g, "").slice(0, 4)
+                    setNewItem({ ...newItem, score: digits ? Number.parseInt(digits) : null })
+                    }}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min={0}
+                  max={9999}
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    min="0"
                   />
                 </div>
                 <div>
@@ -2359,12 +2372,19 @@ const handleFinishSubject = async () => {
                   <input
                     type="number"
                     placeholder="Max Score"
-                    value={newItem.max || ""}
-                    onChange={(e) =>
-                      setNewItem({ ...newItem, max: e.target.value ? Number.parseInt(e.target.value) : null })
-                    }
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    min="1"
+                      value={newItem.max ?? ""}
+                      // Limit input to digits only and max 4 characters (0-9999) /
+                    onChange={(e) => {
+                        const raw = e.target.value
+                      // keep only digits
+                      const digits = raw.replace(/\D/g, "").slice(0, 5)
+                      setNewItem({ ...newItem, max: digits ? Number.parseInt(digits) : null })
+                      }}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={1}
+                    max={9999}
+                      className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -2372,12 +2392,21 @@ const handleFinishSubject = async () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <CustomDateInput
-                  value={newItem.date || ""}
+                  value={newItem.date ?? ""}
                   onChange={(date) => setNewItem({ ...newItem, date })}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">Day must be 1-31, Year must be 4 digits</p>
               </div>
+              <input
+                type="number"
+                placeholder="Target"
+                value={newItem.target ?? ""}
+                onChange={(e) =>
+                  setNewItem({ ...newItem, target: e.target.value ? Number.parseInt(e.target.value) : null })
+                }
+                className="w-full p-2 border rounded"
+              />
             </div>
 
             <div className="flex justify-between mt-6">
