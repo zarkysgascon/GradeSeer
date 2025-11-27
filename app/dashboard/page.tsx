@@ -927,6 +927,19 @@ export default function Dashboard() {
   /* ---------------------- Save Subject ---------------------- */
   const handleSaveSubject = async () => {
     if (!user?.email || !newSubject.name.trim()) return;
+    const totalPct = newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0);
+    if (newSubject.components.length === 0) {
+      alert("Add at least one grading component.");
+      return;
+    }
+    if (totalPct > 100) {
+      alert("Total component percentage must be 100% or less.");
+      return;
+    }
+    if (!newSubject.target_grade || newSubject.target_grade === 0) {
+      alert("Select a target grade.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -1714,164 +1727,166 @@ export default function Dashboard() {
         <div className="fixed inset-0 flex justify-center items-center bg-black/30 z-50">
           <div className="bg-white rounded-3xl shadow-2xl w-[500px] p-6">
             <div className="h-6 rounded-t-xl" style={{ backgroundColor: newSubject.color }} />
-            <h2 className="text-xl font-bold mb-4 text-center">Add  t</h2>
+            <h2 className="text-xl font-bold mb-4 text-center">Add Subject</h2>
+            <h2 className="text-xl font-bold mb-4 text-center">Add subject</h2>
 
-            {/* Subject Name */}
-            <input
-              type="text"
-              placeholder="Subject name"
-              value={newSubject.name}
-              onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
-              maxLength={50}
-              className="w-full p-2 border rounded mb-3"
-            />
+      {/* Subject Name */}
+      <input
+        type="text"
+        placeholder="Subject name"
+        value={newSubject.name}
+        onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
+        maxLength={50}
+        className="w-full p-2 border rounded mb-3"
+      />
 
-            {/* Type */}
-            <select
-              value={newSubject.is_major ? "major" : "minor"}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
-              }
-              className="w-full p-2 border rounded mb-3"
-            >
-              <option value="major">Major</option>
-              <option value="minor">Minor</option>
-            </select>
+      {/* Type */}
+      <select
+        value={newSubject.is_major ? "major" : "minor"}
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+          setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
+        }
+        className="w-full p-2 border rounded mb-3"
+      >
+        <option value="major">Major</option>
+        <option value="minor">Minor</option>
+      </select>
 
-                  {/* Units */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Units
-                    </label>
-                    <select
-                      value={newSubject.units}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                        setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
-                      }
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                    >
-                      <option value={1}>1 Unit</option>
-                      <option value={2}>2 Units</option>
-                      <option value={3}>3 Units</option>
-                      <option value={4}>4 Units</option>
-                      <option value={5}>5 Units</option>
-                    </select>
-                  </div>
-                </div>
+      {/* Units and Target Grade Grid */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Units */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Units
+          </label>
+          <select
+            value={newSubject.units}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
+            }
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+          >
+            <option value={1}>1 Unit</option>
+            <option value={2}>2 Units</option>
+            <option value={3}>3 Units</option>
+            <option value={4}>4 Units</option>
+            <option value={5}>5 Units</option>
+          </select>
+        </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Target Grade */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Target Grade
-                    </label>
-                    <select
-                      value={newSubject.target_grade}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                        setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
-                      }
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                    >
-                      <option value={0}>Select Grade</option>
-                      <option value={1.00}>1.00</option>
-                      <option value={1.25}>1.25</option>
-                      <option value={1.50}>1.50</option>
-                      <option value={1.75}>1.75</option>
-                      <option value={2.00}>2.00</option>
-                      <option value={2.25}>2.25</option>
-                      <option value={2.50}>2.50</option>
-                      <option value={2.75}>2.75</option>
-                      <option value={3.00}>3.00</option>
-                      <option value={4.00}>4.00</option>
-                      <option value={5.00}>5.00</option>
-                    </select>
-                  </div>
-                </div>
+        {/* Target Grade */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Target Grade
+          </label>
+          <select
+            value={newSubject.target_grade}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
+            }
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+          >
+            <option value={0}>Select Grade</option>
+            <option value={1.00}>1.00</option>
+            <option value={1.25}>1.25</option>
+            <option value={1.50}>1.50</option>
+            <option value={1.75}>1.75</option>
+            <option value={2.00}>2.00</option>
+            <option value={2.25}>2.25</option>
+            <option value={2.50}>2.50</option>
+            <option value={2.75}>2.75</option>
+            <option value={3.00}>3.00</option>
+            <option value={4.00}>4.00</option>
+            <option value={5.00}>5.00</option>
+          </select>
+        </div>
+      </div>
 
-                {/* Components Section */}
-                <div className="border-t pt-5">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Grading Components</h3>
-                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                      {newSubject.components.length} added
-                    </span>
-                  </div>
+      {/* Components Section */}
+      <div className="border-t pt-5">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Grading Components</h3>
+          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+            {newSubject.components.length} added
+          </span>
+        </div>
 
-                  {/* Components List */}
-                  <div className="border rounded-lg p-3 max-h-32 overflow-y-auto mb-4 bg-gray-50">
-                    {newSubject.components.length === 0 ? (
-                      <div className="text-center py-4 text-gray-400">
-                        <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <p className="text-sm">No components yet</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {newSubject.components.map((c, i) => (
-                          <div key={i} className="flex items-center gap-2 p-2 bg-white rounded border">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-700 truncate">{c.name}</span>
-                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                                  {c.percentage}%
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleRemoveComponent(i)}
-                              className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-            {/* Add Component */}
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                placeholder="Component Name"
-                className="flex-1 p-2 border rounded"
-                maxLength={80}
-                value={newComponent.name}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
-                }
-              />
-              <NumberInput
-                placeholder="%"
-                value={newComponent.percentage}
-                onChange={(value: number) =>
-                  setNewComponent({ ...newComponent, percentage: value })
-                }
-                min={0}
-                max={100}
-                className="w-20 p-2 border rounded"
-              />
-              <NumberInput
-                placeholder="P"
-                value={newComponent.priority}
-                onChange={(value: number) =>
-                  setNewComponent({ ...newComponent, priority: value })
-                }
-                min={0}
-                maxDigits={4}
-                className="w-20 p-2 border rounded"
-              />
+        {/* Components List */}
+        <div className="border rounded-lg p-3 max-h-32 overflow-y-auto mb-4 bg-gray-50">
+          {newSubject.components.length === 0 ? (
+            <div className="text-center py-4 text-gray-400">
+              <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-sm">No components yet</p>
             </div>
+          ) : (
+            <div className="space-y-2">
+              {newSubject.components.map((c, i) => (
+                <div key={i} className="flex items-center gap-2 p-2 bg-white rounded border">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700 truncate">{c.name}</span>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                        {c.percentage}%
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveComponent(i)}
+                    className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-            <button
-              onClick={handleAddOrUpdateComponent}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded mb-4"
-            >
-              + Add Component
-            </button>
+        {/* Add Component */}
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            placeholder="Component Name"
+            className="flex-1 p-2 border rounded"
+            maxLength={80}
+            value={newComponent.name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
+            }
+          />
+          <NumberInput
+            placeholder="%"
+            value={newComponent.percentage}
+            onChange={(value: number) =>
+              setNewComponent({ ...newComponent, percentage: value })
+            }
+            min={0}
+            max={100}
+            className="w-20 p-2 border rounded"
+          />
+          <NumberInput
+            placeholder="P"
+            value={newComponent.priority}
+            onChange={(value: number) =>
+              setNewComponent({ ...newComponent, priority: value })
+            }
+            min={0}
+            maxDigits={4}
+            className="w-20 p-2 border rounded"
+          />
+        </div>
+
+        <button
+          onClick={handleAddOrUpdateComponent}
+          className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded mb-4"
+        >
+          + Add Component
+        </button>
+      </div>
 
               {/* Footer */}
               <div className="flex justify-between pt-6 mt-6 border-t border-gray-200">
@@ -1883,7 +1898,13 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={handleSaveSubject}
-                  disabled={loading || !newSubject.name.trim()}
+                  disabled={
+                    loading ||
+                    !newSubject.name.trim() ||
+                    newSubject.components.length === 0 ||
+                    (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
+                    !newSubject.target_grade || newSubject.target_grade === 0
+                  }
                   className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
                 >
                   {loading ? (
