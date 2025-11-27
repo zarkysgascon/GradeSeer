@@ -45,7 +45,6 @@ export const items = pgTable("items", {
 });
 
 /* ------------------ SUBJECT HISTORY TABLE ------------------ */
-
 export const subject_history = pgTable('subject_history', {
   id: uuid('id').defaultRandom().primaryKey(),
   subject_id: uuid('subject_id').notNull(),
@@ -54,5 +53,5 @@ export const subject_history = pgTable('subject_history', {
   target_grade: text('target_grade').notNull(),
   final_grade: text('final_grade').notNull(),
   status: text('status').notNull(), // should be 'reached' or 'missed'
-  completed_at: timestamp('completed_at', { withTimezone: true }).defaultNow(),
+  completed_at: timestamp('completed_at').defaultNow(), // CHANGED: removed timezone
 });

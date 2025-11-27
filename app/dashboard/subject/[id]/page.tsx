@@ -431,7 +431,6 @@ const handleFinishSubject = async () => {
   
   try {
     console.log('🔄 Starting finish process for subject:', subject.id);
-    console.log('📤 Sending finish request to:', `/api/subjects/${subject.id}/finish`);
     
     const response = await fetch(`/api/subjects/${subject.id}/finish`, {
       method: 'POST',
@@ -443,13 +442,7 @@ const handleFinishSubject = async () => {
       }),
     });
 
-    console.log('📨 Finish API response status:', response.status);
-    console.log('📨 Finish API response ok:', response.ok);
-    
-    // Get the raw response text first
     const responseText = await response.text();
-    console.log('📄 Raw response text:', responseText);
-    
     let result;
     try {
       result = responseText ? JSON.parse(responseText) : {};
@@ -461,18 +454,37 @@ const handleFinishSubject = async () => {
     if (response.ok) {
       console.log('✅ Finish API success:', result);
       
-      // Set flag to refresh history
+      // 🔥 CRITICAL FIX: Store history record in localStorage immediately
+      if (result.history_record) {
+        const userHistoryKey = `user_history_${session.user.email}`;
+        const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey) || '[]');
+        
+        const newHistoryRecord = {
+          ...result.history_record,
+          // Ensure all fields are present
+          id: result.history_record.id || `local_${Date.now()}`,
+          subject_id: result.history_record.subject_id || subject.id,
+          user_email: result.history_record.user_email || session.user.email,
+          course_name: result.history_record.course_name || subject.name,
+          target_grade: result.history_record.target_grade || subject.target_grade?.toString() || '0',
+          final_grade: result.history_record.final_grade || result.final_grade || '0.00',
+          status: result.history_record.status || result.status || 'reached',
+          completed_at: result.history_record.completed_at || new Date().toISOString(),
+          created_at: result.history_record.created_at || new Date().toISOString()
+        };
+        
+        const updatedHistory = [newHistoryRecord, ...existingHistory];
+        localStorage.setItem(userHistoryKey, JSON.stringify(updatedHistory));
+        console.log('💾 History record stored locally:', newHistoryRecord);
+      }
+      
+      // Set flag to refresh history from localStorage
       localStorage.setItem('shouldRefreshHistory', 'true');
       
-      // Redirect to dashboard
       console.log('🏁 Subject finished, redirecting to dashboard...');
       router.push('/dashboard');
     } else {
-      console.error('❌ Finish API error - Full details:', {
-        status: response.status,
-        statusText: response.statusText,
-        result: result
-      });
+      console.error('❌ Finish API error:', result);
       alert('Failed to finish subject: ' + (result.error || result.message || 'Unknown error'));
     }
   } catch (error) {
