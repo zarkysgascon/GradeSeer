@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, ChangeEvent, useCallback } from "react";
+import { useEffect, useState, ChangeEvent, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -632,6 +632,15 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
+  const [assistantMessages, setAssistantMessages] = useState<{ id: string; role: 'user'|'assistant'; content: string; timestamp: Date; }[]>([]);
+  const [assistantInput, setAssistantInput] = useState("");
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (assistantOpen) inputRef.current?.focus();
+  }, [assistantOpen]);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // GPA Calculator States
@@ -688,6 +697,34 @@ export default function Dashboard() {
     setShowGPAModal(true);
     setSelectedSubjects([]);
     setGpaResult(null);
+  };
+
+  const sendDashboardAssistantMessage = async () => {
+    if (!assistantInput.trim() || !user?.email) return;
+    const msg = { id: Date.now().toString(), role: 'user' as const, content: assistantInput, timestamp: new Date() };
+    setAssistantMessages(prev => [...prev, msg]);
+    setAssistantInput("");
+    setAssistantLoading(true);
+    try {
+      const res = await fetch('/api/ai/dashboard/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, message: msg.content })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = String(data?.response || '');
+        if (text) {
+          const a = { id: (Date.now()+1).toString(), role: 'assistant' as const, content: text, timestamp: new Date() };
+          setAssistantMessages(prev => [...prev, a]);
+        }
+      } else {
+        const a = { id: (Date.now()+1).toString(), role: 'assistant' as const, content: 'I could not generate advice right now. Try again later.', timestamp: new Date() };
+        setAssistantMessages(prev => [...prev, a]);
+      }
+    } finally {
+      setAssistantLoading(false);
+    }
   };
 
   /* ---------------------- Fetch History ---------------------- */
@@ -1089,6 +1126,7 @@ export default function Dashboard() {
         {/* SUBJECTS TAB */}
         {activeTab === "subjects" && (
           <div className="max-w-7xl mx-auto">
+            
             {/* Header Section */}
             <div className="flex justify-between items-center mb-8">
                 <div className="flex-1 flex justify-center">
@@ -1598,6 +1636,78 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      {/* Assistant Floating Bubble */}
+      <button
+        aria-label="Open Assistant"
+        aria-expanded={assistantOpen}
+        aria-controls="dashboard-assistant"
+        onClick={() => setAssistantOpen(v => !v)}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-600 shadow-xl flex items-center justify-center z-50 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+      >
+        <Image src="/gslogo.png" alt="GradeSeer" width={28} height={28} />
+      </button>
+
+      {assistantOpen && (
+        <div
+          id="dashboard-assistant"
+          className="fixed bottom-24 right-6 w-96 max-w-[90vw] h-96 rounded-2xl shadow-2xl border border-gray-200 bg-white/95 backdrop-blur-sm z-50 flex flex-col"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="flex items-center justify-between p-3 border-b">
+            <div className="flex items-center gap-2">
+              <Image src="/gslogo.png" alt="GradeSeer" width={24} height={24} />
+              <span className="text-sm font-semibold text-gray-800">GradeSeer Assistant</span>
+            </div>
+            <button
+              onClick={() => setAssistantOpen(false)}
+              className="p-2 rounded hover:bg-gray-100"
+              aria-label="Close Assistant"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+            {assistantMessages.map(m => (
+              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {m.role === 'assistant' && (
+                  <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2" />
+                )}
+                <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>{m.content}</div>
+              </div>
+            ))}
+            {assistantLoading && <div className="text-sm text-gray-600">Thinking...</div>}
+          </div>
+          <div className="p-3 border-t flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={assistantInput}
+              onChange={(e) => setAssistantInput(e.target.value)}
+              placeholder="Ask about priorities across subjects"
+              className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              disabled={assistantLoading}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setAssistantOpen(false);
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (!assistantLoading && assistantInput.trim() && user?.email) sendDashboardAssistantMessage();
+                }
+              }}
+            />
+            <button
+              onClick={sendDashboardAssistantMessage}
+              disabled={assistantLoading || !assistantInput.trim() || !user?.email}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ADD SUBJECT MODAL */}
       {showModal && (

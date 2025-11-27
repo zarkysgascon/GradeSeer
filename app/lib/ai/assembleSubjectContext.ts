@@ -97,8 +97,8 @@ export function assembleSubjectContext(subject: Subject) {
   const worstCase = percentageToGradeScale(worstPercentage)
   const bestCase = percentageToGradeScale(bestPercentage)
   const percentComplete = itemsTotal(allItems) === 0 ? 0 : Math.round((itemsCompleted(allItems) / itemsTotal(allItems)) * 100)
-  const gapToTarget = targetGrade > 0 ? Number((currentGrade - targetGrade).toFixed(2)) : 0
-  const safetyZone = targetGrade > 0 ? (currentGrade >= targetGrade ? 'green' : rawPercentage >= 71 ? 'yellow' : 'red') : (rawPercentage >= 75 ? 'green' : rawPercentage >= 65 ? 'yellow' : 'red')
+  const gapToTarget = targetGrade > 0 ? Number((targetGrade - currentGrade).toFixed(2)) : 0
+  const safetyZone = targetGrade > 0 ? (currentGrade <= targetGrade ? 'green' : rawPercentage >= 71 ? 'yellow' : 'red') : (rawPercentage >= 75 ? 'green' : rawPercentage >= 65 ? 'yellow' : 'red')
 
   const componentsCtx = (subject.components || []).map(c => {
     const compItems = c.items || []

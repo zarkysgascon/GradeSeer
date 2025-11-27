@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { subjects, components, items } from "@/lib/schema"
 import { eq } from "drizzle-orm"
 import { assembleSubjectContext } from "@/app/lib/ai/assembleSubjectContext"
+import { buildAIPrompt } from "@/app/lib/ai/promptBuilder"
 
 const PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash"
 const STATIC_PREFERENCES = [
@@ -36,53 +37,9 @@ export async function POST(
     const subject = { ...rows[0], target_grade: rows[0].target_grade, components: enriched }
     const context = assembleSubjectContext(subject as any)
 
-    const systemPrompt = `You are a strategic grade advisor for college students. You analyze their current performance in a single course and provide clear, actionable recommendations.
+    const fullPrompt = buildAIPrompt(message, 'subject', subject as any)
 
-Your Role:
-- Analyze the student's grades, assessment structure, and target
-- Provide specific score targets for upcoming work
-- Prioritize assessments by impact (weight × gap to target)
-- Identify performance patterns and strategic insights
-- Use clear status indicators (✅ above target, ⚠️ below target, 🎉 achievements)
-
-Response Format:
-1. Status Summary (2-3 sentences)
-2. What You Need To Do (prioritized list with targets)
-3. Strategy/Insight (patterns and advice)
-
-Constraints:
-- <=300 words, numbers included, emojis sparingly`
-
-    const renderList = (arr: any[], fmt: (a: any) => string) => arr.map(fmt).join("\n")
-
-    const fullPrompt = `${systemPrompt}
-
-Subject: ${context.subject.name}
-Target Grade: ${context.subject.targetGrade} (${context.subject.gradeScale})
-Current Grade: ${context.currentStatus.currentGrade}
-Gap to Target: ${context.currentStatus.gapToTarget > 0 ? "+" : ""}${context.currentStatus.gapToTarget}
-Safety Zone: ${context.currentStatus.safetyZone}
-Worst-case: ${context.currentStatus.worstCase}
-Best-case: ${context.currentStatus.bestCase}
-
-Completed Assessments:
-${renderList(context.completedAssessments, a => `- ${a.name}: ${a.score}/${a.maxScore} (${a.percentage}%) - weight ${a.weight}%`)}
-
-Upcoming Assessments:
-${renderList(context.upcomingAssessments, a => `- ${a.name}: weight ${a.weight}%, due ${a.dueDate}`)}
-
-Performance Patterns:
-- Quiz average: ${context.performanceInsights.quizAverage}
-- Exam average: ${context.performanceInsights.examAverage}
-- Strongest component: ${context.performanceInsights.strongestComponent}
-- Weakest component: ${context.performanceInsights.weakestComponent}
-- Trend: ${context.performanceInsights.trending}
-
-Student's Question: ${message}
-
-Your Response:`
-
-    const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
+    const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) return NextResponse.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 })
 
     // Discover available models for this key
@@ -140,13 +97,10 @@ Your Response:`
             .sort((a: any, b: any) => b.weight - a.weight)
             .slice(0, 3)
           const delta = Number(context.currentStatus.gapToTarget || 0)
-          text = [
-            `📊 Status: ${delta >= 0 ? '✅ Above target' : '⚠️ Below target'} (gap ${delta >= 0 ? '+' : ''}${delta})`,
-            `🎯 What You Need To Do:`,
-            `${upcoming.length ? upcoming.map((u: any, i: number) => `${i+1}. ${u.name} (${u.component}, ${u.weight}% weight)`).join('\n') : 'No upcoming assessments'}`,
-            `💡 Insights:`,
-            `${risks.length ? `Risk components: ${risks.map((r: any) => `${r.name} (${r.weight}% weight)`).join(', ')}` : 'No risk components detected'}`
-          ].join('\n')
+          const status = delta <= 0 ? 'On/above target' : 'Below target'
+          const actions = upcoming.length ? upcoming.map((u: any, i: number) => `${i+1}. ${u.name} (${u.component}, ${u.weight}% weight)`).join('\n') : 'No upcoming assessments'
+          const insights = risks.length ? `Risk components: ${risks.map((r: any) => `${r.name} (${r.weight}% weight)`).join(', ')}` : 'No risk components detected'
+          text = [`Status: ${status} (gap ${delta > 0 ? '+' : ''}${delta})`, `Next Actions:`, actions, `Insights:`, insights, `What's your next move?`].join('\n')
         }
 
         return NextResponse.json({ response: text, model })
