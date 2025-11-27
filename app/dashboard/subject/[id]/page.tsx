@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
+import SubjectGraphModal from '@/app/components/SubjectGraphModal'
 
 /* -------------------- Types -------------------- */
 interface ItemInput {
@@ -391,6 +392,9 @@ export default function SubjectDetail() {
   const [finishingCourse, setFinishingCourse] = useState(false)
   const [finishLoading, setFinishLoading] = useState(false)
 
+  // Graph Modal State - ADD THIS LINE
+  const [showGraphModal, setShowGraphModal] = useState(false)
+
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const localKey = typeof id === "string" ? `grades:subject:${id}` : `grades:subject:${String(id)}`
   const historyStorageKey = user?.email ? `gradeHistory:${user.email}` : "gradeHistory:guest";
@@ -412,6 +416,22 @@ export default function SubjectDetail() {
         timestamp: new Date()
       }
       setChatMessages([welcomeMessage])
+    }
+  }, [subject])
+
+
+    // Add this right after your other useEffects (around line 180)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const showGraphParam = searchParams.get('showGraph')
+    
+    if (showGraphParam === 'true' && subject) {
+      setShowGraphModal(true)
+      
+      // Clean up URL without page reload
+      const url = new URL(window.location.href)
+      url.searchParams.delete('showGraph')
+      window.history.replaceState({}, '', url.toString())
     }
   }, [subject])
 
@@ -1236,7 +1256,7 @@ const handleFinishSubject = async () => {
             )}
           </div>
 
-          {/* Grade Metrics */}
+          {/* Grade Metrics and Graph Button */}
           <div className="flex items-center gap-4">
             {/* Grade Metrics with Icons */}
             <div className="flex gap-8 text-center">
@@ -1398,6 +1418,29 @@ const handleFinishSubject = async () => {
                 </div>
               </div>
             </div>
+
+            {/* Graph Modal Trigger Button - ADD THIS BUTTON */}
+            <button
+              onClick={() => setShowGraphModal(true)}
+              className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 3v18h18" />
+                <path d="M18 17V9" />
+                <path d="M13 17V5" />
+                <path d="M8 17v-3" />
+              </svg>
+              View Progress Graph
+            </button>
           </div>
         </div>
 
@@ -2178,6 +2221,15 @@ const handleFinishSubject = async () => {
           </div>
         </div>
       )}
+
+      {/* PROGRESS GRAPH MODAL - ADD THIS AT THE END */}
+      <SubjectGraphModal
+        isOpen={showGraphModal}
+        onClose={() => setShowGraphModal(false)}
+        subjectName={subject.name}
+        components={subject.components}
+        subjectColor={subject.color}
+      />
     </div>
   )
 }
