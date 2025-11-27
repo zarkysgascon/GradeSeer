@@ -90,9 +90,9 @@ export async function POST(req: Request) {
         user_email: body.user_email,
         name: body.name,
         is_major: body.is_major,
-        target_grade: body.target_grade?.toString() || null,
-        color: body.color || '#3B82F6', // Ensure color has a default
-        units: body.units || 3, // ADDED: Units field with default
+        target_grade: (typeof body.target_grade === 'number' && body.target_grade > 0)
+          ? body.target_grade.toString()
+          : null,
       })
       .returning();
 
