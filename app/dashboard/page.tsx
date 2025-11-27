@@ -4,6 +4,7 @@ import { useEffect, useState, ChangeEvent, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import DashboardSearch from "./search";
 
 
 /* ------------------------- Interfaces ------------------------- */
@@ -631,6 +632,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [upcomingItems, setUpcomingItems] = useState<ItemInput[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // GPA Calculator States
   const [showGPAModal, setShowGPAModal] = useState(false);
@@ -1006,6 +1008,11 @@ export default function Dashboard() {
   }
 
   /* ---------------------- UI Return ---------------------- */
+  const displayedSubjects = subjects.filter((s) => {
+    if (!searchQuery || !searchQuery.trim()) return true;
+    const first = searchQuery.trim()[0].toLowerCase();
+    return s.name.toLowerCase().startsWith(first);
+  });
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
       {/* Animated Background */}
@@ -1072,11 +1079,17 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto">
             {/* Header Section */}
             <div className="flex justify-between items-center mb-8">
-              <div className="flex-1 flex justify-center">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  My Subjects
-                </h1>
-              </div>
+                <div className="flex-1 flex justify-center">
+                  <div className="w-96">
+                    <DashboardSearch
+                      items={subjects.map((s) => s.name)}
+                      maxResults={5}
+                      placeholder="Search subjects..."
+                      className="w-full"
+                      onSearch={(q) => setSearchQuery(q)}
+                    />
+                  </div>
+                </div>
               
               <div className="flex-1 flex justify-center">
                 <button
@@ -1161,8 +1174,8 @@ export default function Dashboard() {
             )}
 
             {/* SUBJECT CARDS - 4 CARDS PER ROW */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {subjects.map((subj) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {displayedSubjects.map((subj) => {
                 const currentPercentage = computeRawGrade(subj.components);
                 const currentGrade = percentageToGradeScale(currentPercentage);
                 const targetGrade = subj.target_grade ? parseFloat(subj.target_grade.toString()) : 0;
@@ -1303,7 +1316,7 @@ export default function Dashboard() {
                 );
               })}
 
-              {/* Empty State */}
+              {/* Empty State: no subjects at all */}
               {subjects.length === 0 && (
                 <div className="col-span-full text-center py-20 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
                   <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
@@ -1322,6 +1335,14 @@ export default function Dashboard() {
                     </svg>
                     Create Your First Subject
                   </button>
+                </div>
+              )}
+
+              {/* No matches for current search */}
+              {subjects.length > 0 && displayedSubjects.length === 0 && (
+                <div className="col-span-full text-center py-12 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">No subjects start with “{searchQuery.trim()[0]}”</h3>
+                  <p className="text-sm text-gray-600">Try a different letter or clear the search.</p>
                 </div>
               )}
             </div>
