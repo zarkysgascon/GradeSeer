@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { Search as SearchIcon, X as XIcon } from "lucide-react";
 
 type Props = {
 	onSearch?: (q: string) => void;
@@ -47,35 +48,34 @@ export default function DashboardSearch({
 	}, [items, query, maxResults]);
 
 	return (
-		<div className={className}>
-			<label htmlFor="dashboard-search" className="sr-only">
-				Search
-			</label>
-			<div className="relative">
-				<input
-					id="dashboard-search"
-					type="text"
-					value={query}
-					onChange={handleChange}
-					placeholder={placeholder}
-					maxLength={MAX}
-					className="w-full rounded-full bg-white/20 text-white placeholder-transparent px-4 py-2 pr-10 border border-transparent focus:outline-none focus:ring-0"
-					aria-label="Search"
-				/>
-				{query.length > 0 && (
-					<button
-						type="button"
-						onClick={handleClear}
-						aria-label="Clear search"
-						title="Clear"
-						className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3 h-3 text-white">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-				)}
-			</div>
+    <div className={`relative ${className}`}>
+      <label htmlFor="dashboard-search" className="sr-only">
+        Search
+      </label>
+      <div className="relative">
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-700" aria-hidden="true" />
+        <input
+          id="dashboard-search"
+          type="text"
+          value={query}
+          onChange={handleChange}
+          placeholder={placeholder}
+          maxLength={MAX}
+          className="w-full rounded-xl bg-white/30 backdrop-blur-sm text-gray-900 placeholder-gray-600 pl-10 pr-10 py-3 border border-white/40 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Search"
+        />
+        {query.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClear}
+            aria-label="Clear search"
+            title="Clear"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/40 hover:bg-white/60 flex items-center justify-center transition-colors"
+          >
+            <XIcon className="w-4 h-4 text-gray-800" />
+          </button>
+        )}
+      </div>
 
 			{/* character counter removed (hidden on UI) */}
 
