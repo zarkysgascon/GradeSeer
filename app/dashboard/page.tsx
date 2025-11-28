@@ -1078,6 +1078,14 @@ const handleAddOrUpdateComponent = () => {
       const res = await fetch(`/api/history/${historyId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete history');
       setHistory(prev => prev.filter((h: any) => h.id !== historyId));
+
+      // Also remove from localStorage cache so it doesn't reappear on refresh
+      if (user?.email) {
+        const key = `user_history_${user.email}`;
+        const local = JSON.parse(localStorage.getItem(key) || '[]');
+        const updated = Array.isArray(local) ? local.filter((h: any) => h.id !== historyId) : [];
+        localStorage.setItem(key, JSON.stringify(updated));
+      }
     } catch (err) {
       console.error('Failed to delete history record:', err);
     }
