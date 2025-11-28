@@ -62,6 +62,7 @@ interface ExtendedUser {
 }
 
 /* ------------------------- Calculations ------------------------- */
+
 function computeRawGrade(components: ComponentInput[]) {
   if (!components || components.length === 0) return 0;
   
@@ -72,16 +73,9 @@ function computeRawGrade(components: ComponentInput[]) {
     const componentGrade = computeComponentGrade(component);
     const weight = component.percentage / 100;
     
-    if (component.items && component.items.length > 0) {
-      const hasScores = component.items.some(item => 
-        item.score !== null && item.score !== undefined
-      );
-      
-      if (hasScores) {
-        totalWeightedGrade += componentGrade * weight;
-        totalWeight += weight;
-      }
-    }
+   
+    totalWeightedGrade += componentGrade * weight;
+    totalWeight += weight;
   });
 
   if (totalWeight === 0) return 0;
