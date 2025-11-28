@@ -1725,11 +1725,11 @@ export default function Dashboard() {
       {/* ADD SUBJECT MODAL */}
       {showModal && (
         <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
               <h2 className="text-white text-lg font-semibold">Add Subject</h2>
             </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto max-h-[calc(85vh-64px-60px)]">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Subject Name</label>
                 <input
@@ -1786,6 +1786,51 @@ export default function Dashboard() {
                   <option value={4.00}>4.00</option>
                   <option value={5.00}>5.00</option>
                 </select>
+
+                {/* Subject Color */}
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Subject Color</label>
+                  <p className="text-xs text-gray-600 mb-2">Choose a swatch or set a custom color</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {predefinedColors.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNewSubject({ ...newSubject, color: c })}
+                        className={`w-8 h-8 rounded-lg border ${newSubject.color === c ? 'border-blue-600 ring-2 ring-blue-300' : 'border-gray-300'} hover:scale-105 transition-transform`} 
+                        style={{ backgroundColor: c }}
+                        aria-label={`Choose color ${c}`}
+                      />
+                    ))}
+                    {/* Custom color card */}
+                    <div className="flex items-center gap-2 p-2 border border-gray-200 rounded-xl bg-gray-50">
+                      <span className="text-xs font-medium text-gray-700">Custom</span>
+                      <input
+                        type="color"
+                        value={newSubject.color}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setNewSubject({ ...newSubject, color: e.target.value })}
+                        className="w-8 h-8 rounded-md border border-gray-300"
+                        aria-label="Custom color picker"
+                      />
+                      <div className="flex items-center">
+                        <span className="px-2 py-2 bg-white border border-gray-300 rounded-l text-xs text-gray-600">#</span>
+                        <input
+                          type="text"
+                          value={newSubject.color.replace('#','')}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                            const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                            const color = `#${raw}`;
+                            setNewSubject({ ...newSubject, color });
+                          }}
+                          placeholder="3B82F6"
+                          className="w-24 p-2 border border-gray-300 rounded-r text-xs"
+                          aria-label="Custom color hex"
+                        />
+                      </div>
+                      <div className="w-6 h-6 rounded-full border border-gray-300" style={{ backgroundColor: newSubject.color }} aria-label="Selected color preview" />
+                    </div>
+                  </div>
+                </div>
               </div>
               <div>
                 <div className="flex justify-between items-center mb-3">

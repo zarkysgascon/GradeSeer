@@ -135,8 +135,8 @@ useEffect(() => {
           <div className="relative z-10">
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h2 className="text-2xl font-bold mb-1">{subjectName}</h2>
-                <p className="text-white/90 text-base">Progress Breakdown & Analytics</p>
+                <h2 className="text-2xl font-bold mb-1 text-outline-dark">{subjectName}</h2>
+                <p className="text-white/90 text-base text-outline-dark">Progress Breakdown & Analytics</p>
               </div>
               <button
                 onClick={onClose}
@@ -160,19 +160,19 @@ useEffect(() => {
 
             {/* Quick Stats Row */}
             <div className="grid grid-cols-4 gap-3 mt-4">
-              <div className="text-center p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+              <div className="text-center p-3 bg-white/15 rounded-xl backdrop-blur-sm border border-white/50 shadow-none">
                 <div className="text-xl font-bold">{overallProgress.toFixed(1)}%</div>
                 <div className="text-white/80 text-xs">Overall Progress</div>
               </div>
-              <div className="text-center p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+              <div className="text-center p-3 bg-white/15 rounded-xl backdrop-blur-sm border border-white/50 shadow-none">
                 <div className="text-xl font-bold">{componentProgress.length}</div>
                 <div className="text-white/80 text-xs">Components</div>
               </div>
-              <div className="text-center p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+              <div className="text-center p-3 bg-white/15 rounded-xl backdrop-blur-sm border border-white/50 shadow-none">
                 <div className="text-xl font-bold">{completedItems}/{totalItems}</div>
                 <div className="text-white/80 text-xs">Items Scored</div>
               </div>
-              <div className="text-center p-3 bg-white/10 rounded-xl backdrop-blur-sm">
+              <div className="text-center p-3 bg-white/15 rounded-xl backdrop-blur-sm border border-white/50 shadow-none">
                 <div className="text-xl font-bold">{getGradeStatus(overallProgress)}</div>
                 <div className="text-white/80 text-xs">Status</div>
               </div>
