@@ -1903,7 +1903,31 @@ const handleFinishSubject = async () => {
           <div className="space-y-6">
             {/* Component Progress Bar Graph */}
             <div className="bg-white rounded-xl border border-gray-300 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Component Progress</h3>
+              {/* Header with Graph Button */}
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Component Progress</h3>
+                <button
+                  onClick={() => setShowGraphModal(true)}
+                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                  title="View Progress Graph"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 3v18h18" />
+                    <path d="m19 9-5 5-4-4-3 3" />
+                  </svg>
+                </button>
+              </div>
+              
               <div className="space-y-4">
                 {subject.components.map((component, index) => {
                   const componentProgress = calculateComponentProgress(component)
