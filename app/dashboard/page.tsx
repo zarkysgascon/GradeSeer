@@ -855,6 +855,10 @@ export default function Dashboard() {
   const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  // History delete confirmation modal state
+  const [historyToDelete, setHistoryToDelete] = useState<string | null>(null);
+  const [showDeleteHistoryModal, setShowDeleteHistoryModal] = useState(false);
+
   /* ---------------------- Auth Redirect ---------------------- */
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -1089,6 +1093,20 @@ const handleAddOrUpdateComponent = () => {
     } catch (err) {
       console.error('Failed to delete history record:', err);
     }
+  };
+
+  // Open confirmation modal for history deletion
+  const handleRequestDeleteHistory = (historyId: string) => {
+    setHistoryToDelete(historyId);
+    setShowDeleteHistoryModal(true);
+  };
+
+  // Confirm deletion from modal
+  const confirmDeleteHistory = async () => {
+    if (!historyToDelete) return;
+    await handleDeleteHistory(historyToDelete);
+    setShowDeleteHistoryModal(false);
+    setHistoryToDelete(null);
   };
 
     /* ---------------------- Handle Subject Card Click ---------------------- */  // ← ADDED HERE
@@ -1666,7 +1684,7 @@ const handleAddOrUpdateComponent = () => {
                               <div className="flex items-center gap-3">
                                 <span>{formatDate(record.completed_at)}</span>
                                 <button
-                                  onClick={() => handleDeleteHistory(record.id)}
+                                  onClick={() => handleRequestDeleteHistory(record.id)}
                                   className="text-gray-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors"
                                   title="Delete record"
                                   aria-label="Delete history record"
@@ -2121,6 +2139,33 @@ const handleAddOrUpdateComponent = () => {
               </button>
               <button
                 onClick={confirmDeleteSubject}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Delete Confirmation Modal */}
+      {showDeleteHistoryModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 z-50"
+          onClick={() => { setShowDeleteHistoryModal(false); setHistoryToDelete(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-2">Delete History Record</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this record? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteHistoryModal(false); setHistoryToDelete(null); }}
+                className="px-4 py-2 bg-gray-200 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteHistory}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
               >
                 Delete
