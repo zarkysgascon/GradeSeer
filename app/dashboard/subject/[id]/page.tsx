@@ -7,7 +7,6 @@ import { useSession } from "next-auth/react"
 import SubjectGraphModal from '@/app/components/SubjectGraphModal'
 import CongratsModal from '@/app/components/CongratsModal'
 import Backdrop from '@/app/components/Backdrop'
-import { Target, BookOpen, TrendingUp, Calculator } from 'lucide-react'
 
 /* -------------------- Types -------------------- */
 interface ItemInput {
@@ -1365,7 +1364,19 @@ const handleFinishSubject = async () => {
               {/* Target Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
-                  <Target className="w-6 h-6 text-white" strokeWidth={2} />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-6 h-6 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
                 </div>
                 <div>
                   <div className="text-sm text-white/90 text-outline-dark">Target Grade</div>
@@ -1450,7 +1461,22 @@ const handleFinishSubject = async () => {
               {/* Units */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
-                  <BookOpen className="w-6 h-6 text-white" strokeWidth={2} />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-6 h-6 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6" />
+                    <path d="M16 13H8" />
+                    <path d="M16 17H8" />
+                    <path d="M10 9H8" />
+                  </svg>
                 </div>
                 <div>
                   <div className="text-sm text-white/90 text-outline-dark">Units</div>
@@ -1528,7 +1554,19 @@ const handleFinishSubject = async () => {
               {/* Projected Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
-                  <TrendingUp className="w-6 h-6 text-white" strokeWidth={2} />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-6 h-6 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 3v18h18" />
+                    <path d="m19 9-5 5-4-4-3 3" />
+                  </svg>
                 </div>
                 <div>
                   <div className="text-sm text-white/90 text-outline-dark">Projected Grade</div>
@@ -1545,7 +1583,22 @@ const handleFinishSubject = async () => {
               {/* Raw Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
-                  <Calculator className="w-6 h-6 text-white" strokeWidth={2} />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-6 h-6 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6" />
+                    <path d="M16 13H8" />
+                    <path d="M16 17H8" />
+                    <path d="M10 9H8" />
+                  </svg>
                 </div>
                 <div>
                   <div className="text-sm text-white/90 text-outline-dark">Raw Grade</div>
