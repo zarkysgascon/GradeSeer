@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata = {
   title: "GradeSeer",
-  description: "Dashboard App",
+  description: "Profile",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

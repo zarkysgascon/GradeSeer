@@ -348,7 +348,7 @@ const NumberInput = ({
   );
 };
 
-/* ---------------------- GPA Calculator Modal ---------------------- */
+/* ---------------------- GWA Calculator Modal ---------------------- */
 const GPACalculatorModal = ({ 
   isOpen, 
   onClose, 
@@ -392,7 +392,7 @@ const GPACalculatorModal = ({
                 </svg>
               </div>
               <div className="min-w-0">
-                <h2 className="text-xl font-bold text-white">GPA Calculator</h2>
+                <h2 className="text-xl font-bold text-white">GWA Calculator</h2>
                 <p className="text-blue-100 text-sm">Calculate your General Weighted Average (GWA)</p>
               </div>
             </div>
@@ -625,7 +625,7 @@ export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<"subjects" | "pending items" | "history">("subjects");
+  const [activeTab, setActiveTab] = useState<"subjects" | "pending" | "history">("subjects");
   const [showModal, setShowModal] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -644,14 +644,14 @@ export default function Dashboard() {
   }, [assistantOpen]);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // GPA Calculator States
+  // GWA Calculator States
   const [showGPAModal, setShowGPAModal] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);
   const [gpaResult, setGpaResult] = useState<{ gpa: number; totalWeightedScore: number; totalUnits: number } | null>(null);
 
   const user = session?.user as ExtendedUser | undefined;
 
-  /* ---------------------- GPA Calculator Functions ---------------------- */
+  /* ---------------------- GWA Calculator Functions ---------------------- */
   const calculateGPA = (subjects: Subject[]) => {
     let totalWeightedScore = 0;
     let totalUnits = 0;
@@ -1155,32 +1155,31 @@ export default function Dashboard() {
                   </div>
                 </div>
               
-              <div className="flex-1 flex justify-center">
-                <button
-                  onClick={handleOpenGPAModal}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
-                >
-                  <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                  Calculate GPA
-                </button>
-              </div>
-
               <div className="flex-1 flex justify-end">
-                <button
-                  onClick={() => setShowModal(true)}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
-                >
-                  <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </div>
-                  Add New Subject
-                </button>
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleOpenGPAModal}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                  >
+                    <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    Calculate GWA
+                  </button>
+                  <button
+                    onClick={() => setShowModal(true)}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                  >
+                    <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    Add New Subject
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1413,8 +1412,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* PENDING ITEMS TAB */}
-        {activeTab === "pending items" && (
+        {/* PENDING TAB */}
+        {activeTab === "pending" && (
           <div className="max-w-6xl mx-auto">
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
               <div className="flex justify-between items-center mb-8">
