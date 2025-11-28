@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import SubjectGraphModal from '@/app/components/SubjectGraphModal'
 import CongratsModal from '@/app/components/CongratsModal'
+import Backdrop from '@/app/components/Backdrop'
+import { Target, BookOpen, TrendingUp, Calculator } from 'lucide-react'
 
 /* -------------------- Types -------------------- */
 interface ItemInput {
@@ -1255,6 +1257,7 @@ const handleFinishSubject = async () => {
 
   return (
     <div className="min-h-screen p-10 flex justify-center relative">
+      <Backdrop />
       {/* FLOATING BACK BUTTON - TOP LEFT */}
       <div className="fixed top-6 left-6 z-40">
         <button
@@ -1278,7 +1281,7 @@ const handleFinishSubject = async () => {
       </div>
 
       {/* MAIN MODAL CARD */}
-      <div className="w-[1100px] rounded-3xl shadow-2xl p-8">
+      <div className="w-[1100px] rounded-3xl shadow-2xl p-8 bg-white">
         {/* HEADER */}
         <div 
           className="p-8 rounded-2xl text-white flex justify-between items-center shadow-lg relative overflow-hidden"
@@ -1362,19 +1365,7 @@ const handleFinishSubject = async () => {
               {/* Target Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-6 h-6 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="m9 12 2 2 4-4" />
-                  </svg>
+                  <Target className="w-6 h-6 text-white" strokeWidth={2} />
                 </div>
                 <div>
                   <div className="text-sm text-white/90 text-outline-dark">Target Grade</div>
@@ -1456,25 +1447,10 @@ const handleFinishSubject = async () => {
                 </div>
               </div>
 
-              {/* ADDED: Units Display */}
+              {/* Units */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-6 h-6 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 2v6h6" />
-                    <path d="M16 13H8" />
-                    <path d="M16 17H8" />
-                    <path d="M10 9H8" />
-                  </svg>
+                  <BookOpen className="w-6 h-6 text-white" strokeWidth={2} />
                 </div>
                 <div>
                   <div className="text-sm text-white/90 text-outline-dark">Units</div>
@@ -1552,24 +1528,12 @@ const handleFinishSubject = async () => {
               {/* Projected Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-6 h-6 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M3 3v18h18" />
-                    <path d="m19 9-5 5-4-4-3 3" />
-                  </svg>
+                  <TrendingUp className="w-6 h-6 text-white" strokeWidth={2} />
                 </div>
                 <div>
                   <div className="text-sm text-white/90 text-outline-dark">Projected Grade</div>
                   <div className="text-2xl font-bold text-outline-dark">{projectedGrade.toFixed(2)}</div>
-                  <div className="text-xs opacity-80">
+                  <div className="text-xs opacity-80 text-outline-dark">
                     {projectedPercentage.toFixed(1)}%
                     {projectedPercentage > 0 && (
                       <span className="ml-1">(with 75% on missing scores)</span>
@@ -1581,27 +1545,12 @@ const handleFinishSubject = async () => {
               {/* Raw Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-6 h-6 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 2v6h6" />
-                    <path d="M16 13H8" />
-                    <path d="M16 17H8" />
-                    <path d="M10 9H8" />
-                  </svg>
+                  <Calculator className="w-6 h-6 text-white" strokeWidth={2} />
                 </div>
                 <div>
                   <div className="text-sm text-white/90 text-outline-dark">Raw Grade</div>
                   <div className="text-2xl font-bold text-outline-dark">{rawGrade.toFixed(2)}</div>
-                  <div className="text-xs opacity-80">
+                  <div className="text-xs opacity-80 text-outline-dark">
                     {rawPercentage.toFixed(1)}%
                     {rawPercentage > 0 && (
                       <span className="ml-1">(only scored items)</span>

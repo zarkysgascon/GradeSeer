@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import DashboardSearch from "./search";
+import Backdrop from "../components/Backdrop";
 
 
 /* ------------------------- Interfaces ------------------------- */
@@ -1078,7 +1079,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
       {/* Animated Background */}
-      <BackgroundImage />
+      <Backdrop />
       
       {/* Success Notification */}
       {showSuccess && (
@@ -1105,7 +1106,7 @@ export default function Dashboard() {
 
         <div className="flex-1 flex justify-center">
           <div className="flex gap-80">
-            {["subjects", "pending items", "history"].map((tab) => (
+            {["subjects", "pending", "history"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -1656,9 +1657,9 @@ export default function Dashboard() {
         aria-expanded={assistantOpen}
         aria-controls="dashboard-assistant"
         onClick={() => setAssistantOpen(v => !v)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-600 shadow-xl flex items-center justify-center z-50 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center z-50 hover:bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
       >
-        <Image src="/gslogo.png" alt="GradeSeer" width={28} height={28} />
+        <Image src="/gslogo.png" alt="GradeSeer" width={28} height={28} className="object-contain" />
       </button>
 
       {assistantOpen && (
@@ -1670,7 +1671,7 @@ export default function Dashboard() {
         >
           <div className="flex items-center justify-between p-3 border-b">
             <div className="flex items-center gap-2">
-              <Image src="/gslogo.png" alt="GradeSeer" width={24} height={24} />
+              <Image src="/gslogo.png" alt="GradeSeer" width={24} height={24} className="object-contain" />
               <span className="text-sm font-semibold text-gray-800">GradeSeer Assistant</span>
             </div>
             <button
@@ -1687,7 +1688,7 @@ export default function Dashboard() {
             {assistantMessages.map(m => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {m.role === 'assistant' && (
-                  <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2" />
+                  <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2 object-contain" />
                 )}
                 <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>{m.content}</div>
               </div>
