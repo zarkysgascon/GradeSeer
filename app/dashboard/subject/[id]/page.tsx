@@ -175,11 +175,11 @@ function calculateTargetScoreForPassing(
 }
 
 /* -------------------- Custom Date Input Component -------------------- */
-const CustomDateInput = ({ 
-  value, 
-  onChange, 
-  className = "" 
-}: { 
+const CustomDateInput = ({
+  value,
+  onChange,
+  className = "",
+}: {
   value: string;
   onChange: (value: string) => void;
   className?: string;
@@ -191,30 +191,39 @@ const CustomDateInput = ({
   }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setDisplayValue(newValue);
-    
-    if (newValue.length === 10) {
-      const date = new Date(newValue);
-      const day = date.getDate();
-      const year = date.getFullYear();
-      
-      if (day >= 1 && day <= 31 && year >= 1000 && year <= 9999) {
-        onChange(newValue);
+    const raw = e.target.value;
+    let digitsOnly = raw.replace(/\D/g, "");
+    digitsOnly = digitsOnly.slice(0, 8); // MMDDYYYY
+
+    const m = digitsOnly.slice(0, 2);
+    const d = digitsOnly.slice(2, 4);
+    const y = digitsOnly.slice(4, 8);
+    const masked = [m, d, y].filter(Boolean).join("-").slice(0, 10);
+
+    setDisplayValue(masked);
+
+    if (masked.length === 10) {
+      const month = Number(m);
+      const day = Number(d);
+      const year = Number(y);
+      if (String(year).length === 4 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        const iso = `${y}-${m}-${d}`;
+        onChange(iso);
       }
-    } else if (newValue === "") {
+    } else if (masked === "") {
       onChange("");
     }
   };
 
   const handleBlur = () => {
     if (displayValue && displayValue.length === 10) {
-      const date = new Date(displayValue);
-      const day = date.getDate();
-      const year = date.getFullYear();
-      
-      if (day >= 1 && day <= 31 && year >= 1000 && year <= 9999) {
-        onChange(displayValue);
+      const [mStr, dStr, yStr] = displayValue.split("-");
+      const month = Number((mStr || "").slice(0, 2));
+      const day = Number((dStr || "").slice(0, 2));
+      const year = Number((yStr || "").slice(0, 4));
+      if (String(year).length === 4 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        const iso = `${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        onChange(iso);
       } else {
         setDisplayValue(value || "");
       }
@@ -227,24 +236,17 @@ const CustomDateInput = ({
 
   return (
     <input
-      type="date"
+      type="text"
       value={displayValue}
       onChange={handleChange}
       onBlur={handleBlur}
       className={className}
-      onKeyDown={(e) => {
-        if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab') {
-          return;
-        }
-        if (!/[\d-]/.test(e.key) && e.key.length === 1) {
-          e.preventDefault();
-        }
-      }}
+      maxLength={10}
+      placeholder="MM-DD-YYYY"
     />
   );
 };
-
-/* -------------------- AI Service -------------------- */
+ 
 class AIService {
   private getFallbackResponse(userMessage: string, subject: Subject | null): string {
     if (!subject) return "No subject context available.";
@@ -2316,7 +2318,6 @@ const handleFinishSubject = async () => {
                   onChange={(date) => setNewItem({ ...newItem, date })}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
-                <p className="text-xs text-gray-500 mt-1">Day must be 1-31, Year must be 4 digits</p>
               </div>
               
             </div>
@@ -2408,7 +2409,7 @@ const handleFinishSubject = async () => {
                   onChange={(date) => setEditingItem({ ...editingItem, date })}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
-                <p className="text-xs text-gray-500 mt-1">Day must be 1-31, Year must be 4 digits</p>
+          
               </div>
             </div>
 
