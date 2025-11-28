@@ -399,6 +399,9 @@ export default function SubjectDetail() {
   const [editingItemComponentId, setEditingItemComponentId] = useState<string | null>(null)
 
   const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null)
+  // Delete Item modal state
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null)
+  const [showDeleteItemModal, setShowDeleteItemModal] = useState(false)
   
 
   // Congrats Modal
@@ -1175,50 +1178,59 @@ const handleFinishSubject = async () => {
 
   const handleDeleteItem = async (itemId: string) => {
     if (!subject?.id) return
+    try {
+      const res = await fetch(`/api/items/${itemId}`, {
+        method: "DELETE",
+      })
 
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      try {
-        const res = await fetch(`/api/items/${itemId}`, {
-          method: "DELETE",
-        })
-
-        if (res.ok) {
-          setSubject(prev => {
-            if (!prev) return prev
-            return {
-              ...prev,
-              components: prev.components.map(comp => ({
-                ...comp,
-                items: (comp.items || []).filter(it => it.id !== itemId)
-              }))
-            }
-          })
-        } else {
-          let errorMessage = "Failed to delete item"
-          
-          try {
-            const contentType = res.headers.get("content-type")
-            if (contentType && contentType.includes("application/json")) {
-              const errorData = await res.json()
-              errorMessage = errorData.error || errorMessage
-            } else {
-              const text = await res.text()
-              console.error('Non-JSON error response:', text)
-              errorMessage = `Server error: ${res.status} ${res.statusText}`
-            }
-          } catch (parseError) {
-            console.error('Error parsing error response:', parseError)
-            errorMessage = `Network error: ${res.status} ${res.statusText}`
+      if (res.ok) {
+        setSubject(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            components: prev.components.map(comp => ({
+              ...comp,
+              items: (comp.items || []).filter(it => it.id !== itemId)
+            }))
           }
-          
-          alert(errorMessage)
+        })
+      } else {
+        let errorMessage = "Failed to delete item"
+        try {
+          const contentType = res.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await res.json()
+            errorMessage = errorData.error || errorMessage
+          } else {
+            const text = await res.text()
+            console.error('Non-JSON error response:', text)
+            errorMessage = `Server error: ${res.status} ${res.statusText}`
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+          errorMessage = `Network error: ${res.status} ${res.statusText}`
         }
-      } catch (err) {
-        console.error("Error deleting item:", err)
-        alert("Network error: Failed to delete item. Please check your connection.")
+        alert(errorMessage)
       }
+    } catch (err) {
+      console.error("Error deleting item:", err)
+      alert("Network error: Failed to delete item. Please check your connection.")
+    } finally {
+      setDropdownOpenId(null)
     }
+  }
+
+  const handleOpenDeleteItemModal = (itemId: string) => {
+    setItemToDelete(itemId)
+    setShowDeleteItemModal(true)
     setDropdownOpenId(null)
+  }
+
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return
+    await handleDeleteItem(itemToDelete)
+    setShowDeleteItemModal(false)
+    setItemToDelete(null)
   }
 
   const calculateComponentProgress = (component: ComponentInput) => {
@@ -1823,7 +1835,7 @@ const handleFinishSubject = async () => {
                                     Edit Item
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteItem(String(item.id))}
+                                    onClick={() => handleOpenDeleteItemModal(String(item.id))}
                                     className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                                   >
                                     <svg
@@ -2364,6 +2376,33 @@ const handleFinishSubject = async () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
               >
                 {savingItem ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE ITEM CONFIRMATION MODAL */}
+      {showDeleteItemModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 z-50"
+          onClick={() => { setShowDeleteItemModal(false); setItemToDelete(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-2">Delete Item</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this item? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteItemModal(false); setItemToDelete(null); }}
+                className="px-4 py-2 bg-gray-200 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteItem}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+              >
+                Delete
               </button>
             </div>
           </div>
