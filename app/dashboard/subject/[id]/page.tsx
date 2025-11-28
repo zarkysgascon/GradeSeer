@@ -399,6 +399,9 @@ export default function SubjectDetail() {
   const [editingItemComponentId, setEditingItemComponentId] = useState<string | null>(null)
 
   const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null)
+  // Delete Item modal state
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null)
+  const [showDeleteItemModal, setShowDeleteItemModal] = useState(false)
   
 
   // Congrats Modal
@@ -1175,50 +1178,59 @@ const handleFinishSubject = async () => {
 
   const handleDeleteItem = async (itemId: string) => {
     if (!subject?.id) return
+    try {
+      const res = await fetch(`/api/items/${itemId}`, {
+        method: "DELETE",
+      })
 
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      try {
-        const res = await fetch(`/api/items/${itemId}`, {
-          method: "DELETE",
-        })
-
-        if (res.ok) {
-          setSubject(prev => {
-            if (!prev) return prev
-            return {
-              ...prev,
-              components: prev.components.map(comp => ({
-                ...comp,
-                items: (comp.items || []).filter(it => it.id !== itemId)
-              }))
-            }
-          })
-        } else {
-          let errorMessage = "Failed to delete item"
-          
-          try {
-            const contentType = res.headers.get("content-type")
-            if (contentType && contentType.includes("application/json")) {
-              const errorData = await res.json()
-              errorMessage = errorData.error || errorMessage
-            } else {
-              const text = await res.text()
-              console.error('Non-JSON error response:', text)
-              errorMessage = `Server error: ${res.status} ${res.statusText}`
-            }
-          } catch (parseError) {
-            console.error('Error parsing error response:', parseError)
-            errorMessage = `Network error: ${res.status} ${res.statusText}`
+      if (res.ok) {
+        setSubject(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            components: prev.components.map(comp => ({
+              ...comp,
+              items: (comp.items || []).filter(it => it.id !== itemId)
+            }))
           }
-          
-          alert(errorMessage)
+        })
+      } else {
+        let errorMessage = "Failed to delete item"
+        try {
+          const contentType = res.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await res.json()
+            errorMessage = errorData.error || errorMessage
+          } else {
+            const text = await res.text()
+            console.error('Non-JSON error response:', text)
+            errorMessage = `Server error: ${res.status} ${res.statusText}`
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+          errorMessage = `Network error: ${res.status} ${res.statusText}`
         }
-      } catch (err) {
-        console.error("Error deleting item:", err)
-        alert("Network error: Failed to delete item. Please check your connection.")
+        alert(errorMessage)
       }
+    } catch (err) {
+      console.error("Error deleting item:", err)
+      alert("Network error: Failed to delete item. Please check your connection.")
+    } finally {
+      setDropdownOpenId(null)
     }
+  }
+
+  const handleOpenDeleteItemModal = (itemId: string) => {
+    setItemToDelete(itemId)
+    setShowDeleteItemModal(true)
     setDropdownOpenId(null)
+  }
+
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return
+    await handleDeleteItem(itemToDelete)
+    setShowDeleteItemModal(false)
+    setItemToDelete(null)
   }
 
   const calculateComponentProgress = (component: ComponentInput) => {
@@ -1800,32 +1812,7 @@ const handleFinishSubject = async () => {
                             {dropdownOpenId === String(item.id) && (
                               <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-30">
                                 <div className="py-1">
-                                  <button
-                                    onClick={() => {
-                                      setEditingItemId(String(item.id))
-                                      setEditScore(item.score ?? null)
-                                      setEditMax(item.max ?? null)
-                                      setDropdownOpenId(null)
-                                    }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="16"
-                                      height="16"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      className="mr-2"
-                                    >
-                                      <path d="M12 20h9" />
-                                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                                    </svg>
-                                    Edit Score
-                                  </button>
+                                  
                                   <button
                                     onClick={() => handleOpenEditItemModal(item, component.id)}
                                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -1848,7 +1835,7 @@ const handleFinishSubject = async () => {
                                     Edit Item
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteItem(String(item.id))}
+                                    onClick={() => handleOpenDeleteItemModal(String(item.id))}
                                     className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                                   >
                                     <svg
@@ -2395,6 +2382,33 @@ const handleFinishSubject = async () => {
         </div>
       )}
 
+      {/* DELETE ITEM CONFIRMATION MODAL */}
+      {showDeleteItemModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 z-50"
+          onClick={() => { setShowDeleteItemModal(false); setItemToDelete(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-2">Delete Item</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this item? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteItemModal(false); setItemToDelete(null); }}
+                className="px-4 py-2 bg-gray-200 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteItem}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <SubjectGraphModal
           isOpen={showGraphModal}
           onClose={() => setShowGraphModal(false)}
@@ -2408,4 +2422,4 @@ const handleFinishSubject = async () => {
         />
     </div>
   )
-}
+}2
