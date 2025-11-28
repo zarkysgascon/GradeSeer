@@ -1839,8 +1839,6 @@ const handleAddOrUpdateComponent = () => {
                 <option value={2.50}>2.50 - Fair</option>
                 <option value={2.75}>2.75 - Passed</option>
                 <option value={3.00}>3.00 - Conditional</option>
-                <option value={4.00}>4.00 - Incomplete</option>
-                <option value={5.00}>5.00 - Failed</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">Your goal for this subject</p>
             </div>
