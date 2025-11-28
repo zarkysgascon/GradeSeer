@@ -93,6 +93,8 @@ export async function POST(req: Request) {
         target_grade: (typeof body.target_grade === 'number' && body.target_grade > 0)
           ? body.target_grade.toString()
           : null,
+        color: body.color || '#3B82F6',
+        units: body.units || 3,
       })
       .returning();
 
