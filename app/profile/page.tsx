@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import React from "react";
+import Backdrop from "../components/Backdrop";
 
 export default function ProfilePage() {
   const { data: session, status } = useSession();
@@ -89,7 +90,8 @@ export default function ProfilePage() {
     );
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen relative">
+      <Backdrop />
       {/* Updated Navbar */}
       <nav className="bg-white/90 backdrop-blur-md shadow-md px-10 py-4 flex items-center justify-between relative z-10">
         
@@ -98,14 +100,14 @@ export default function ProfilePage() {
           <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
         </div>
 
-        {/* Center - Dashboard tab */}
+        {/* Center - Profile tab */}
         <div className="flex-1 flex justify-center">
           <div className="flex gap-16">
             <button
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/profile")}
               className="capitalize font-medium transition-all text-blue-600 border-b-2 border-blue-600 pb-1"
             >
-              Dashboard
+              Profile
             </button>
           </div>
         </div>
@@ -127,6 +129,29 @@ export default function ProfilePage() {
           </button>
         </div>
       </nav>
+
+      {/* Back to Dashboard button positioned within designated area */}
+      <div className="absolute left-10 top-28 z-40">
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="px-5 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 border border-gray-200 flex items-center gap-2 transition-all duration-200 hover:shadow-xl"
+          aria-label="Back to Dashboard"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          Back to Dashboard
+        </button>
+      </div>
 
       {/* Profile Section */}
       <main className="flex justify-center py-10">
