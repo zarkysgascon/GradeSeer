@@ -7,7 +7,6 @@ import Image from "next/image";
 import DashboardSearch from "./search";
 import Backdrop from "../components/Backdrop";
 
-
 /* ------------------------- Interfaces ------------------------- */
 interface ComponentInput {
   id?: string;
@@ -161,24 +160,6 @@ const predefinedColors = [
   "#C06C84", "#6C5B7B", "#355C7D", "#99B898", "#FECEAB",
   "#FF847C", "#E84A5F", "#2A363B", "#A8E6CE", "#DCEDC2"
 ];
-
-const BackgroundImage = () => (
-  <div className="fixed inset-0 -z-10 overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-400"></div>
-    
-    {/* Single floating image */}
-    <div 
-      className="absolute inset-0 opacity-20"
-      style={{
-        backgroundImage: 'url("/bg.png")',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        backgroundSize: 'cover',
-        animation: 'floatUpDown 4s ease-in-out infinite'
-      }}
-    ></div>
-  </div>
-);
 
 /* ---------------------- Circular Progress Component ---------------------- */
 const CircularProgress = ({ 
@@ -377,45 +358,45 @@ const GPACalculatorModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 sm:p-6">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div className="min-w-0">
-                <h2 className="text-xl font-bold text-white">GWA Calculator</h2>
-                <p className="text-blue-100 text-sm">Calculate your General Weighted Average (GWA)</p>
+                <h2 className="text-lg sm:text-xl font-bold text-white">GWA Calculator</h2>
+                <p className="text-blue-100 text-xs sm:text-sm">Calculate your General Weighted Average (GWA)</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+              className="text-white/80 hover:text-white p-1 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
         
-        <div className="p-6 max-h-[calc(90vh-80px)] overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="p-4 sm:p-6 max-h-[calc(90vh-80px)] overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Available Subjects */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">Available Subjects</h3>
-              <p className="text-sm text-gray-600">Drag or click subjects to add them to calculation</p>
+            <div className="space-y-3 sm:space-y-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Available Subjects</h3>
+              <p className="text-xs sm:text-sm text-gray-600">Drag or click subjects to add them to calculation</p>
               
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 min-h-[200px] max-h-[300px] overflow-y-auto">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 sm:p-4 min-h-[150px] sm:min-h-[200px] max-h-[250px] sm:max-h-[300px] overflow-y-auto">
                 {availableSubjects.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="text-center py-6 sm:py-8 text-gray-400">
+                    <svg className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
-                    <p>No subjects available</p>
-                    <p className="text-sm">All subjects are already selected</p>
+                    <p className="text-sm">No subjects available</p>
+                    <p className="text-xs sm:text-sm mt-1">All subjects are already selected</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -428,18 +409,18 @@ const GPACalculatorModal = ({
                         <div
                           key={subject.id}
                           onClick={() => onAddSubject(subject)}
-                          className="p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all duration-200 group"
+                          className="p-2 sm:p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all duration-200 group"
                         >
                           <div className="flex justify-between items-center">
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-gray-900 group-hover:text-blue-600 truncate">
+                              <h4 className="font-medium text-gray-900 group-hover:text-blue-600 truncate text-sm sm:text-base">
                                 {subject.name}
                               </h4>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeStatus.bgColor} ${gradeStatus.color}`}>
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                                <span className={`inline-flex items-center px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs font-medium ${gradeStatus.bgColor} ${gradeStatus.color}`}>
                                   {currentGrade.toFixed(2)} - {gradeStatus.status}
                                 </span>
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                   {subject.units || 3} units
                                 </span>
                               </div>
@@ -449,7 +430,7 @@ const GPACalculatorModal = ({
                                 {currentPercentage.toFixed(1)}%
                               </div>
                               <button className="text-blue-600 hover:text-blue-700 p-1 rounded transition-colors">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                 </svg>
                               </button>
@@ -464,25 +445,25 @@ const GPACalculatorModal = ({
             </div>
 
             {/* Selected Subjects & Calculation */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-800">Selected Subjects</h3>
-                <span className="text-sm text-gray-500">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800">Selected Subjects</h3>
+                <span className="text-xs sm:text-sm text-gray-500">
                   {selectedSubjects.length} subject{selectedSubjects.length !== 1 ? 's' : ''} selected
                 </span>
               </div>
               
-              <div className="border-2 border-gray-200 rounded-lg p-4 min-h-[200px] max-h-[300px] overflow-y-auto">
+              <div className="border-2 border-gray-200 rounded-lg p-3 sm:p-4 min-h-[150px] sm:min-h-[200px] max-h-[250px] sm:max-h-[300px] overflow-y-auto">
                 {selectedSubjects.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="text-center py-6 sm:py-8 text-gray-400">
+                    <svg className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <p>No subjects selected</p>
-                    <p className="text-sm">Add subjects from the left panel</p>
+                    <p className="text-sm">No subjects selected</p>
+                    <p className="text-xs sm:text-sm mt-1">Add subjects from the left panel</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {selectedSubjects.map(subject => {
                       const currentPercentage = computeRawGrade(subject.components);
                       const currentGrade = percentageToGradeScale(currentPercentage);
@@ -492,28 +473,28 @@ const GPACalculatorModal = ({
                       return (
                         <div
                           key={subject.id}
-                          className="p-3 border border-gray-200 rounded-lg bg-gray-50"
+                          className="p-2 sm:p-3 border border-gray-200 rounded-lg bg-gray-50"
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-gray-900">{subject.name}</h4>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${gradeStatus.bgColor} ${gradeStatus.color}`}>
+                              <h4 className="font-medium text-gray-900 text-sm sm:text-base">{subject.name}</h4>
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                                <span className={`inline-flex items-center px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs font-medium ${gradeStatus.bgColor} ${gradeStatus.color}`}>
                                   Grade: {currentGrade.toFixed(2)}
                                 </span>
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                   Units: {subject.units || 3}
                                 </span>
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                   Weighted: {weightedScore.toFixed(2)}
                                 </span>
                               </div>
                             </div>
                             <button
                               onClick={() => onRemoveSubject(subject.id)}
-                              className="text-red-500 hover:text-red-700 p-1 rounded transition-colors ml-2"
+                              className="text-red-500 hover:text-red-700 p-1 rounded transition-colors ml-1 sm:ml-2"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
@@ -527,30 +508,30 @@ const GPACalculatorModal = ({
 
               {/* Calculation Results */}
               {gpaResult && (
-                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-3">GPA Calculation Result</h4>
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-3 sm:p-4">
+                  <h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-sm sm:text-base">GPA Calculation Result</h4>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
                     <div>
-                      <div className="text-2xl font-bold text-green-600">{gpaResult.gpa.toFixed(2)}</div>
+                      <div className="text-xl sm:text-2xl font-bold text-green-600">{gpaResult.gpa.toFixed(2)}</div>
                       <div className="text-xs text-gray-600">GWA/GPA</div>
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-blue-600">{gpaResult.totalWeightedScore}</div>
+                      <div className="text-lg sm:text-lg font-bold text-blue-600">{gpaResult.totalWeightedScore}</div>
                       <div className="text-xs text-gray-600">Total Weighted</div>
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-purple-600">{gpaResult.totalUnits}</div>
+                      <div className="text-lg sm:text-lg font-bold text-purple-600">{gpaResult.totalUnits}</div>
                       <div className="text-xs text-gray-600">Total Units</div>
                     </div>
                   </div>
-                  <div className="mt-3 p-3 bg-white rounded border">
-                    <div className="text-sm text-gray-700">
+                  <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-white rounded border text-xs sm:text-sm">
+                    <div className="text-gray-700">
                       <strong>Formula:</strong> GPA = Σ(Grade × Units) ÷ Σ(Units)
                     </div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="text-gray-600 mt-1">
                       <strong>Calculation:</strong> {gpaResult.totalWeightedScore} ÷ {gpaResult.totalUnits} = {gpaResult.gpa.toFixed(2)}
                     </div>
-                    <div className={`mt-2 text-sm font-medium ${
+                    <div className={`mt-1 sm:mt-2 text-sm font-medium ${
                       gpaResult.gpa <= 1.75 ? 'text-green-600' :
                       gpaResult.gpa <= 2.50 ? 'text-blue-600' :
                       gpaResult.gpa <= 3.00 ? 'text-yellow-600' :
@@ -563,18 +544,18 @@ const GPACalculatorModal = ({
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4">
                 <button
                   onClick={onReset}
                   disabled={selectedSubjects.length === 0}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 px-3 sm:px-4 py-2 bg-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
                 >
                   Reset
                 </button>
                 <button
                   onClick={onCalculate}
                   disabled={selectedSubjects.length === 0}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
                 >
                   Calculate GPA
                 </button>
@@ -583,27 +564,27 @@ const GPACalculatorModal = ({
           </div>
 
           {/* Philippine Grading System Legend */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <h4 className="font-semibold text-gray-800 mb-3">Philippine Grading System</h4>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-              <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+            <h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-sm sm:text-base">Philippine Grading System</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-1 sm:gap-2 text-xs">
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 bg-green-50 rounded">
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
                 <span>1.00-1.75: Excellent</span>
               </div>
-              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 bg-blue-50 rounded">
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full"></div>
                 <span>1.76-2.50: Very Good</span>
               </div>
-              <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 bg-yellow-50 rounded">
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
                 <span>2.51-3.00: Passing</span>
               </div>
-              <div className="flex items-center gap-2 p-2 bg-orange-50 rounded">
-                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 bg-orange-50 rounded">
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-orange-500 rounded-full"></div>
                 <span>3.01-4.00: Conditional</span>
               </div>
-              <div className="flex items-center gap-2 p-2 bg-red-50 rounded">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 bg-red-50 rounded">
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full"></div>
                 <span>4.01-5.00: Failed</span>
               </div>
             </div>
@@ -893,41 +874,40 @@ export default function Dashboard() {
   }, [status, user?.email]);
 
   /* ---------------------- Add/Update Component ---------------------- */
-  /* ---------------------- Add/Update Component ---------------------- */
-const handleAddOrUpdateComponent = () => {
-  // Check if adding would exceed 100%
-  const currentTotal = newSubject.components.reduce((sum, c) => sum + c.percentage, 0);
-  const newTotal = currentTotal + newComponent.percentage;
-  
-  if (newTotal > 100) {
-    alert(`Cannot add component! Current total: ${currentTotal}%. Adding ${newComponent.percentage}% would exceed 100% limit.`);
-    return; 
-  }
+  const handleAddOrUpdateComponent = () => {
+    // Check if adding would exceed 100%
+    const currentTotal = newSubject.components.reduce((sum, c) => sum + c.percentage, 0);
+    const newTotal = currentTotal + newComponent.percentage;
+    
+    if (newTotal > 100) {
+      alert(`Cannot add component! Current total: ${currentTotal}%. Adding ${newComponent.percentage}% would exceed 100% limit.`);
+      return; 
+    }
 
-  // Existing validation checks
-  if (!newComponent.name.trim()) return alert("Component name required!");
+    // Existing validation checks
+    if (!newComponent.name.trim()) return alert("Component name required!");
 
-  const duplicate = newSubject.components.some(
-    (c) => c.priority === newComponent.priority && c.name !== newComponent.name
-  );
-  if (duplicate) return alert("A component with that priority already exists.");
+    const duplicate = newSubject.components.some(
+      (c) => c.priority === newComponent.priority && c.name !== newComponent.name
+    );
+    if (duplicate) return alert("A component with that priority already exists.");
 
-  // Add/Update component
-  const updated = [...newSubject.components];
-  const idx = updated.findIndex((c) => c.name === newComponent.name);
+    // Add/Update component
+    const updated = [...newSubject.components];
+    const idx = updated.findIndex((c) => c.name === newComponent.name);
 
-  if (idx >= 0) updated[idx] = newComponent;
-  else updated.push(newComponent);
+    if (idx >= 0) updated[idx] = newComponent;
+    else updated.push(newComponent);
 
-  setNewSubject({ ...newSubject, components: updated });
+    setNewSubject({ ...newSubject, components: updated });
 
-  // Reset form
-  setNewComponent({
-    name: "",
-    percentage: 0,
-    priority: updated.length + 1,
-  });
-};
+    // Reset form
+    setNewComponent({
+      name: "",
+      percentage: 0,
+      priority: updated.length + 1,
+    });
+  };
 
   /* ---------------------- Remove Component ---------------------- */
   const handleRemoveComponent = (index: number) => {
@@ -1128,34 +1108,36 @@ const handleAddOrUpdateComponent = () => {
       
       {/* Success Notification */}
       {showSuccess && (
-        <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-right-full duration-500">
-          <div className="bg-green-500 text-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-3 border-l-4 border-green-600">
-            <div className="w-8 h-8 bg-green-400 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 animate-in slide-in-from-right-full duration-500 max-w-[90vw]">
+          <div className="bg-green-500 text-white px-4 py-3 sm:px-6 sm:py-4 rounded-xl shadow-lg flex items-center gap-2 sm:gap-3 border-l-4 border-green-600">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-400 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <div>
-              <p className="font-semibold">Subject Created!</p>
-              <p className="text-green-100 text-sm">Your subject has been added successfully.</p>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm sm:text-base">Subject Created!</p>
+              <p className="text-green-100 text-xs sm:text-sm truncate">Your subject has been added successfully.</p>
             </div>
           </div>
         </div>
       )}
       
-      {/* NAVBAR */}
-      <nav className="bg-white/90 backdrop-blur-md shadow-md px-10 py-4 flex items-center justify-between relative z-10">
-        <div className="flex-1 flex justify-start">
-          <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
+      {/* NAVBAR - Responsive */}
+      <nav className="bg-white/90 backdrop-blur-md shadow-md px-4 sm:px-6 lg:px-10 py-3 sm:py-4 flex items-center justify-between relative z-10">
+        {/* Logo - Left */}
+        <div className="flex-shrink-0">
+          <Image src="/gslogo.png" alt="Logo" width={60} height={60} className="sm:w-70 sm:h-70 drop-shadow-sm" />
         </div>
 
+        {/* Navigation Tabs - Center */}
         <div className="flex-1 flex justify-center">
-          <div className="flex gap-80">
+          <div className="flex gap-4 sm:gap-8 lg:gap-16 xl:gap-20">
             {["subjects", "pending", "history"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`capitalize font-medium transition-all relative ${
+                className={`capitalize font-medium transition-all relative text-sm sm:text-base ${
                   activeTab === tab
                     ? "text-blue-600 border-b-2 border-blue-600 pb-1"
                     : "text-gray-700 hover:text-blue-600"
@@ -1167,47 +1149,48 @@ const handleAddOrUpdateComponent = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex justify-end">
+        {/* Profile - Right */}
+        <div className="flex-shrink-0">
           <button onClick={() => router.push("/profile")} className="group">
             <Image
               src={profileImage || user?.image || "/default.png"}
               alt="Profile"
-              width={50}
-              height={50}
-              className="rounded-full cursor-pointer border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-300 shadow-sm"
+              width={40}
+              height={40}
+              className="sm:w-50 sm:h-50 rounded-full cursor-pointer border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-300 shadow-sm"
             />
           </button>
         </div>
       </nav>
 
       {/* MAIN CONTENT */}
-      <main className="p-6 relative z-10 overflow-y-auto">
+      <main className="p-3 sm:p-4 lg:p-6 relative z-10 overflow-y-auto">
         {/* SUBJECTS TAB */}
         {activeTab === "subjects" && (
           <div className="max-w-7xl mx-auto">
             
-            {/* Header Section */}
-            <div className="flex justify-between items-center mb-8">
-                <div className="flex-1 flex justify-center">
-                  <div className="w-96">
-                    <DashboardSearch
-                      items={subjects.map((s) => s.name)}
-                      maxResults={5}
-                      placeholder="Search subjects..."
-                      className="w-full"
-                      onSearch={(q) => setSearchQuery(q)}
-                    />
-                  </div>
-                </div>
+            {/* Header Section - Responsive */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 sm:mb-8">
+              {/* Search - Top on mobile, center on desktop */}
+              <div className="w-full sm:w-96 order-2 sm:order-1">
+                <DashboardSearch
+                  items={subjects.map((s) => s.name)}
+                  maxResults={5}
+                  placeholder="Search subjects..."
+                  className="w-full"
+                  onSearch={(q) => setSearchQuery(q)}
+                />
+              </div>
               
-              <div className="flex-1 flex justify-end">
-                <div className="flex gap-4">
+              {/* Buttons - Bottom on mobile, right on desktop */}
+              <div className="w-full sm:w-auto order-1 sm:order-2">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                   <button
                     onClick={handleOpenGPAModal}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center justify-center gap-2 group text-sm sm:text-base"
                   >
-                    <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
@@ -1215,10 +1198,10 @@ const handleAddOrUpdateComponent = () => {
                   </button>
                   <button
                     onClick={() => setShowModal(true)}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center justify-center gap-2 group text-sm sm:text-base"
                   >
-                    <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
                     </div>
@@ -1230,59 +1213,59 @@ const handleAddOrUpdateComponent = () => {
 
             {/* Stats Overview */}
             {subjects.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                      <span className="text-2xl">📚</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                <div className="bg-white/90 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg border border-gray-100">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg sm:rounded-xl flex items-center justify-center">
+                      <span className="text-xl sm:text-2xl">📚</span>
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-gray-800">{subjects.length}</p>
-                      <p className="text-sm text-gray-600">Total Subjects</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-800">{subjects.length}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Total Subjects</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                      <span className="text-2xl">🎯</span>
+                <div className="bg-white/90 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg border border-gray-100">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg sm:rounded-xl flex items-center justify-center">
+                      <span className="text-xl sm:text-2xl">🎯</span>
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-gray-800">
+                      <p className="text-xl sm:text-2xl font-bold text-gray-800">
                         {subjects.filter(subj => {
                           const currentPercentage = computeRawGrade(subj.components);
                           const currentGrade = percentageToGradeScale(currentPercentage);
                           return currentGrade <= (subj.target_grade || 5.0);
                         }).length}
                       </p>
-                      <p className="text-sm text-gray-600">On Track</p>
+                      <p className="text-xs sm:text-sm text-gray-600">On Track</p>
                     </div>
                   </div>
                 </div>
                 
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                      <span className="text-2xl">⚠️</span>
+                <div className="bg-white/90 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg border border-gray-100">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-100 rounded-lg sm:rounded-xl flex items-center justify-center">
+                      <span className="text-xl sm:text-2xl">⚠️</span>
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-gray-800">
+                      <p className="text-xl sm:text-2xl font-bold text-gray-800">
                         {subjects.filter(subj => {
                           const currentPercentage = computeRawGrade(subj.components);
                           const currentGrade = percentageToGradeScale(currentPercentage);
                           return currentGrade > (subj.target_grade || 5.0);
                         }).length}
                       </p>
-                      <p className="text-sm text-gray-600">Needs Attention</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Needs Attention</p>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* SUBJECT CARDS - 4 CARDS PER ROW */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {/* SUBJECT CARDS - Responsive Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {displayedSubjects.map((subj) => {
                 const currentPercentage = computeRawGrade(subj.components);
                 const currentGrade = percentageToGradeScale(currentPercentage);
@@ -1311,34 +1294,34 @@ const handleAddOrUpdateComponent = () => {
                   <div
                     key={subj.id}
                     onClick={() => handleSubjectClick(subj.id)}
-                    className="group bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg cursor-pointer hover:shadow-2xl border border-gray-100 transition-all duration-300 hover:scale-105 overflow-hidden"
+                    className="group bg-white/90 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg cursor-pointer hover:shadow-xl border border-gray-100 transition-all duration-300 hover:scale-[1.02] sm:hover:scale-105 overflow-hidden"
                   >
                     {/* Color Header */}
                     <div 
-                      className="h-3 w-full"
+                      className="h-2 sm:h-3 w-full"
                       style={{ backgroundColor: subj.color }}
                     />
                     
-                    <div className="p-5">
+                    <div className="p-3 sm:p-4 lg:p-5">
                       {/* Header with Subject Name and Actions */}
-                      <div className="flex justify-between items-start mb-4">
+                      <div className="flex justify-between items-start mb-3 sm:mb-4">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-lg text-gray-800 group-hover:text-gray-900 truncate">
+                          <h3 className="font-bold text-base sm:text-lg text-gray-800 group-hover:text-gray-900 truncate">
                             {subj.name}
                           </h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs font-medium ${
                               subj.is_major 
                                 ? 'bg-purple-100 text-purple-800' 
                                 : 'bg-blue-100 text-blue-800'
                             }`}>
                               {subj.is_major ? 'Major' : 'Minor'}
                             </span>
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                               {subj.units || 3} units
                             </span>
                             {belowTarget && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                 Needs Attention
                               </span>
                             )}
@@ -1349,29 +1332,29 @@ const handleAddOrUpdateComponent = () => {
                             e.stopPropagation();
                             handleDeleteSubject(subj.id);
                           }}
-                          className="text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-all duration-200 ml-2"
+                          className="text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-all duration-200 ml-1 sm:ml-2 flex-shrink-0"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
                       </div>
 
                       {/* Grade Display */}
-                      <div className="flex justify-between items-center mb-4 p-3 bg-gray-50 rounded-xl">
+                      <div className="flex justify-between items-center mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-50 rounded-lg sm:rounded-xl">
                         <div className="text-center">
                           <p className="text-xs text-gray-600 font-medium">Raw</p>
-                          <p className={`text-lg font-bold ${gradeStatus.color}`}>
+                          <p className={`text-base sm:text-lg font-bold ${gradeStatus.color}`}>
                             {currentGrade.toFixed(2)}
                           </p>
                         </div>
                         <div className="text-center">
                           <p className="text-xs text-gray-600 font-medium">Target</p>
-                          <p className="text-lg font-bold text-gray-800">{targetGrade.toFixed(2)}</p>
+                          <p className="text-base sm:text-lg font-bold text-gray-800">{targetGrade.toFixed(2)}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-xs text-gray-600 font-medium">Diff</p>
-                          <p className={`text-sm font-bold ${
+                          <p className={`text-xs sm:text-sm font-bold ${
                             gradeDifference <= 0 ? 'text-green-600' : 'text-red-600'
                           }`}>
                             {gradeDifference <= 0 ? '+' : ''}{(gradeDifference * -1).toFixed(2)}
@@ -1380,26 +1363,26 @@ const handleAddOrUpdateComponent = () => {
                       </div>
 
                       {/* Completion Progress Circle */}
-                      <div className="flex justify-center items-center mb-4">
+                      <div className="flex justify-center items-center mb-3 sm:mb-4">
                         <div className="text-center">
                           <CircularProgress 
                             progress={completionProgress} 
-                            size={80}
-                            strokeWidth={8}
+                            size={60}
+                            strokeWidth={6}
                             color="#3B82F6"
                           />
-                          <p className="text-xs text-gray-600 mt-2 font-medium">Completion</p>
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-gray-600 mt-1 sm:mt-2 font-medium">Completion</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
                             {completedItems}/{totalItems} items scored
                           </p>
                         </div>
                       </div>
 
                       {/* Components Summary */}
-                      <div className="flex justify-between items-center text-xs text-gray-600 mb-3">
+                      <div className="flex justify-between items-center text-xs text-gray-600 mb-2 sm:mb-3">
                         <span>{subj.components?.length || 0} components</span>
                         <span className="flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                           </svg>
                           {computeRawGrade(subj.components).toFixed(1)}%
@@ -1412,10 +1395,10 @@ const handleAddOrUpdateComponent = () => {
                           e.stopPropagation();
                           handleSubjectClick(subj.id);
                         }}
-                        className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600"
+                        className="w-full py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center justify-center gap-1 sm:gap-2 group-hover:bg-blue-50 group-hover:text-blue-600"
                       >
                         View Details
-                        <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </button>
@@ -1426,19 +1409,19 @@ const handleAddOrUpdateComponent = () => {
 
               {/* Empty State: no subjects at all */}
               {subjects.length === 0 && (
-                <div className="col-span-full text-center py-20 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
-                  <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
-                    <span className="text-6xl">📚</span>
+                <div className="col-span-full text-center py-12 sm:py-16 lg:py-20 bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-lg border border-gray-200">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 mx-auto mb-4 sm:mb-6 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
+                    <span className="text-4xl sm:text-5xl lg:text-6xl">📚</span>
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">No subjects yet</h3>
-                  <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                  <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 mb-2 sm:mb-3">No subjects yet</h3>
+                  <p className="text-gray-600 mb-6 sm:mb-8 max-w-md mx-auto text-sm sm:text-base px-4">
                     Start by creating your first subject to track your academic progress and manage your grades effectively.
                   </p>
                   <button
                     onClick={() => setShowModal(true)}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-lg inline-flex items-center gap-2"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-base sm:text-lg inline-flex items-center gap-2"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                     Create Your First Subject
@@ -1448,9 +1431,9 @@ const handleAddOrUpdateComponent = () => {
 
               {/* No matches for current search */}
               {subjects.length > 0 && displayedSubjects.length === 0 && (
-                <div className="col-span-full text-center py-12 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">No subjects start with “{searchQuery.trim()[0]}”</h3>
-                  <p className="text-sm text-gray-600">Try a different letter or clear the search.</p>
+                <div className="col-span-full text-center py-8 sm:py-12 bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-lg border border-gray-200">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1 sm:mb-2">No subjects start with "{searchQuery.trim()[0]}"</h3>
+                  <p className="text-xs sm:text-sm text-gray-600">Try a different letter or clear the search.</p>
                 </div>
               )}
             </div>
@@ -1460,22 +1443,22 @@ const handleAddOrUpdateComponent = () => {
         {/* PENDING TAB */}
         {activeTab === "pending" && (
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
-              <div className="flex justify-between items-center mb-8">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-lg p-4 sm:p-6 lg:p-8">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
                 <div>
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                     Pending Items
                   </h2>
-                  <p className="text-gray-600 mt-2">
+                  <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
                     Items that need your attention - add scores to complete them
                   </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                   <button
                     onClick={fetchUpcomingItems}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
+                    className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center justify-center gap-2"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Refresh
@@ -1484,33 +1467,33 @@ const handleAddOrUpdateComponent = () => {
               </div>
 
               {/* Pending Items Content */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden">
                 {upcomingItems.length === 0 ? (
                   // Empty State - No Pending Items
-                  <div className="text-center py-16 text-gray-500">
-                    <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
-                      <span className="text-4xl">✅</span>
+                  <div className="text-center py-12 sm:py-16 text-gray-500">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 mx-auto mb-3 sm:mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
+                      <span className="text-2xl sm:text-3xl lg:text-4xl">✅</span>
                     </div>
-                    <p className="text-xl font-semibold mb-2">No pending items!</p>
-                    <p className="text-sm max-w-md mx-auto mb-6">
+                    <p className="text-lg sm:text-xl font-semibold mb-1 sm:mb-2">No pending items!</p>
+                    <p className="text-xs sm:text-sm max-w-md mx-auto mb-4 sm:mb-6 px-4">
                       Great job! You've scored all your items. 
                       Add new items to your subjects or create new subjects to see them here.
                     </p>
-                    <div className="flex gap-3 justify-center">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center px-4">
                       <button
                         onClick={() => setShowModal(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-medium flex items-center gap-2"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl transition-all duration-300 font-medium flex items-center justify-center gap-2 text-sm"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                         Add New Subject
                       </button>
                       <button
                         onClick={() => setActiveTab("subjects")}
-                        className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl transition-all duration-300 font-medium flex items-center gap-2"
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl transition-all duration-300 font-medium flex items-center justify-center gap-2 text-sm"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                         View Subjects
@@ -1519,63 +1502,63 @@ const handleAddOrUpdateComponent = () => {
                   </div>
                 ) : (
                   // Pending Items List
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto p-4">
+                  <div className="space-y-3 sm:space-y-4 max-h-[500px] sm:max-h-[600px] overflow-y-auto p-3 sm:p-4">
                     {upcomingItems.map((item, index) => (
                       <div
                         key={item.id || index}
-                        className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm group"
+                        className="p-4 sm:p-5 lg:p-6 border border-gray-200 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm group"
                       >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <h4 className="font-semibold text-xl text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                              <h4 className="font-semibold text-lg sm:text-xl text-gray-900 group-hover:text-blue-600 transition-colors truncate">
                                 {item.name}
                               </h4>
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200 self-start sm:self-auto">
                                 ⏳ Pending
                               </span>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
                                 </svg>
-                                <span><strong>Subject:</strong> {item.subjectName || 'Unknown'}</span>
+                                <span className="truncate"><strong>Subject:</strong> {item.subjectName || 'Unknown'}</span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                <span><strong>Component:</strong> {item.componentName || 'Unknown'}</span>
+                                <span className="truncate"><strong>Component:</strong> {item.componentName || 'Unknown'}</span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                                <span><strong>Due Date:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'No date'}</span>
+                                <span className="truncate"><strong>Due Date:</strong> {item.date ? new Date(item.date).toLocaleDateString() : 'No date'}</span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                <span><strong>Topic:</strong> {item.topic || '—'}</span>
+                                <span className="truncate"><strong>Topic:</strong> {item.topic || '—'}</span>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-4 text-sm">
-                              <div className="flex items-center gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+                              <div className="flex items-center gap-1 sm:gap-2">
                                 <span className="font-medium text-gray-700">Score:</span>
                                 <span className="px-2 py-1 bg-gray-100 rounded text-gray-600">
                                   {item.score !== null && item.score !== undefined ? item.score : '—'} / {item.max !== null && item.max !== undefined ? item.max : '—'}
                                 </span>
                               </div>
                               {item.score === null || item.score === undefined ? (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 self-start sm:self-auto">
                                   Needs Scoring
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 self-start sm:self-auto">
                                   Completed
                                 </span>
                               )}
@@ -1583,9 +1566,9 @@ const handleAddOrUpdateComponent = () => {
                           </div>
                           <button
                             onClick={() => item.subjectId && router.push(`/dashboard/subject/${item.subjectId}`)}
-                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm flex items-center gap-2"
+                            className="w-full sm:w-auto px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm flex items-center justify-center gap-1 sm:gap-2 mt-2 sm:mt-0"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                             View Subject
@@ -1599,22 +1582,22 @@ const handleAddOrUpdateComponent = () => {
 
               {/* Stats Row */}
               {upcomingItems.length > 0 && (
-                <div className="grid grid-cols-3 gap-6 mt-8 pt-8 border-t border-gray-200">
-                  <div className="text-center p-6 bg-blue-50/80 rounded-2xl backdrop-blur-sm">
-                    <div className="text-3xl font-bold text-blue-600">{upcomingItems.length}</div>
-                    <div className="text-sm text-gray-600 font-medium">Total Items</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-200">
+                  <div className="text-center p-4 sm:p-6 bg-blue-50/80 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <div className="text-2xl sm:text-3xl font-bold text-blue-600">{upcomingItems.length}</div>
+                    <div className="text-xs sm:text-sm text-gray-600 font-medium">Total Items</div>
                   </div>
-                  <div className="text-center p-6 bg-yellow-50/80 rounded-2xl backdrop-blur-sm">
-                    <div className="text-3xl font-bold text-yellow-600">
+                  <div className="text-center p-4 sm:p-6 bg-yellow-50/80 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <div className="text-2xl sm:text-3xl font-bold text-yellow-600">
                       {upcomingItems.filter(item => item.score === null || item.score === undefined).length}
                     </div>
-                    <div className="text-sm text-gray-600 font-medium">Pending</div>
+                    <div className="text-xs sm:text-sm text-gray-600 font-medium">Pending</div>
                   </div>
-                  <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
-                    <div className="text-3xl font-bold text-green-600">
+                  <div className="text-center p-4 sm:p-6 bg-green-50/80 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <div className="text-2xl sm:text-3xl font-bold text-green-600">
                       {upcomingItems.filter(item => item.score !== null && item.score !== undefined).length}
                     </div>
-                    <div className="text-sm text-gray-600 font-medium">Completed</div>
+                    <div className="text-xs sm:text-sm text-gray-600 font-medium">Completed</div>
                   </div>
                 </div>
               )}
@@ -1625,17 +1608,17 @@ const handleAddOrUpdateComponent = () => {
         {/* HISTORY TAB */}
         {activeTab === "history" && (
           <div className="max-w-6xl mx-auto">
-            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-8">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-lg p-4 sm:p-6 lg:p-8">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
+                <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Grade History
                 </h2>
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                   <button
                     onClick={fetchHistory}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center gap-2"
+                    className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl shadow hover:shadow-md transition-all duration-300 text-sm font-medium flex items-center justify-center gap-2"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Refresh
@@ -1644,35 +1627,35 @@ const handleAddOrUpdateComponent = () => {
               </div>
 
               {/* History Table */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 overflow-hidden">
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden">
                 {history.length === 0 ? (
-                  <div className="text-center py-16 text-gray-500">
-                    <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
-                      <span className="text-4xl">📚</span>
+                  <div className="text-center py-12 sm:py-16 text-gray-500">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 mx-auto mb-3 sm:mb-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner">
+                      <span className="text-2xl sm:text-3xl lg:text-4xl">📚</span>
                     </div>
-                    <p className="text-xl font-semibold mb-2">No history yet</p>
-                    <p className="text-sm max-w-md mx-auto">Complete subjects to see your grade history here.</p>
+                    <p className="text-lg sm:text-xl font-semibold mb-1 sm:mb-2">No history yet</p>
+                    <p className="text-xs sm:text-sm max-w-md mx-auto">Complete subjects to see your grade history here.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead className="bg-gray-50/80 border-b border-gray-200">
                         <tr>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Course</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Target Grade</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Final Grade</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
-                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Completed</th>
+                          <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-xs sm:text-sm font-semibold text-gray-700">Course</th>
+                          <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-xs sm:text-sm font-semibold text-gray-700">Target Grade</th>
+                          <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-xs sm:text-sm font-semibold text-gray-700">Final Grade</th>
+                          <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-xs sm:text-sm font-semibold text-gray-700">Status</th>
+                          <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-xs sm:text-sm font-semibold text-gray-700">Completed</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {history.map((record) => (
                           <tr key={record.id} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{record.course_name}</td>
-                            <td className="px-6 py-4 text-sm text-gray-600">{record.target_grade}</td>
-                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">{record.final_grade}</td>
-                            <td className="px-6 py-4">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            <td className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm font-medium text-gray-900">{record.course_name}</td>
+                            <td className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm text-gray-600">{record.target_grade}</td>
+                            <td className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm font-semibold text-gray-900">{record.final_grade}</td>
+                            <td className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                 record.status === 'reached' 
                                   ? 'bg-green-100 text-green-800' 
                                   : 'bg-red-100 text-red-800'
@@ -1680,16 +1663,16 @@ const handleAddOrUpdateComponent = () => {
                                 {record.status === 'reached' ? 'Target Reached' : 'Target Missed'}
                               </span>
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-600">
-                              <div className="flex items-center gap-3">
+                            <td className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm text-gray-600">
+                              <div className="flex items-center gap-2 sm:gap-3">
                                 <span>{formatDate(record.completed_at)}</span>
                                 <button
                                   onClick={() => handleRequestDeleteHistory(record.id)}
-                                  className="text-gray-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                                  className="text-gray-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
                                   title="Delete record"
                                   aria-label="Delete history record"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
                                 </button>
@@ -1707,51 +1690,51 @@ const handleAddOrUpdateComponent = () => {
         )}
       </main>
 
-      {/* Assistant Floating Bubble */}
+      {/* Assistant Floating Bubble - Responsive */}
       <button
         aria-label="Open Assistant"
         aria-expanded={assistantOpen}
         aria-controls="dashboard-assistant"
         onClick={() => setAssistantOpen(v => !v)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center z-50 hover:bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white shadow-xl flex items-center justify-center z-50 hover:bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
       >
-        <Image src="/gslogo.png" alt="GradeSeer" width={28} height={28} className="object-contain" />
+        <Image src="/gslogo.png" alt="GradeSeer" width={24} height={24} className="sm:w-28 sm:h-28 object-contain" />
       </button>
 
       {assistantOpen && (
         <div
           id="dashboard-assistant"
-          className="fixed bottom-24 right-6 w-96 max-w-[90vw] h-96 rounded-2xl shadow-2xl border border-gray-200 bg-white/95 backdrop-blur-sm z-50 flex flex-col"
+          className="fixed bottom-20 right-4 sm:bottom-24 sm:right-6 w-[calc(100vw-2rem)] sm:w-96 max-w-[90vw] h-80 sm:h-96 rounded-2xl shadow-2xl border border-gray-200 bg-white/95 backdrop-blur-sm z-50 flex flex-col"
           role="dialog"
           aria-modal="true"
         >
-          <div className="flex items-center justify-between p-3 border-b">
+          <div className="flex items-center justify-between p-2 sm:p-3 border-b">
             <div className="flex items-center gap-2">
-              <Image src="/gslogo.png" alt="GradeSeer" width={24} height={24} className="object-contain" />
+              <Image src="/gslogo.png" alt="GradeSeer" width={20} height={20} className="sm:w-24 sm:h-24 object-contain" />
               <span className="text-sm font-semibold text-gray-800">GradeSeer Assistant</span>
             </div>
             <button
               onClick={() => setAssistantOpen(false)}
-              className="p-2 rounded hover:bg-gray-100"
+              className="p-1 sm:p-2 rounded hover:bg-gray-100"
               aria-label="Close Assistant"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2 sm:space-y-3 bg-gray-50">
             {assistantMessages.map(m => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {m.role === 'assistant' && (
-                  <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2 object-contain" />
+                  <Image src="/gslogo.png" alt="Assistant" width={16} height={16} className="rounded-full mr-1 sm:mr-2 object-contain flex-shrink-0 mt-1" />
                 )}
-                <div className={`max-w-[75%] px-3 py-2 rounded-2xl ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>{m.content}</div>
+                <div className={`max-w-[85%] sm:max-w-[75%] px-2 py-1 sm:px-3 sm:py-2 rounded-2xl text-sm ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>{m.content}</div>
               </div>
             ))}
-            {assistantLoading && <div className="text-sm text-gray-600">Thinking...</div>}
+            {assistantLoading && <div className="text-xs sm:text-sm text-gray-600">Thinking...</div>}
           </div>
-          <div className="p-3 border-t flex gap-2">
+          <div className="p-2 sm:p-3 border-t flex gap-1 sm:gap-2">
             <input
               ref={inputRef}
               type="text"
@@ -1771,7 +1754,7 @@ const handleAddOrUpdateComponent = () => {
             <button
               onClick={sendDashboardAssistantMessage}
               disabled={assistantLoading || !assistantInput.trim() || !user?.email}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors text-sm"
             >
               Send
             </button>
@@ -1779,344 +1762,344 @@ const handleAddOrUpdateComponent = () => {
         </div>
       )}
 
-      {/* ADD SUBJECT MODAL */}
-{showModal && (
-  <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-          <h2 className="text-white text-lg font-semibold">Add New Subject</h2>
-        </div>
-        <p className="text-blue-100 text-sm mt-1">Fill in the subject details and grading components</p>
-      </div>
-
-      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto max-h-[calc(85vh-64px-60px)]">
-        {/* LEFT COLUMN - Basic Information */}
-        <div>
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Basic Information
-            </h3>
-            
-            {/* Subject Name */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Subject Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g., Mathematics, Physics, English"
-                value={newSubject.name}
-                onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
-                maxLength={50}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              />
-              <p className="text-xs text-gray-500 mt-1">Required • Max 50 characters</p>
-            </div>
-
-            {/* Type and Units in one row */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Subject Type
-                </label>
-                <select
-                  value={newSubject.is_major ? "major" : "minor"}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="major">Major</option>
-                  <option value="minor">Minor</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Core subject or elective</p>
+      {/* ADD SUBJECT MODAL - Responsive */}
+      {showModal && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-4 sm:px-6 py-3 sm:py-4">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <h2 className="text-white text-base sm:text-lg font-semibold">Add New Subject</h2>
               </div>
-              
+              <p className="text-blue-100 text-xs sm:text-sm mt-1">Fill in the subject details and grading components</p>
+            </div>
+
+            <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 overflow-y-auto max-h-[calc(90vh-64px-60px)] sm:max-h-[calc(85vh-64px-60px)]">
+              {/* LEFT COLUMN - Basic Information */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Units <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={newSubject.units}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value={1}>1 Unit</option>
-                  <option value={2}>2 Units</option>
-                  <option value={3}>3 Units</option>
-                  <option value={4}>4 Units</option>
-                  <option value={5}>5 Units</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Credit weight</p>
-              </div>
-            </div>
-
-            {/* Target Grade */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Target Grade <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={newSubject.target_grade}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                  setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
-                }
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              >
-                <option value={0}>Select your target grade</option>
-                <option value={1.00}>1.00 - Excellent</option>
-                <option value={1.25}>1.25 - Very Good</option>
-                <option value={1.50}>1.50 - Good</option>
-                <option value={1.75}>1.75 - Very Satisfactory</option>
-                <option value={2.00}>2.00 - Satisfactory</option>
-                <option value={2.25}>2.25 - Fairly Satisfactory</option>
-                <option value={2.50}>2.50 - Fair</option>
-                <option value={2.75}>2.75 - Passed</option>
-                <option value={3.00}>3.00 - Conditional</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">Your goal for this subject</p>
-            </div>
-
-            {/* Subject Color */}
-            <div className="mt-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Subject Color
-              </label>
-              <p className="text-xs text-gray-600 mb-3">Choose a color to easily identify this subject</p>
-              <div className="flex flex-wrap items-center gap-3">
-                {predefinedColors.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setNewSubject({ ...newSubject, color: c })}
-                    className={`w-8 h-8 rounded-lg border-2 ${newSubject.color === c ? 'border-blue-600 ring-2 ring-blue-300 scale-110' : 'border-gray-300'} hover:scale-105 transition-all duration-200`}
-                    style={{ backgroundColor: c }}
-                    aria-label={`Choose color ${c}`}
-                  />
-                ))}
-                
-                {/* Custom color card */}
-                <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-700">Custom:</span>
-                    <input
-                      type="color"
-                      value={newSubject.color}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setNewSubject({ ...newSubject, color: e.target.value })}
-                      className="w-6 h-6 rounded border border-gray-300 cursor-pointer"
-                      aria-label="Custom color picker"
-                    />
-                  </div>
-                  <div className="flex items-center">
-                    <span className="px-2 py-1 bg-white border border-gray-300 rounded-l text-xs text-gray-600">#</span>
+                <div className="mb-4 sm:mb-6">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Basic Information
+                  </h3>
+                  
+                  {/* Subject Name */}
+                  <div className="mb-3 sm:mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+                      Subject Name <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
-                      value={newSubject.color.replace('#','')}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
-                        const color = `#${raw}`;
-                        setNewSubject({ ...newSubject, color });
-                      }}
-                      placeholder="Hex code"
-                      className="w-20 p-1 border border-gray-300 rounded-r text-xs"
-                      aria-label="Custom color hex"
+                      placeholder="e.g., Mathematics, Physics, English"
+                      value={newSubject.name}
+                      onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
+                      maxLength={50}
+                      className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm sm:text-base"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Required • Max 50 characters</p>
+                  </div>
+
+                  {/* Type and Units in one row */}
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3 sm:mb-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+                        Subject Type
+                      </label>
+                      <select
+                        value={newSubject.is_major ? "major" : "minor"}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                          setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
+                        }
+                        className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm sm:text-base"
+                      >
+                        <option value="major">Major</option>
+                        <option value="minor">Minor</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Core subject or elective</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+                        Units <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={newSubject.units}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                          setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
+                        }
+                        className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm sm:text-base"
+                      >
+                        <option value={1}>1 Unit</option>
+                        <option value={2}>2 Units</option>
+                        <option value={3}>3 Units</option>
+                        <option value={4}>4 Units</option>
+                        <option value={5}>5 Units</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Credit weight</p>
+                    </div>
+                  </div>
+
+                  {/* Target Grade */}
+                  <div className="mb-3 sm:mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+                      Target Grade <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={newSubject.target_grade}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
+                      }
+                      className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm sm:text-base"
+                    >
+                      <option value={0}>Select your target grade</option>
+                      <option value={1.00}>1.00 - Excellent</option>
+                      <option value={1.25}>1.25 - Very Good</option>
+                      <option value={1.50}>1.50 - Good</option>
+                      <option value={1.75}>1.75 - Very Satisfactory</option>
+                      <option value={2.00}>2.00 - Satisfactory</option>
+                      <option value={2.25}>2.25 - Fairly Satisfactory</option>
+                      <option value={2.50}>2.50 - Fair</option>
+                      <option value={2.75}>2.75 - Passed</option>
+                      <option value={3.00}>3.00 - Conditional</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Your goal for this subject</p>
+                  </div>
+
+                  {/* Subject Color */}
+                  <div className="mt-4 sm:mt-6">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+                      Subject Color
+                    </label>
+                    <p className="text-xs text-gray-600 mb-2 sm:mb-3">Choose a color to easily identify this subject</p>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      {predefinedColors.slice(0, 8).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setNewSubject({ ...newSubject, color: c })}
+                          className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg border-2 ${newSubject.color === c ? 'border-blue-600 ring-2 ring-blue-300 scale-110' : 'border-gray-300'} hover:scale-105 transition-all duration-200`}
+                          style={{ backgroundColor: c }}
+                          aria-label={`Choose color ${c}`}
+                        />
+                      ))}
+                      
+                      {/* Custom color card */}
+                      <div className="flex items-center gap-2 sm:gap-3 p-2 border border-gray-200 rounded-lg sm:rounded-xl bg-gray-50">
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <span className="text-xs font-medium text-gray-700">Custom:</span>
+                          <input
+                            type="color"
+                            value={newSubject.color}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setNewSubject({ ...newSubject, color: e.target.value })}
+                            className="w-5 h-5 sm:w-6 sm:h-6 rounded border border-gray-300 cursor-pointer"
+                            aria-label="Custom color picker"
+                          />
+                        </div>
+                        <div className="flex items-center">
+                          <span className="px-1 py-0.5 sm:px-2 sm:py-1 bg-white border border-gray-300 rounded-l text-xs text-gray-600">#</span>
+                          <input
+                            type="text"
+                            value={newSubject.color.replace('#','')}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                              const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                              const color = `#${raw}`;
+                              setNewSubject({ ...newSubject, color });
+                            }}
+                            placeholder="Hex code"
+                            className="w-16 sm:w-20 p-1 border border-gray-300 rounded-r text-xs"
+                            aria-label="Custom color hex"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* RIGHT COLUMN - Grading Components */}
-        <div>
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Grading Components
-              <span className="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                {newSubject.components.length} added
-              </span>
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Add the different parts that make up your final grade (exams, assignments, etc.)
-            </p>
-          </div>
+              {/* RIGHT COLUMN - Grading Components */}
+              <div>
+                <div className="mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Grading Components
+                    <span className="text-xs font-normal bg-green-100 text-green-800 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full">
+                      {newSubject.components.length} added
+                    </span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
+                    Add the different parts that make up your final grade (exams, assignments, etc.)
+                  </p>
+                </div>
 
-          {/* Components List */}
-          <div className="border border-gray-200 rounded-lg p-4 max-h-48 overflow-y-auto mb-4 bg-gray-50">
-            {newSubject.components.length === 0 ? (
-              <div className="text-center py-6 text-gray-400">
-                <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-sm font-medium">No components added yet</p>
-                <p className="text-xs mt-1">Add your first component below</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {newSubject.components.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-gray-800">{c.name}</span>
-                        <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          {c.percentage}%
-                        </span>
-                        {c.priority > 0 && (
-                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                            Priority: {c.priority}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveComponent(i)}
-                      className="text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors"
-                      title="Remove component"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                {/* Components List */}
+                <div className="border border-gray-200 rounded-lg p-3 max-h-32 sm:max-h-48 overflow-y-auto mb-3 sm:mb-4 bg-gray-50">
+                  {newSubject.components.length === 0 ? (
+                    <div className="text-center py-4 sm:py-6 text-gray-400">
+                      <svg className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 mx-auto mb-2 sm:mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                      <p className="text-xs sm:text-sm font-medium">No components added yet</p>
+                      <p className="text-xs mt-1">Add your first component below</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {newSubject.components.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                              <span className="text-xs sm:text-sm font-medium text-gray-800 truncate">{c.name}</span>
+                              <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded">
+                                {c.percentage}%
+                              </span>
+                              {c.priority > 0 && (
+                                <span className="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded">
+                                  Priority: {c.priority}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveComponent(i)}
+                            className="text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0 ml-1 sm:ml-2"
+                            title="Remove component"
+                          >
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-          {/* Add Component Form */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <h4 className="text-sm font-semibold text-blue-800 mb-3">Add New Component</h4>
-            
-            <div className="grid grid-cols-[1fr_6rem_4.5rem] gap-2 mb-3">
-              <div>
-                <input
-                  type="text"
-                  placeholder="e.g., Final Exam"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
-                  maxLength={80}
-                  value={newComponent.name}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
-                  }
-                />
-                <p className="text-xs text-gray-500 mt-1">Component name</p>
-              </div>
-              
-              <div>
-                <NumberInput
-                  placeholder="%"
-                  value={newComponent.percentage}
-                  onChange={(value: number) =>
-                    setNewComponent({ ...newComponent, percentage: value })
-                  }
-                  min={0}
-                  max={100}
-                  className="w-full p-3 border border-gray-300 rounded-lg text-sm"
-                />
-                <p className="text-xs text-gray-500 mt-1">Weight %</p>
-              </div>
-              
-              <div>
-                <NumberInput
-                  placeholder="P"
-                  value={newComponent.priority}
-                  onChange={(value: number) =>
-                    setNewComponent({ ...newComponent, priority: value })
-                  }
-                  min={0}
-                  maxDigits={4}
-                  className="w-full p-3 border border-gray-300 rounded-lg text-sm"
-                />
-                <p className="text-xs text-gray-500 mt-1">Priority</p>
+                {/* Add Component Form */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
+                  <h4 className="text-xs sm:text-sm font-semibold text-blue-800 mb-2 sm:mb-3">Add New Component</h4>
+                  
+                  <div className="grid grid-cols-[1fr_5rem_4rem] sm:grid-cols-[1fr_6rem_4.5rem] gap-1 sm:gap-2 mb-2 sm:mb-3">
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="e.g., Final Exam"
+                        className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-xs sm:text-sm"
+                        maxLength={80}
+                        value={newComponent.name}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                          setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
+                        }
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Component name</p>
+                    </div>
+                    
+                    <div>
+                      <NumberInput
+                        placeholder="%"
+                        value={newComponent.percentage}
+                        onChange={(value: number) =>
+                          setNewComponent({ ...newComponent, percentage: value })
+                        }
+                        min={0}
+                        max={100}
+                        className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg text-xs sm:text-sm"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Weight %</p>
+                    </div>
+                    
+                    <div>
+                      <NumberInput
+                        placeholder="P"
+                        value={newComponent.priority}
+                        onChange={(value: number) =>
+                          setNewComponent({ ...newComponent, priority: value })
+                        }
+                        min={0}
+                        maxDigits={4}
+                        className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg text-xs sm:text-sm"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Priority</p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={handleAddOrUpdateComponent}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white py-2 sm:py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-1 sm:gap-2 text-sm"
+                  >
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Component
+                  </button>
+                  
+                  {/* Total Percentage Indicator */}
+                  {newSubject.components.length > 0 && (
+                    <div className={`mt-2 text-xs font-medium px-2 py-1 rounded text-center ${
+                      newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) === 100 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      Total: {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0)}% / 100%
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            
-            <button
-              onClick={handleAddOrUpdateComponent}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Component
-            </button>
-            
-            {/* Total Percentage Indicator */}
-            {newSubject.components.length > 0 && (
-              <div className={`mt-3 text-xs font-medium px-2 py-1 rounded text-center ${
-                newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) === 100 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-yellow-100 text-yellow-800'
-              }`}>
-                Total: {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0)}% / 100%
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Footer */}
-      <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 bg-gray-50">
-        <button
-          onClick={handleModalClose}
-          className="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Cancel
-        </button>
-        
-        <div className="flex items-center gap-3">
-          {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) !== 100 && 
-           newSubject.components.length > 0 && (
-            <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded">
-              Components total should be 100%
-            </span>
-          )}
-          
-          <button
-            onClick={handleSaveSubject}
-            disabled={
-              loading ||
-              !newSubject.name.trim() ||
-              newSubject.components.length === 0 ||
-              (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
-              !newSubject.target_grade || newSubject.target_grade === 0
-            }
-            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm shadow-lg"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            {/* Footer */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={handleModalClose}
+                className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1 sm:gap-2 order-2 sm:order-1"
+              >
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Creating Subject...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Create Subject
-              </>
-            )}
-          </button>
+                Cancel
+              </button>
+              
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 w-full sm:w-auto order-1 sm:order-2">
+                {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) !== 100 && 
+                newSubject.components.length > 0 && (
+                  <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded text-center sm:text-left">
+                    Components total should be 100%
+                  </span>
+                )}
+                
+                <button
+                  onClick={handleSaveSubject}
+                  disabled={
+                    loading ||
+                    !newSubject.name.trim() ||
+                    newSubject.components.length === 0 ||
+                    (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
+                    !newSubject.target_grade || newSubject.target_grade === 0
+                  }
+                  className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 sm:gap-2 text-sm shadow-lg"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating Subject...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Create Subject
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -2126,20 +2109,20 @@ const handleAddOrUpdateComponent = () => {
       {/* GPA CALCULATOR MODAL */}
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50" onClick={() => { setShowDeleteModal(false); setSubjectToDelete(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50 p-4" onClick={() => { setShowDeleteModal(false); setSubjectToDelete(null); }}>
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-2">Delete Subject</h3>
             <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this subject? This action cannot be undone.</p>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => { setShowDeleteModal(false); setSubjectToDelete(null); }}
-                className="px-4 py-2 bg-gray-200 rounded-lg text-sm"
+                className="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteSubject}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+                className="px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
               >
                 Delete
               </button>
@@ -2151,22 +2134,22 @@ const handleAddOrUpdateComponent = () => {
       {/* History Delete Confirmation Modal */}
       {showDeleteHistoryModal && (
         <div
-          className="fixed inset-0 flex items-center justify-center bg-black/40 z-50"
+          className="fixed inset-0 flex items-center justify-center bg-black/40 z-50 p-4"
           onClick={() => { setShowDeleteHistoryModal(false); setHistoryToDelete(null); }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm p-4 sm:p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-2">Delete History Record</h3>
             <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this record? This action cannot be undone.</p>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => { setShowDeleteHistoryModal(false); setHistoryToDelete(null); }}
-                className="px-4 py-2 bg-gray-200 rounded-lg text-sm"
+                className="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteHistory}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+                className="px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
               >
                 Delete
               </button>
