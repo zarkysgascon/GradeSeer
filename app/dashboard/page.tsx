@@ -895,28 +895,41 @@ export default function Dashboard() {
   }, [status, user?.email]);
 
   /* ---------------------- Add/Update Component ---------------------- */
-  const handleAddOrUpdateComponent = () => {
-    if (!newComponent.name.trim()) return alert("Component name required!");
+  /* ---------------------- Add/Update Component ---------------------- */
+const handleAddOrUpdateComponent = () => {
+  // Check if adding would exceed 100%
+  const currentTotal = newSubject.components.reduce((sum, c) => sum + c.percentage, 0);
+  const newTotal = currentTotal + newComponent.percentage;
+  
+  if (newTotal > 100) {
+    alert(`Cannot add component! Current total: ${currentTotal}%. Adding ${newComponent.percentage}% would exceed 100% limit.`);
+    return; 
+  }
 
-    const duplicate = newSubject.components.some(
-      (c) => c.priority === newComponent.priority && c.name !== newComponent.name
-    );
-    if (duplicate) return alert("A component with that priority already exists.");
+  // Existing validation checks
+  if (!newComponent.name.trim()) return alert("Component name required!");
 
-    const updated = [...newSubject.components];
-    const idx = updated.findIndex((c) => c.name === newComponent.name);
+  const duplicate = newSubject.components.some(
+    (c) => c.priority === newComponent.priority && c.name !== newComponent.name
+  );
+  if (duplicate) return alert("A component with that priority already exists.");
 
-    if (idx >= 0) updated[idx] = newComponent;
-    else updated.push(newComponent);
+  // Add/Update component
+  const updated = [...newSubject.components];
+  const idx = updated.findIndex((c) => c.name === newComponent.name);
 
-    setNewSubject({ ...newSubject, components: updated });
+  if (idx >= 0) updated[idx] = newComponent;
+  else updated.push(newComponent);
 
-    setNewComponent({
-      name: "",
-      percentage: 0,
-      priority: updated.length + 1,
-    });
-  };
+  setNewSubject({ ...newSubject, components: updated });
+
+  // Reset form
+  setNewComponent({
+    name: "",
+    percentage: 0,
+    priority: updated.length + 1,
+  });
+};
 
   /* ---------------------- Remove Component ---------------------- */
   const handleRemoveComponent = (index: number) => {
