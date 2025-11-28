@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import DashboardSearch from "./search";
-import Backdrop from "../components/Backdrop";
 
 
 /* ------------------------- Interfaces ------------------------- */
@@ -889,7 +888,6 @@ export default function Dashboard() {
   }, [status, user?.email]);
 
   /* ---------------------- Add/Update Component ---------------------- */
-  /* ---------------------- Add/Update Component ---------------------- */
 const handleAddOrUpdateComponent = () => {
   // Check if adding would exceed 100%
   const currentTotal = newSubject.components.reduce((sum, c) => sum + c.percentage, 0);
@@ -1098,7 +1096,7 @@ const handleAddOrUpdateComponent = () => {
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
       {/* Animated Background */}
-      <Backdrop />
+      <BackgroundImage />
       
       {/* Success Notification */}
       {showSuccess && (
@@ -1423,7 +1421,7 @@ const handleAddOrUpdateComponent = () => {
               {/* No matches for current search */}
               {subjects.length > 0 && displayedSubjects.length === 0 && (
                 <div className="col-span-full text-center py-12 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">No subjects start with “{searchQuery.trim()[0]}”</h3>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">No subjects start with \"{searchQuery.trim()[0]}\"</h3>
                   <p className="text-sm text-gray-600">Try a different letter or clear the search.</p>
                 </div>
               )}
@@ -1912,22 +1910,14 @@ const handleAddOrUpdateComponent = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN - Grading Components */}
-        <div>
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Grading Components
-              <span className="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                {newSubject.components.length} added
-              </span>
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Add the different parts that make up your final grade (exams, assignments, etc.)
-            </p>
-          </div>
+                {/* Components Section */}
+                <div className="border-t pt-5">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Grading Components</h3>
+                    <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      {newSubject.components.length} added
+                    </span>
+                  </div>
 
           {/* Components List */}
           <div className="border border-gray-200 rounded-lg p-4 max-h-48 overflow-y-auto mb-4 bg-gray-50">
@@ -2043,61 +2033,54 @@ const handleAddOrUpdateComponent = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 bg-gray-50">
-        <button
-          onClick={handleModalClose}
-          className="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Cancel
-        </button>
-        
-        <div className="flex items-center gap-3">
-          {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) !== 100 && 
-           newSubject.components.length > 0 && (
-            <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded">
-              Components total should be 100%
-            </span>
-          )}
-          
-          <button
-            onClick={handleSaveSubject}
-            disabled={
-              loading ||
-              !newSubject.name.trim() ||
-              newSubject.components.length === 0 ||
-              (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
-              !newSubject.target_grade || newSubject.target_grade === 0
-            }
-            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm shadow-lg"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating Subject...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Create Subject
-              </>
-            )}
-          </button>
+              {/* Footer */}
+              <div className="flex justify-between pt-6 mt-6 border-t border-gray-200">
+                <button
+                  onClick={handleModalClose}
+                  className="px-4 py-2.5 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSubject}
+                  disabled={loading || !newSubject.name.trim()}
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Create Subject
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
-        </div>
       )}
 
       {/* GPA CALCULATOR MODAL */}
+      <GPACalculatorModal
+        isOpen={showGPAModal}
+        onClose={() => setShowGPAModal(false)}
+        subjects={subjects}
+        selectedSubjects={selectedSubjects}
+        onAddSubject={handleAddSubject}
+        onRemoveSubject={handleRemoveSubject}
+        onCalculate={handleCalculateGPA}
+        onReset={handleResetCalculator}
+        gpaResult={gpaResult}
+      />
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50" onClick={() => { setShowDeleteModal(false); setSubjectToDelete(null); }}>
@@ -2121,18 +2104,6 @@ const handleAddOrUpdateComponent = () => {
           </div>
         </div>
       )}
-
-      <GPACalculatorModal
-        isOpen={showGPAModal}
-        onClose={() => setShowGPAModal(false)}
-        subjects={subjects}
-        selectedSubjects={selectedSubjects}
-        onAddSubject={handleAddSubject}
-        onRemoveSubject={handleRemoveSubject}
-        onCalculate={handleCalculateGPA}
-        onReset={handleResetCalculator}
-        gpaResult={gpaResult}
-      />
 
       {/* Add custom styles for floating animation */}
       <style jsx global>{`
