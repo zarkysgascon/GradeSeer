@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { Array } from "effect";
+import _ from "lodash";
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -47,34 +49,28 @@ interface HistoryRecord {
 // Grade calculation functions
 function computeRawComponentGrade(items: Item[]): number {
   if (!items || items.length === 0) return 0;
-
-  const validItems = items.filter((item) => 
-    item.score !== null && item.score !== undefined && 
-    item.max !== null && item.max !== undefined && 
-    item.max > 0
-  );
-  
+  const validItems = Array.filter(items, (item) => (
+    item.score !== null && item.score !== undefined &&
+    item.max !== null && item.max !== undefined &&
+    (item.max ?? 0) > 0
+  ));
   if (validItems.length === 0) return 0;
-
-  const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0);
-  const totalMax = validItems.reduce((sum, item) => sum + (item.max || 0), 0);
-
+  const totalScore = _.sumBy(validItems, (item) => item.score ?? 0);
+  const totalMax = _.sumBy(validItems, (item) => item.max ?? 0);
   return totalMax > 0 ? Number(((totalScore / totalMax) * 100).toFixed(2)) : 0;
 }
 
 function computeRawGrade(components: Component[]): number {
   if (!components || components.length === 0) return 0;
-
-  let totalWeightedGrade = 0;
-  let totalWeight = 0;
-
-  components.forEach((component) => {
+  const totals = _.reduce(components, (acc, component) => {
     const componentGrade = computeRawComponentGrade(component.items || []);
-    totalWeightedGrade += componentGrade * (parseFloat(component.percentage) / 100);
-    totalWeight += parseFloat(component.percentage) / 100;
-  });
-
-  return totalWeight > 0 ? Number((totalWeightedGrade / totalWeight).toFixed(2)) : 0;
+    const weight = parseFloat(component.percentage) / 100;
+    return {
+      totalWeightedGrade: acc.totalWeightedGrade + componentGrade * weight,
+      totalWeight: acc.totalWeight + weight,
+    };
+  }, { totalWeightedGrade: 0, totalWeight: 0 });
+  return totals.totalWeight > 0 ? Number((totals.totalWeightedGrade / totals.totalWeight).toFixed(2)) : 0;
 }
 
 function percentageToGradeScale(percentage: number): number {

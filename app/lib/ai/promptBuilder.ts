@@ -1,4 +1,6 @@
 import { assembleSubjectContext } from "./assembleSubjectContext"
+import { Array } from "effect"
+import _ from "lodash"
 
 type ItemInput = {
   id?: string
@@ -68,27 +70,24 @@ function gradeNumber(v: number | string | null | undefined): number {
 }
 
 function calculateGPA(subjects: Subject[]) {
-  let totalWeighted = 0
-  let totalUnits = 0
-  for (const s of subjects) {
+  const totals = _.reduce(subjects, (acc, s) => {
     const ctx = assembleSubjectContext(s as any)
     const g = gradeNumber(ctx.currentStatus.currentGrade)
     const u = gradeNumber(s.units) || 3
-    totalWeighted += g * u
-    totalUnits += u
-  }
-  const gpa = totalUnits > 0 ? totalWeighted / totalUnits : 0
+    return { totalWeighted: acc.totalWeighted + g * u, totalUnits: acc.totalUnits + u }
+  }, { totalWeighted: 0, totalUnits: 0 })
+  const gpa = totals.totalUnits > 0 ? totals.totalWeighted / totals.totalUnits : 0
   return {
     gpa: Number(gpa.toFixed(2)),
-    totalWeightedScore: Number(totalWeighted.toFixed(2)),
-    totalUnits
+    totalWeightedScore: Number(totals.totalWeighted.toFixed(2)),
+    totalUnits: totals.totalUnits
   }
 }
 
 function renderSubjectContext(subject: Subject) {
   const ctx = assembleSubjectContext(subject as any)
-  const componentsLine = ctx.components.map(c => `${c.name} (${c.weight}%, avg ${c.averageScore})`).join(', ')
-  const upcomingLine = ctx.upcomingAssessments.length > 0 ? ctx.upcomingAssessments.map(i => i.name).join(', ') : 'None logged'
+  const componentsLine = Array.map(ctx.components, (c) => `${c.name} (${c.weight}%, avg ${c.averageScore})`).join(', ')
+  const upcomingLine = ctx.upcomingAssessments.length > 0 ? Array.map(ctx.upcomingAssessments, (i) => i.name).join(', ') : 'None logged'
   return {
     name: subject.name,
     currentGrade: ctx.currentStatus.currentGrade,
@@ -115,19 +114,22 @@ Focus specifically on this subject. Analyze performance, identify patterns, sugg
 
 function buildDashboardContextBlock(data: DashboardData) {
   const metrics = calculateGPA(data.subjects)
-  const subjectsBelow = data.subjects.filter(s => {
-    const ctx = assembleSubjectContext(s as any)
-    return ctx.subject.targetGrade ? ctx.currentStatus.currentGrade > ctx.subject.targetGrade : false
-  }).map(s => s.name)
-  const highUpcoming = data.upcoming.map(i => `${i.subject}: ${i.name}`)
+  const subjectsBelow = Array.map(
+    Array.filter(data.subjects, (s) => {
+      const ctx = assembleSubjectContext(s as any)
+      return ctx.subject.targetGrade ? ctx.currentStatus.currentGrade > ctx.subject.targetGrade : false
+    }),
+    (s) => s.name
+  )
+  const highUpcoming = Array.map(data.upcoming, (i) => `${i.subject}: ${i.name}`)
   return `Current Context: The user is on their main dashboard, viewing all subjects.
 
 Available Data:
 - Total Subjects: ${data.subjects.length}
 - Overall Semester GPA: ${metrics.gpa}
 - Target GPA: ${metrics.gpa}
-- Subjects Below Target: ${subjectsBelow.join(', ') || 'None'}
-- High-Priority Upcoming: ${highUpcoming.join(', ') || 'None'}
+  - Subjects Below Target: ${subjectsBelow.join(', ') || 'None'}
+  - High-Priority Upcoming: ${highUpcoming.join(', ') || 'None'}
 
 Your Role Here:
 Take a semester-wide strategic view. Help them prioritize across ALL subjects, manage GPA, balance units, navigate assessment clusters, and use GradeSeer effectively.`

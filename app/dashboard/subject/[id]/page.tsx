@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState, useRef, useMemo } from "react"
+import { Array, Order } from "effect"
+import _ from "lodash"
 import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -54,12 +56,16 @@ interface ExtendedUser {
 /* -------------------- Helper Functions -------------------- */
 function validateDate(dateString: string): boolean {
   if (!dateString) return false
-  const m = dateString.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
-  if (!m) return false
-  const year = Number(m[1])
-  const month = Number(m[2])
-  const day = Number(m[3])
-  if (String(year).length !== 4) return false
+  const parts = dateString.split('-')
+  if (parts.length !== 3) return false
+  const [yStr, mStr, dStr] = parts
+  if (yStr.length !== 4) return false
+  if (mStr.length < 1 || mStr.length > 2) return false
+  if (dStr.length < 1 || dStr.length > 2) return false
+  const year = Number(yStr)
+  const month = Number(mStr)
+  const day = Number(dStr)
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false
   if (month < 1 || month > 12) return false
   if (day < 1 || day > 31) return false
   return true
@@ -69,18 +75,18 @@ function validateDate(dateString: string): boolean {
 function computeRawComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
 
-  const validItems = items.filter((item) => 
+  const validItems = Array.filter(items, (item) => 
     item.score !== null && item.score !== undefined && 
     item.max !== null && item.max !== undefined && 
-    item.max > 0
+    (item.max ?? 0) > 0
   )
   
   // use != null to check both null and undefined
   // Removed duplicate declaration of validItems
   if (validItems.length === 0) return 0
 
-  const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0)
-  const totalMax = validItems.reduce((sum, item) => sum + (item.max || 0), 0)
+  const totalScore = _.sumBy(validItems, (item) => item.score ?? 0)
+  const totalMax = _.sumBy(validItems, (item) => item.max ?? 0)
 
   return totalMax > 0 ? Number(((totalScore / totalMax) * 100).toFixed(2)) : 0
 }
@@ -90,50 +96,44 @@ function computeProjectedComponentGrade(items: ItemInput[]): number {
 
   const passingScorePercentage = 75
 
-  let totalScore = 0
-  let totalMax = 0
-
-  items.forEach((item) => {
+  const totals = _.reduce(items, (acc, item) => {
     if (item.max !== null && item.max !== undefined && item.max > 0) {
       const hasScore = item.score !== null && item.score !== undefined
-      const itemScore = hasScore ? item.score! : (passingScorePercentage / 100) * item.max
-      
-      totalScore += itemScore
-      totalMax += item.max
+      const itemScore = hasScore ? (item.score as number) : (passingScorePercentage / 100) * (item.max as number)
+      return { totalScore: acc.totalScore + itemScore, totalMax: acc.totalMax + (item.max as number) }
     }
-  })
+    return acc
+  }, { totalScore: 0, totalMax: 0 })
 
-  return totalMax > 0 ? Number(((totalScore / totalMax) * 100).toFixed(2)) : 0
+  return totals.totalMax > 0 ? Number(((totals.totalScore / totals.totalMax) * 100).toFixed(2)) : 0
 }
 
 function computeRawGrade(components: ComponentInput[]): number {
   if (!components || components.length === 0) return 0
 
-  let totalWeightedGrade = 0
-  let totalWeight = 0
-
-  components.forEach((component) => {
+  const weights = _.reduce(components, (acc, component) => {
     const componentGrade = computeRawComponentGrade(component.items || [])
-    totalWeightedGrade += componentGrade * (component.percentage / 100)
-    totalWeight += component.percentage / 100
-  })
+    return {
+      totalWeightedGrade: acc.totalWeightedGrade + componentGrade * (component.percentage / 100),
+      totalWeight: acc.totalWeight + component.percentage / 100
+    }
+  }, { totalWeightedGrade: 0, totalWeight: 0 })
 
-  return totalWeight > 0 ? Number((totalWeightedGrade / totalWeight).toFixed(2)) : 0
+  return weights.totalWeight > 0 ? Number((weights.totalWeightedGrade / weights.totalWeight).toFixed(2)) : 0
 }
 
 function computeProjectedGrade(components: ComponentInput[]): number {
   if (!components || components.length === 0) return 0
 
-  let totalWeightedGrade = 0
-  let totalWeight = 0
-
-  components.forEach((component) => {
+  const proj = _.reduce(components, (acc, component) => {
     const componentGrade = computeProjectedComponentGrade(component.items || [])
-    totalWeightedGrade += componentGrade * (component.percentage / 100)
-    totalWeight += component.percentage / 100
-  })
+    return {
+      totalWeightedGrade: acc.totalWeightedGrade + componentGrade * (component.percentage / 100),
+      totalWeight: acc.totalWeight + component.percentage / 100
+    }
+  }, { totalWeightedGrade: 0, totalWeight: 0 })
 
-  return totalWeight > 0 ? Number((totalWeightedGrade / totalWeight).toFixed(2)) : 0
+  return proj.totalWeight > 0 ? Number((proj.totalWeightedGrade / proj.totalWeight).toFixed(2)) : 0
 }
 
 function percentageToGradeScale(percentage: number): number {
@@ -236,8 +236,11 @@ const CustomDateInput = ({
         if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab') {
           return;
         }
-        if (!/[\d-]/.test(e.key) && e.key.length === 1) {
-          e.preventDefault();
+        const k = e.key
+        const isDigit = k >= '0' && k <= '9'
+        const isDash = k === '-'
+        if (!(isDigit || isDash) && k.length === 1) {
+          e.preventDefault()
         }
       }}
     />
@@ -248,67 +251,69 @@ const CustomDateInput = ({
 class AIService {
   private getFallbackResponse(userMessage: string, subject: Subject | null): string {
     if (!subject) return "No subject context available.";
-    const msg = (userMessage || '').toLowerCase()
-    const comps = subject.components || []
-    const rawPct = computeRawGrade(comps)
-    const current = percentageToGradeScale(rawPct)
-    const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
-    const items = comps.flatMap(c => (c.items || []).map(i => ({ i, comp: c })))
-    const upcoming = items.filter(x => x.i?.score === null || x.i?.score === undefined)
-      .sort((a, b) => Number(b.comp.percentage) - Number(a.comp.percentage))
-    const compGrades = comps.map(c => ({ name: c.name, g: computeRawComponentGrade(c.items || []), w: c.percentage }))
-    const strengths = [...compGrades].sort((a, b) => b.g - a.g).slice(0, 2)
-    const weaknesses = [...compGrades].sort((a, b) => a.g - b.g).slice(0, 2)
-    const status = target > 0 ? (current <= target ? '✅ Above target' : '⚠️ Below target') : 'Set a target to compute status'
+    const normalizedMessage = (userMessage || '').toLowerCase()
+    const components = subject.components || []
+    const rawPercentage = computeRawGrade(components)
+    const currentGrade = percentageToGradeScale(rawPercentage)
+    const targetGradeValue = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
+    const componentItemPairs = _.flatMap(components, (c) => (c.items || []).map((i) => ({ i, comp: c })))
+    const compareByComponentWeightDesc = Order.reverse(Order.mapInput(Order.number, (pair: { i: ItemInput; comp: ComponentInput }) => pair.comp.percentage))
+    const upcomingItems = Array.sort(Array.filter(componentItemPairs, (pair) => pair.i?.score === null || pair.i?.score === undefined), compareByComponentWeightDesc)
+    const componentGrades = Array.map(components, (c) => ({ name: c.name, grade: computeRawComponentGrade(c.items || []), weight: c.percentage }))
+    const compareByGradeAsc = Order.mapInput(Order.number, (s: { name: string; grade: number; weight: number }) => s.grade)
+    const compareByGradeDesc = Order.reverse(compareByGradeAsc)
+    const strongestComponents = Array.sort([...componentGrades], compareByGradeDesc).slice(0, 2)
+    const weakestComponents = Array.sort([...componentGrades], compareByGradeAsc).slice(0, 2)
+    const statusText = targetGradeValue > 0 ? (currentGrade <= targetGradeValue ? '✅ Above target' : '⚠️ Below target') : 'Set a target to compute status'
 
-    if (msg.includes('strength') || msg.includes('weak')) {
+    if (normalizedMessage.includes('strength') || normalizedMessage.includes('weak')) {
       const lines = [
-        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
-        `💪 Strengths: ${strengths.length ? strengths.map(s => `${s.name} (${s.g.toFixed(1)}%)`).join(', ') : 'None logged yet'}`,
-        `⚠️ Weaknesses: ${weaknesses.length ? weaknesses.map(s => `${s.name} (${s.g.toFixed(1)}%)`).join(', ') : 'None identified'}`,
-        `🎯 Focus: ${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments'}`
+        `📊 ${subject.name} — ${statusText} (current ${currentGrade.toFixed(2)} vs target ${targetGradeValue || 0})`,
+        `💪 Strengths: ${strongestComponents.length ? strongestComponents.map(s => `${s.name} (${s.grade.toFixed(1)}%)`).join(', ') : 'None logged yet'}`,
+        `⚠️ Weaknesses: ${weakestComponents.length ? weakestComponents.map(s => `${s.name} (${s.grade.toFixed(1)}%)`).join(', ') : 'None identified'}`,
+        `🎯 Focus: ${upcomingItems.slice(0,3).length ? upcomingItems.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments'}`
       ]
       return lines.join('\n')
     }
 
-    if (msg.includes('improve') || msg.includes('better') || msg.includes('increase')) {
-      const primary = weaknesses[0] || strengths[0]
-      const upcomingInPrimary = upcoming.filter(u => u.comp.name === primary?.name).slice(0,3)
+    if (normalizedMessage.includes('improve') || normalizedMessage.includes('better') || normalizedMessage.includes('increase')) {
+      const primaryFocus = weakestComponents[0] || strongestComponents[0]
+      const upcomingInPrimary = Array.filter(upcomingItems, (u) => u.comp.name === primaryFocus?.name).slice(0,3)
       const lines = [
-        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `📊 ${subject.name} — ${statusText} (current ${currentGrade.toFixed(2)} vs target ${targetGradeValue || 0})`,
         `� Plan:`,
-        `${primary ? `1. Prioritize ${primary.name} — raise average above ${Math.max(75, Math.round(primary.g+5))}%` : '1. Log more assessments to compute a plan'}`,
-        `${upcomingInPrimary.length ? upcomingInPrimary.map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : (upcoming.length ? upcoming.slice(0,2).map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : '2. No upcoming assessments — maintain consistency in weakest areas')}`,
+        `${primaryFocus ? `1. Prioritize ${primaryFocus.name} — raise average above ${Math.max(75, Math.round(primaryFocus.grade+5))}%` : '1. Log more assessments to compute a plan'}`,
+        `${upcomingInPrimary.length ? upcomingInPrimary.map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : (upcomingItems.length ? upcomingItems.slice(0,2).map((u,i)=>`${i+2}. Prepare for ${u.i.name} (${u.comp.percentage}% weight)`).join('\n') : '2. No upcoming assessments — maintain consistency in weakest areas')}`,
         `💡 Tips: Focus study on weakest topics, practice past papers, and aim for steady improvement rather than one-off spikes.`
       ]
       return lines.join('\n')
     }
 
-    if (msg.includes('focus') || msg.includes('next') || msg.includes('priority')) {
+    if (normalizedMessage.includes('focus') || normalizedMessage.includes('next') || normalizedMessage.includes('priority')) {
       const lines = [
-        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+        `📊 ${subject.name} — ${statusText} (current ${currentGrade.toFixed(2)} vs target ${targetGradeValue || 0})`,
         `🎯 Next Focus:`,
-        `${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments logged'}`,
-        `💡 Highest impact components: ${compGrades.sort((a,b)=>b.w-a.w).slice(0,2).map(c=>`${c.name} (${c.w}% weight)`).join(', ')}`
+        `${upcomingItems.slice(0,3).length ? upcomingItems.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments logged'}`,
+        `💡 Highest impact components: ${componentGrades.sort((a,b)=>b.weight-a.weight).slice(0,2).map(c=>`${c.name} (${c.weight}% weight)`).join(', ')}`
       ]
       return lines.join('\n')
     }
 
-    if (msg.includes('risk') || msg.includes('fail')) {
-      const risky = weaknesses.slice(0,2)
+    if (normalizedMessage.includes('risk') || normalizedMessage.includes('fail')) {
+      const risky = weakestComponents.slice(0,2)
       const lines = [
-        `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
-        `⚠️ Risk Components: ${risky.length ? risky.map(r=>`${r.name} (${r.g.toFixed(1)}%)`).join(', ') : 'No risk detected'}`,
+        `📊 ${subject.name} — ${statusText} (current ${currentGrade.toFixed(2)} vs target ${targetGradeValue || 0})`,
+        `⚠️ Risk Components: ${risky.length ? risky.map(r=>`${r.name} (${r.grade.toFixed(1)}%)`).join(', ') : 'No risk detected'}`,
         `🛡️ Mitigation: focus on weakest areas first, allocate more time to high-weight assessments, and aim for >=75% on upcoming items.`
       ]
       return lines.join('\n')
     }
 
     const lines = [
-      `📊 ${subject.name} — ${status} (current ${current.toFixed(2)} vs target ${target || 0})`,
+      `📊 ${subject.name} — ${statusText} (current ${currentGrade.toFixed(2)} vs target ${targetGradeValue || 0})`,
       `🎯 Next Focus:`,
-      `${upcoming.slice(0,3).length ? upcoming.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments logged'}`,
-      `💡 Insights: Strongest: ${strengths[0] ? `${strengths[0].name} (${strengths[0].g.toFixed(1)}%)` : 'N/A'}, Weakest: ${weaknesses[0] ? `${weaknesses[0].name} (${weaknesses[0].g.toFixed(1)}%)` : 'N/A'}`
+      `${upcomingItems.slice(0,3).length ? upcomingItems.slice(0,3).map((u,i)=>`${i+1}. ${u.i.name} (${u.comp.name}, ${u.comp.percentage}% weight)`).join('\n') : 'No upcoming assessments logged'}`,
+      `💡 Insights: Strongest: ${strongestComponents[0] ? `${strongestComponents[0].name} (${strongestComponents[0].grade.toFixed(1)}%)` : 'N/A'}, Weakest: ${weakestComponents[0] ? `${weakestComponents[0].name} (${weakestComponents[0].grade.toFixed(1)}%)` : 'N/A'}`
     ]
     return lines.join('\n')
   }
@@ -321,7 +326,16 @@ class AIService {
     })
     if (!res.ok) return 'gemini-pro'
     const j = await res.json()
-    const names: string[] = Array.isArray(j?.models) ? j.models.map((m: any) => String(m?.name || '').replace(/^models\//,'')).filter(Boolean) : []
+    const isNonEmpty = (s: string): boolean => s.length > 0
+    const names: string[] = Array.isArray(j?.models) ?
+      Array.filter(
+        Array.map(j.models, (m: any) => {
+          const raw = String(m?.name || '')
+          return raw.startsWith('models/') ? raw.slice('models/'.length) : raw
+        }),
+        isNonEmpty
+      )
+      : []
     const pick = names.find(n => n.startsWith('gemini-1.5')) || names.find(n => n.startsWith('gemini-pro')) || names.find(n => n.startsWith('gemini-1.0')) || names[0]
     const chosen = pick || 'gemini-pro'
     if (typeof window !== 'undefined') localStorage.setItem('gemini:model', chosen)
@@ -331,7 +345,7 @@ class AIService {
   async sendChatMessage(messages: ChatMessage[], userMessage: string, subject: Subject | null): Promise<string> {
     try {
       if (!subject) return "No subject context available.";
-      const history = messages.slice(-6).map(m => m.content)
+      const history = Array.map(messages.slice(-6), (m) => m.content)
       const serverRes = await fetch(`/api/ai/subject/${subject.id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -474,8 +488,8 @@ export default function SubjectDetail() {
   }, [subject])
 
   /* -------------------- Finish Subject Function -------------------- */
-// In your subject page component
-// In your subject page - UPDATED FINISH FUNCTION
+// In subject page component
+// In subject page - UPDATED FINISH FUNCTION
 const handleFinishSubject = async () => {
   if (!session?.user?.email) {
     console.log('❌ No user session found');
@@ -512,7 +526,7 @@ const handleFinishSubject = async () => {
     if (response.ok) {
       console.log('✅ Finish API success:', result);
       
-      // 🔥 CRITICAL FIX: Store history record in localStorage immediately
+      // CRITICAL FIX: Store history record in localStorage immediately
       if (result.history_record) {
         const userHistoryKey = `user_history_${session.user.email}`;
         const existingHistory = JSON.parse(localStorage.getItem(userHistoryKey) || '[]');
@@ -730,21 +744,23 @@ const handleFinishSubject = async () => {
   const quickQuestions = useMemo(() => {
     if (!subject) return [] as string[]
     const allItems = (subject.components || []).flatMap(c => c.items || [])
-    const rawPct = computeRawGrade(subject.components)
-    const current = percentageToGradeScale(rawPct)
+    const rawPercentage = computeRawGrade(subject.components)
+    const currentGrade = percentageToGradeScale(rawPercentage)
     const target = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
-    const completedItems = allItems.filter(i => i?.score !== null && i?.score !== undefined)
-    const upcomingItems = allItems.filter(i => i?.score === null || i?.score === undefined)
-    const safetyZone = target > 0 ? (current >= target ? 'green' : rawPct >= 71 ? 'yellow' : 'red') : (rawPct >= 75 ? 'green' : rawPct >= 65 ? 'yellow' : 'red')
-    const qs: string[] = []
-    if (target > 0 && current < target) qs.push("What do I need to reach my target?")
-    const nextBig = upcomingItems
-      .map(i => ({ i, comp: (subject.components || []).find(c => (c.items || []).some(ci => ci.id === i.id)) }))
-      .sort((a, b) => (Number(b.comp?.percentage || 0) - Number(a.comp?.percentage || 0)))[0]
-    if (nextBig?.i && nextBig.comp) qs.push(`How should I prepare for ${nextBig.i.name}?`)
-    if (completedItems.length > 0) qs.push("What are my strengths and weaknesses?")
-    if (safetyZone === 'red') qs.push("Am I at risk of failing?")
-    return qs.slice(0, 4)
+    const completedItems = Array.filter(allItems, (i) => i?.score !== null && i?.score !== undefined)
+    const upcomingItems = Array.filter(allItems, (i) => i?.score === null || i?.score === undefined)
+    const safetyZone = target > 0 ? (currentGrade >= target ? 'green' : rawPercentage >= 71 ? 'yellow' : 'red') : (rawPercentage >= 75 ? 'green' : rawPercentage >= 65 ? 'yellow' : 'red')
+    const suggestions: string[] = []
+    if (target > 0 && currentGrade < target) suggestions.push("What do I need to reach my target?")
+    const byCompPctDesc2 = Order.reverse(Order.mapInput(Order.number, (x: { i: ItemInput; comp?: ComponentInput }) => Number(x.comp?.percentage || 0)))
+    const nextHighWeightAssessment = Array.sort(
+      Array.map(upcomingItems, (i) => ({ i, comp: (subject.components || []).find(c => (c.items || []).some(ci => ci.id === i.id)) })),
+      byCompPctDesc2
+    )[0]
+    if (nextHighWeightAssessment?.i && nextHighWeightAssessment.comp) suggestions.push(`How should I prepare for ${nextHighWeightAssessment.i.name}?`)
+    if (completedItems.length > 0) suggestions.push("What are my strengths and weaknesses?")
+    if (safetyZone === 'red') suggestions.push("Am I at risk of failing?")
+    return suggestions.slice(0, 4)
   }, [subject])
 
   const handleQuickQuestion = (question: string) => {
@@ -2134,30 +2150,30 @@ const handleFinishSubject = async () => {
                 <div>
                   <span className="font-medium">Risk components:</span>
                   <ul className="list-disc ml-6 mt-1">
-                    {subject.components
-                      .map(c => ({
-                        c,
-                        pct: computeRawComponentGrade(c.items || []),
-                        valid: (c.items || []).filter(i => i?.score !== null && i?.score !== undefined && i?.max && i.max > 0).length
-                      }))
-                      .filter(x => {
-                        if (x.valid === 0) return false
-                        const scaled = percentageToGradeScale(x.pct)
-                        return targetGrade > 0 ? scaled > targetGrade : x.pct < effectivePassingMark
-                      })
-                      .sort((a, b) => {
-                        const aScaled = percentageToGradeScale(a.pct)
-                        const bScaled = percentageToGradeScale(b.pct)
-                        const aGap = targetGrade > 0 ? Math.max(0, aScaled - targetGrade) : Math.max(0, effectivePassingMark - a.pct)
-                        const bGap = targetGrade > 0 ? Math.max(0, bScaled - targetGrade) : Math.max(0, effectivePassingMark - b.pct)
-                        const aImpact = Number(a.c.percentage) * aGap
-                        const bImpact = Number(b.c.percentage) * bGap
-                        return bImpact - aImpact
-                      })
-                      .slice(0, 3)
-                      .map(x => (
+                    {Array.map(
+                      Array.sort(
+                        Array.filter(
+                          Array.map(subject.components, (c): { c: ComponentInput; pct: number; valid: number } => ({
+                            c,
+                            pct: computeRawComponentGrade(c.items || []),
+                            valid: (c.items || []).filter(i => i?.score !== null && i?.score !== undefined && i?.max && i.max > 0).length
+                          })),
+                          (x) => {
+                            if (x.valid === 0) return false
+                            const scaled = percentageToGradeScale(x.pct)
+                            return targetGrade > 0 ? scaled > targetGrade : x.pct < effectivePassingMark
+                          }
+                        ),
+                        Order.reverse(Order.mapInput(Order.number, (x: { c: ComponentInput; pct: number; valid: number }) => {
+                          const scaled = percentageToGradeScale(x.pct)
+                          const gap = targetGrade > 0 ? Math.max(0, scaled - targetGrade) : Math.max(0, effectivePassingMark - x.pct)
+                          return Number(x.c.percentage) * gap
+                        }))
+                      ).slice(0, 3),
+                      (x) => (
                         <li key={x.c.id}>{x.c.name} ({x.c.percentage}% weight)</li>
-                      ))}
+                      )
+                    )}
                     {subject.components.filter(c => (c.items || []).length > 0).length === 0 && (
                       <li>No data yet</li>
                     )}
@@ -2166,15 +2182,19 @@ const handleFinishSubject = async () => {
                 <div>
                   <span className="font-medium">Upcoming priorities:</span>
                   <ul className="list-disc ml-6 mt-1">
-                    {subject.components
-                      .flatMap(c => (c.items || []).map(i => ({ i, comp: c })))
-                      .filter(x => x.i.score === null || x.i.score === undefined)
-                      .sort((a, b) => Number(b.comp.percentage) - Number(a.comp.percentage))
-                      .slice(0, 3)
-                      .map(x => (
+                    {Array.map(
+                      Array.sort(
+                        Array.filter(
+                          _.flatMap(subject.components, (c) => (c.items || []).map((i) => ({ i, comp: c }))),
+                          (x) => x.i.score === null || x.i.score === undefined
+                        ),
+                        Order.reverse(Order.mapInput(Order.number, (x: { i: ItemInput; comp: ComponentInput }) => x.comp.percentage))
+                      ).slice(0, 3),
+                      (x) => (
                         <li key={`${x.comp.id}-${x.i.name}`}>{x.i.name} ({x.comp.name}, {x.comp.percentage}% weight)</li>
-                      ))}
-                    {subject.components.flatMap(c => c.items || []).filter(i => i.score === null || i.score === undefined).length === 0 && (
+                      )
+                    )}
+                    {Array.filter(_.flatMap(subject.components, (c) => c.items || []), (i) => i.score === null || i.score === undefined).length === 0 && (
                       <li>No upcoming assessments</li>
                     )}
                   </ul>
@@ -2247,7 +2267,13 @@ const handleFinishSubject = async () => {
                   // allow letters and spaces only, limit to 50 characters
                 onChange={(e) => {
                   const raw = e.target.value
-                  const sanitized = raw.replace(/[^A-Za-z\s]/g, "").slice(0, 50)
+                  const chars = raw.split("")
+                  const sanitized = Array.filter(chars, (ch) => {
+                    const code = ch.charCodeAt(0)
+                    const isLetter = (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
+                    const isSpace = ch === " "
+                    return isLetter || isSpace
+                  }).join("").slice(0, 50)
                   setNewItem({ ...newItem, name: sanitized })
                 }}
                 maxLength={50}
@@ -2277,8 +2303,8 @@ const handleFinishSubject = async () => {
                     value={newItem.score ?? ""}
                     onChange={(e) => {
                       const raw = e.target.value
-                    const digits = raw.replace(/\D/g, "").slice(0, 4)
-                    setNewItem({ ...newItem, score: digits ? Number.parseInt(digits) : null })
+                      const digits = Array.filter(raw.split(""), (ch) => ch >= "0" && ch <= "9").join("").slice(0, 4)
+                      setNewItem({ ...newItem, score: digits ? Number.parseInt(digits) : null })
                     }}
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -2295,11 +2321,10 @@ const handleFinishSubject = async () => {
                       value={newItem.max ?? ""}
                       // Limit input to digits only and max 4 characters (0-9999) /
                     onChange={(e) => {
-                        const raw = e.target.value
-                      // keep only digits
-                      const digits = raw.replace(/\D/g, "").slice(0, 5)
+                      const raw = e.target.value
+                      const digits = Array.filter(raw.split(""), (ch) => ch >= "0" && ch <= "9").join("").slice(0, 5)
                       setNewItem({ ...newItem, max: digits ? Number.parseInt(digits) : null })
-                      }}
+                    }}
                     inputMode="numeric"
                     pattern="[0-9]*"
                     min={1}

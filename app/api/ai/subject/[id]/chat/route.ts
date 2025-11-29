@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { Array, Order } from "effect"
+import _ from "lodash"
 import { db } from "@/lib/db"
 import { subjects, components, items } from "@/lib/schema"
 import { eq } from "drizzle-orm"
@@ -50,13 +52,16 @@ export async function POST(
       })
       if (listRes.ok) {
         const listJson = await listRes.json()
+        const isNonEmpty = (s: string): boolean => s.length > 0
         const names: string[] = Array.isArray(listJson?.models)
-          ? listJson.models.map((m: any) => String(m?.name || "").replace(/^models\//, "")).filter(Boolean)
+          ? Array.filter(Array.map(listJson.models, (m: any) => {
+              const raw = String(m?.name || "")
+              return raw.startsWith("models/") ? raw.slice("models/".length) : raw
+            }), isNonEmpty)
           : []
         const supported = (mName: string) => true // assume generateContent supported for simplicity
         const ordered = STATIC_PREFERENCES.filter(p => names.includes(p) && supported(p))
-        // add any remaining names not in static prefs
-        const extras = names.filter(n => !ordered.includes(n))
+        const extras = Array.filter(names, (n) => !ordered.includes(n))
         preferredModels = [...ordered, ...extras]
       }
     } catch {}
@@ -87,19 +92,22 @@ export async function POST(
         if (textPart?.text) text = textPart.text
 
         if (!text) {
-          const risks = context.components
-            .map((c: any) => ({ name: c.name, weight: c.weight, status: c.status }))
-            .filter((c: any) => c.status === 'below_target')
-            .sort((a: any, b: any) => b.weight - a.weight)
-            .slice(0, 3)
-          const upcoming = context.upcomingAssessments
-            .slice()
-            .sort((a: any, b: any) => b.weight - a.weight)
-            .slice(0, 3)
+          const byWeightDesc = Order.reverse(Order.mapInput(Order.number, (c: { name: string; weight: number; status: string }) => c.weight))
+          const risks = Array.sort(
+            Array.filter(
+              Array.map(context.components, (c: any) => ({ name: c.name, weight: c.weight, status: c.status })),
+              (c) => c.status === 'below_target'
+            ),
+            byWeightDesc
+          ).slice(0, 3)
+          const byUpcomingWeightDesc = Order.reverse(
+            Order.mapInput(Order.number, (u: { name: string; component: string; weight: number; dueDate: string; daysUntil: number }) => u.weight)
+          )
+          const upcoming = Array.sort(context.upcomingAssessments.slice(), byUpcomingWeightDesc).slice(0, 3)
           const delta = Number(context.currentStatus.gapToTarget || 0)
           const status = delta <= 0 ? 'On/above target' : 'Below target'
-          const actions = upcoming.length ? upcoming.map((u: any, i: number) => `${i+1}. ${u.name} (${u.component}, ${u.weight}% weight)`).join('\n') : 'No upcoming assessments'
-          const insights = risks.length ? `Risk components: ${risks.map((r: any) => `${r.name} (${r.weight}% weight)`).join(', ')}` : 'No risk components detected'
+          const actions = upcoming.length ? Array.map(upcoming, (u: any, i: number) => `${i+1}. ${u.name} (${u.component}, ${u.weight}% weight)`).join('\n') : 'No upcoming assessments'
+          const insights = risks.length ? `Risk components: ${Array.map(risks, (r: any) => `${r.name} (${r.weight}% weight)`).join(', ')}` : 'No risk components detected'
           text = [`Status: ${status} (gap ${delta > 0 ? '+' : ''}${delta})`, `Next Actions:`, actions, `Insights:`, insights, `What's your next move?`].join('\n')
         }
 
