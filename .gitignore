@@ -24,5 +24,4 @@ tasks/todo.md
 
 
 node_modules/
-.env
-.env.test   
+  
