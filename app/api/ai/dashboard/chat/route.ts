@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { Array } from "effect"
+import _ from "lodash"
 import { db } from "@/lib/db"
 import { subjects as subjectsTable, components as componentsTable, items as itemsTable } from "@/lib/schema"
 import { eq } from "drizzle-orm"
@@ -24,10 +26,14 @@ export async function POST(req: Request) {
       subjects.push({ id: s.id, name: s.name, target_grade: s.target_grade, color: s.color, components: enriched, units: s.units || 3 })
     }
 
-    const upcoming = subjects
-      .flatMap((sub: any) => (sub.components || []).flatMap((c: any) => (c.items || []).map((i: any) => ({ subject: sub.name, name: i.name, score: i.score, max: i.max, date: i.date }))))
-      .filter(x => x.score === null || x.score === undefined)
-      .slice(0, 10)
+    const upcoming = Array.filter(
+      _.flatMap(subjects, (sub: any) => 
+        _.flatMap((sub.components || []), (c: any) => 
+          Array.map((c.items || []), (i: any) => ({ subject: sub.name, name: i.name, score: i.score, max: i.max, date: i.date }))
+        )
+      ),
+      (x) => x.score === null || x.score === undefined
+    ).slice(0, 10)
 
     const prompt = buildAIPrompt(message, 'dashboard', { subjects, upcoming })
 
@@ -61,13 +67,15 @@ export async function POST(req: Request) {
 
     const fallback = [] as string[]
     fallback.push("Status: Review semester-wide GPA and weakest subjects first.")
-    const below = subjects.filter((s: any) => {
+    const below = Array.filter(subjects, (s: any) => {
       const tgt = s.target_grade ? parseFloat(String(s.target_grade)) : 0
       const ctx = require("@/app/lib/ai/assembleSubjectContext").assembleSubjectContext(s)
       return tgt ? ctx.currentStatus.currentGrade > tgt : false
-    }).map((s: any) => s.name)
-    fallback.push(below.length ? `Needs attention: ${below.join(', ')}` : "No subjects below target.")
-    fallback.push(upcoming.length ? `Upcoming priorities: ${upcoming.map((u: any) => `${u.subject}: ${u.name}`).join(', ')}` : "No upcoming assessments logged.")
+    })
+    const belowNames = Array.map(below, (s: any) => s.name)
+    fallback.push(belowNames.length ? `Needs attention: ${belowNames.join(', ')}` : "No subjects below target.")
+    const upcomingNames = upcoming.length ? Array.map(upcoming, (u: any) => `${u.subject}: ${u.name}`).join(', ') : ''
+    fallback.push(upcoming.length ? `Upcoming priorities: ${upcomingNames}` : "No upcoming assessments logged.")
     fallback.push("What's your plan for the next exam?")
     return NextResponse.json({ response: fallback.join('\n'), model })
   } catch {

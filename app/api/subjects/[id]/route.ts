@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
+import { Array } from "effect";
+import _ from "lodash";
 import { db } from "@/lib/db";
 import { subjects, components, items } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 
-// Simple UUID v4 generator
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+// Simple UUID v4 generator without regex (unused here but kept for parity)
+function generateUUID(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+  const bytes: number[] = []
+  for (let i = 0; i < 16; i++) {
+    bytes.push(Math.floor(Math.random() * 256))
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.map(bytes, (b) => b.toString(16).padStart(2, '0'))
+  return `${hex[0]}${hex[1]}${hex[2]}${hex[3]}-${hex[4]}${hex[5]}-${hex[6]}${hex[7]}-${hex[8]}${hex[9]}-${hex[10]}${hex[11]}${hex[12]}${hex[13]}${hex[14]}${hex[15]}`
 }
 
 /* -----------------------------------------------------------
@@ -37,19 +45,15 @@ export async function GET(
       .from(components)
       .where(eq(components.subject_id, subjectId));
 
-    const enrichedComponents = [];
-
-    for (const c of comps) {
-      const compItems = await db
-        .select()
-        .from(items)
-        .where(eq(items.component_id, c.id));
-
-      enrichedComponents.push({
-        ...c,
-        items: compItems,
-      });
-    }
+    const enrichedComponents = await Promise.all(
+      Array.map(comps, async (c) => {
+        const compItems = await db
+          .select()
+          .from(items)
+          .where(eq(items.component_id, c.id));
+        return { ...c, items: compItems };
+      })
+    )
 
     return NextResponse.json(
       { ...subject[0], components: enrichedComponents },

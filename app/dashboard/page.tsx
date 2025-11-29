@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, ChangeEvent, useCallback, useRef } from "react";
+import { Array } from "effect";
+import _ from "lodash";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -65,42 +67,29 @@ interface ExtendedUser {
 
 function computeRawGrade(components: ComponentInput[]) {
   if (!components || components.length === 0) return 0;
-  
-  let totalWeightedGrade = 0;
-  let totalWeight = 0;
-
-  components.forEach(component => {
+  const totals = _.reduce(components, (acc, component) => {
     const componentGrade = computeComponentGrade(component);
     const weight = component.percentage / 100;
-    
-   
-    totalWeightedGrade += componentGrade * weight;
-    totalWeight += weight;
-  });
-
-  if (totalWeight === 0) return 0;
-  
-  return Number(totalWeightedGrade.toFixed(2));
+    return {
+      totalWeightedGrade: acc.totalWeightedGrade + componentGrade * weight,
+      totalWeight: acc.totalWeight + weight,
+    };
+  }, { totalWeightedGrade: 0, totalWeight: 0 });
+  if (totals.totalWeight === 0) return 0;
+  return Number(totals.totalWeightedGrade.toFixed(2));
 }
 
 function computeComponentGrade(component: ComponentInput): number {
   if (!component.items || component.items.length === 0) return 0;
-  
-  const validItems = component.items.filter(item => 
-    item.score !== null && 
-    item.score !== undefined && 
-    item.max !== null && 
-    item.max !== undefined && 
-    item.max > 0
-  );
-  
+  const validItems = Array.filter(component.items, (item) => (
+    item.score !== null && item.score !== undefined &&
+    item.max !== null && item.max !== undefined &&
+    (item.max ?? 0) > 0
+  ));
   if (validItems.length === 0) return 0;
-
-  const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0);
-  const totalMax = validItems.reduce((sum, item) => sum + (item.max || 0), 0);
-
+  const totalScore = _.sumBy(validItems, (item) => item.score ?? 0);
+  const totalMax = _.sumBy(validItems, (item) => item.max ?? 0);
   if (totalMax === 0) return 0;
-
   const percentage = (totalScore / totalMax) * 100;
   return Number(percentage.toFixed(2));
 }
@@ -268,8 +257,13 @@ const NumberInput = ({
     // If maxDigits is provided, enforce digit-length (trim extras) instead of clamping to max numeric value.
     if (typeof maxDigits === 'number') {
       // Keep only optional leading '-' and digits
-      const matched = newValue.match(/^-?\d*/);
-      const raw = matched ? matched[0] : '';
+      const chars = newValue.split("");
+      const raw = Array.filter(chars, (ch, idx) => {
+        const isDigit = ch >= '0' && ch <= '9';
+        const isMinus = ch === '-';
+        const minusAllowed = isMinus && idx === 0;
+        return isDigit || minusAllowed;
+      }).join("");
       // Remove leading '-' for digit counting
       const isNegative = raw.startsWith('-');
       const digits = isNegative ? raw.slice(1) : raw;
@@ -366,7 +360,7 @@ const GPACalculatorModal = ({
 }) => {
   if (!isOpen) return null;
 
-  const availableSubjects = subjects.filter(subject => 
+  const availableSubjects = Array.filter(subjects, (subject) => 
     !selectedSubjects.find(s => s.id === subject.id)
   );
 
@@ -419,7 +413,7 @@ const GPACalculatorModal = ({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {availableSubjects.map(subject => {
+                    {Array.map(availableSubjects, (subject) => {
                       const currentPercentage = computeRawGrade(subject.components);
                       const currentGrade = percentageToGradeScale(currentPercentage);
                       const gradeStatus = getGradeStatus(currentGrade);
@@ -483,7 +477,7 @@ const GPACalculatorModal = ({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {selectedSubjects.map(subject => {
+                    {Array.map(selectedSubjects, (subject) => {
                       const currentPercentage = computeRawGrade(subject.components);
                       const currentGrade = percentageToGradeScale(currentPercentage);
                       const gradeStatus = getGradeStatus(currentGrade);
@@ -647,24 +641,20 @@ export default function Dashboard() {
 
   /* ---------------------- GWA Calculator Functions ---------------------- */
   const calculateGPA = (subjects: Subject[]) => {
-    let totalWeightedScore = 0;
-    let totalUnits = 0;
-    
-    subjects.forEach(subject => {
+    const totals = _.reduce(subjects, (acc, subject) => {
       const currentPercentage = computeRawGrade(subject.components);
       const currentGrade = percentageToGradeScale(currentPercentage);
       const units = subject.units || 3;
-      
-      totalWeightedScore += currentGrade * units;
-      totalUnits += units;
-    });
-    
-    const gpa = totalUnits > 0 ? totalWeightedScore / totalUnits : 0;
-    
+      return {
+        totalWeightedScore: acc.totalWeightedScore + currentGrade * units,
+        totalUnits: acc.totalUnits + units,
+      };
+    }, { totalWeightedScore: 0, totalUnits: 0 });
+    const gpa = totals.totalUnits > 0 ? totals.totalWeightedScore / totals.totalUnits : 0;
     return {
       gpa: Number(gpa.toFixed(2)),
-      totalWeightedScore: Number(totalWeightedScore.toFixed(2)),
-      totalUnits
+      totalWeightedScore: Number(totals.totalWeightedScore.toFixed(2)),
+      totalUnits: totals.totalUnits,
     };
   };
 
@@ -675,7 +665,7 @@ export default function Dashboard() {
   };
 
   const handleRemoveSubject = (subjectId: string) => {
-    setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
+    setSelectedSubjects(prev => Array.filter(prev, (s) => s.id !== subjectId));
   };
 
   const handleCalculateGPA = () => {
@@ -873,7 +863,7 @@ export default function Dashboard() {
         const res = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
         if (res.ok) {
           const data = await res.json();
-          const mapped: Subject[] = data.map((s: any) => ({
+          const mapped: Subject[] = Array.map(data, (s: any) => ({
             ...s,
             id: s.id || s._id,
             components: s.components || [],
@@ -990,7 +980,7 @@ const handleAddOrUpdateComponent = () => {
         const refreshRes = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
         if (refreshRes.ok) {
           const data = await refreshRes.json();
-          const mapped: Subject[] = data.map((s: any) => ({
+          const mapped: Subject[] = Array.map(data, (s: any) => ({
             ...s,
             id: s.id || s._id,
             components: s.components || [],
@@ -1029,7 +1019,7 @@ const handleAddOrUpdateComponent = () => {
       });
 
       if (res.ok) {
-        setSubjects(prev => prev.filter(s => s.id !== subjectToDelete));
+        setSubjects(prev => Array.filter(prev, (s) => s.id !== subjectToDelete));
         // Refresh upcoming items after deletion
         await fetchUpcomingItems();
         setShowDeleteModal(false);
@@ -1081,13 +1071,13 @@ const handleAddOrUpdateComponent = () => {
     try {
       const res = await fetch(`/api/history/${historyId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete history');
-      setHistory(prev => prev.filter((h: any) => h.id !== historyId));
+      setHistory(prev => Array.filter(prev as any[], (h: any) => h.id !== historyId) as HistoryRecord[]);
 
       // Also remove from localStorage cache so it doesn't reappear on refresh
       if (user?.email) {
         const key = `user_history_${user.email}`;
         const local = JSON.parse(localStorage.getItem(key) || '[]');
-        const updated = Array.isArray(local) ? local.filter((h: any) => h.id !== historyId) : [];
+        const updated = Array.isArray(local) ? Array.filter(local as any[], (h: any) => h.id !== historyId) : [];
         localStorage.setItem(key, JSON.stringify(updated));
       }
     } catch (err) {
@@ -1116,7 +1106,7 @@ const handleAddOrUpdateComponent = () => {
   }
 
   /* ---------------------- UI Return ---------------------- */
-  const displayedSubjects = subjects.filter((s) => {
+  const displayedSubjects = Array.filter(subjects, (s) => {
     if (!searchQuery || !searchQuery.trim()) return true;
     const first = searchQuery.trim()[0].toLowerCase();
     return s.name.toLowerCase().startsWith(first);
@@ -1151,7 +1141,7 @@ const handleAddOrUpdateComponent = () => {
 
         <div className="flex-1 flex justify-center">
           <div className="flex gap-80">
-            {["subjects", "pending", "history"].map((tab) => (
+            {Array.map(["subjects", "pending", "history"], (tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -1191,7 +1181,7 @@ const handleAddOrUpdateComponent = () => {
                 <div className="flex-1 flex justify-center">
                   <div className="w-96">
                     <DashboardSearch
-                      items={subjects.map((s) => s.name)}
+                      items={Array.map(subjects, (s) => s.name)}
                       maxResults={5}
                       placeholder="Search subjects..."
                       className="w-full"
@@ -1250,7 +1240,7 @@ const handleAddOrUpdateComponent = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-800">
-                        {subjects.filter(subj => {
+                        {Array.filter(subjects, (subj) => {
                           const currentPercentage = computeRawGrade(subj.components);
                           const currentGrade = percentageToGradeScale(currentPercentage);
                           return currentGrade <= (subj.target_grade || 5.0);
@@ -1268,7 +1258,7 @@ const handleAddOrUpdateComponent = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-800">
-                        {subjects.filter(subj => {
+                        {Array.filter(subjects, (subj) => {
                           const currentPercentage = computeRawGrade(subj.components);
                           const currentGrade = percentageToGradeScale(currentPercentage);
                           return currentGrade > (subj.target_grade || 5.0);
@@ -1283,7 +1273,7 @@ const handleAddOrUpdateComponent = () => {
 
             {/* SUBJECT CARDS - 4 CARDS PER ROW */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {displayedSubjects.map((subj) => {
+              {Array.map(displayedSubjects, (subj) => {
                 const currentPercentage = computeRawGrade(subj.components);
                 const currentGrade = percentageToGradeScale(currentPercentage);
                 const targetGrade = subj.target_grade ? parseFloat(subj.target_grade.toString()) : 0;
@@ -1520,7 +1510,7 @@ const handleAddOrUpdateComponent = () => {
                 ) : (
                   // Pending Items List
                   <div className="space-y-4 max-h-[600px] overflow-y-auto p-4">
-                    {upcomingItems.map((item, index) => (
+                    {Array.map(upcomingItems, (item, index) => (
                       <div
                         key={item.id || index}
                         className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm group"
@@ -1606,13 +1596,13 @@ const handleAddOrUpdateComponent = () => {
                   </div>
                   <div className="text-center p-6 bg-yellow-50/80 rounded-2xl backdrop-blur-sm">
                     <div className="text-3xl font-bold text-yellow-600">
-                      {upcomingItems.filter(item => item.score === null || item.score === undefined).length}
+                      {Array.filter(upcomingItems, (item) => item.score === null || item.score === undefined).length}
                     </div>
                     <div className="text-sm text-gray-600 font-medium">Pending</div>
                   </div>
                   <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
                     <div className="text-3xl font-bold text-green-600">
-                      {upcomingItems.filter(item => item.score !== null && item.score !== undefined).length}
+                      {Array.filter(upcomingItems, (item) => item.score !== null && item.score !== undefined).length}
                     </div>
                     <div className="text-sm text-gray-600 font-medium">Completed</div>
                   </div>
@@ -1666,7 +1656,7 @@ const handleAddOrUpdateComponent = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {history.map((record) => (
+                        {Array.map(history, (record) => (
                           <tr key={record.id} className="hover:bg-gray-50/50 transition-colors">
                             <td className="px-6 py-4 text-sm font-medium text-gray-900">{record.course_name}</td>
                             <td className="px-6 py-4 text-sm text-gray-600">{record.target_grade}</td>
@@ -1741,7 +1731,7 @@ const handleAddOrUpdateComponent = () => {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
-            {assistantMessages.map(m => (
+            {Array.map(assistantMessages, (m) => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {m.role === 'assistant' && (
                   <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2 object-contain" />
@@ -1894,7 +1884,7 @@ const handleAddOrUpdateComponent = () => {
               </label>
               <p className="text-xs text-gray-600 mb-3">Choose a color to easily identify this subject</p>
               <div className="flex flex-wrap items-center gap-3">
-                {predefinedColors.map((c) => (
+                {Array.map(predefinedColors, (c) => (
                   <button
                     key={c}
                     type="button"
@@ -1923,7 +1913,15 @@ const handleAddOrUpdateComponent = () => {
                       type="text"
                       value={newSubject.color.replace('#','')}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                        const rawInput = e.target.value;
+                        const hex = Array.filter(rawInput.split(''), (ch) => {
+                          const c = ch.charCodeAt(0);
+                          const isDigit = c >= 48 && c <= 57; // 0-9
+                          const isUpperAF = c >= 65 && c <= 70; // A-F
+                          const isLowerAF = c >= 97 && c <= 102; // a-f
+                          return isDigit || isUpperAF || isLowerAF;
+                        }).join('').slice(0, 6);
+                        const raw = hex;
                         const color = `#${raw}`;
                         setNewSubject({ ...newSubject, color });
                       }}

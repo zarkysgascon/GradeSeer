@@ -1,3 +1,6 @@
+import { Array, Order } from "effect"
+import _ from "lodash"
+
 type Item = {
   id: string
   name: string
@@ -50,39 +53,33 @@ function percentageToGradeScale(percentage: number): number {
 
 function computeComponentGrade(items: Item[], fillPercent?: number): number {
   if (!items || items.length === 0) return 0
-  let totalScore = 0
-  let totalMax = 0
   const fp = fillPercent
-  for (const item of items) {
+  const totals = _.reduce(items, (acc, item) => {
     const max = toNumber(item.max, 0)
-    if (max <= 0) continue
+    if (max <= 0) return acc
     const hasScore = item.score !== null && item.score !== undefined
     const score = hasScore ? toNumber(item.score, 0) : fp === undefined ? 0 : (fp / 100) * max
-    totalScore += score
-    totalMax += max
-  }
-  return totalMax > 0 ? Number(((totalScore / totalMax) * 100).toFixed(2)) : 0
+    return { totalScore: acc.totalScore + score, totalMax: acc.totalMax + max }
+  }, { totalScore: 0, totalMax: 0 })
+  return totals.totalMax > 0 ? Number(((totals.totalScore / totals.totalMax) * 100).toFixed(2)) : 0
 }
 
 function computeWeightedPercentage(components: Component[], perComp: (c: Component) => number): number {
   if (!components || components.length === 0) return 0
-  let totalWeighted = 0
-  let totalWeight = 0
-  for (const c of components) {
+  const totals = _.reduce(components, (acc, c) => {
     const grade = perComp(c)
     const weight = toNumber(c.percentage, 0) / 100
-    totalWeighted += grade * weight
-    totalWeight += weight
-  }
-  return totalWeight > 0 ? Number((totalWeighted / totalWeight).toFixed(2)) : 0
+    return { totalWeighted: acc.totalWeighted + grade * weight, totalWeight: acc.totalWeight + weight }
+  }, { totalWeighted: 0, totalWeight: 0 })
+  return totals.totalWeight > 0 ? Number((totals.totalWeighted / totals.totalWeight).toFixed(2)) : 0
 }
 
 function itemsCompleted(items: Item[]): number {
-  return items.filter(i => i.score !== null && i.score !== undefined && i.max && i.max > 0).length
+  return Array.filter(items, (i) => i.score !== null && i.score !== undefined && !!i.max && (i.max as number) > 0).length
 }
 
 function itemsTotal(items: Item[]): number {
-  return items.filter(i => i.max && i.max > 0).length
+  return Array.filter(items, (i) => !!i.max && (i.max as number) > 0).length
 }
 
 export function assembleSubjectContext(subject: Subject) {
@@ -100,7 +97,7 @@ export function assembleSubjectContext(subject: Subject) {
   const gapToTarget = targetGrade > 0 ? Number((targetGrade - currentGrade).toFixed(2)) : 0
   const safetyZone = targetGrade > 0 ? (currentGrade <= targetGrade ? 'green' : rawPercentage >= 71 ? 'yellow' : 'red') : (rawPercentage >= 75 ? 'green' : rawPercentage >= 65 ? 'yellow' : 'red')
 
-  const componentsCtx = (subject.components || []).map(c => {
+  const componentsCtx = Array.map((subject.components || []), (c) => {
     const compItems = c.items || []
     const compAvgPct = computeComponentGrade(compItems, undefined)
     const progress = itemsTotal(compItems) === 0 ? 0 : Math.round((itemsCompleted(compItems) / itemsTotal(compItems)) * 100)
@@ -114,9 +111,9 @@ export function assembleSubjectContext(subject: Subject) {
     }
   })
 
-  const completedAssessments = allItems
-    .filter(i => i.score !== null && i.score !== undefined && i.max && i.max > 0)
-    .map(i => {
+  const completedAssessments = Array.map(
+    Array.filter(allItems, (i) => i.score !== null && i.score !== undefined && !!i.max && (i.max as number) > 0),
+    (i) => {
       const percentage = Number((((toNumber(i.score, 0)) / (toNumber(i.max, 0))) * 100).toFixed(2))
       const comp = (subject.components || []).find(c => (c.items || []).some(ci => ci.id === i.id))
       return {
@@ -128,11 +125,12 @@ export function assembleSubjectContext(subject: Subject) {
         percentage,
         date: i.date || ''
       }
-    })
+    }
+  )
 
-  const upcomingAssessments = allItems
-    .filter(i => i.score === null || i.score === undefined)
-    .map(i => {
+  const upcomingAssessments = Array.map(
+    Array.filter(allItems, (i) => i.score === null || i.score === undefined),
+    (i) => {
       const comp = (subject.components || []).find(c => (c.items || []).some(ci => ci.id === i.id))
       return {
         name: i.name,
@@ -141,20 +139,31 @@ export function assembleSubjectContext(subject: Subject) {
         dueDate: i.date || '',
         daysUntil: 0
       }
-    })
+    }
+  )
 
-  const quizLike = completedAssessments.filter(a => /quiz/i.test(a.name))
-  const examLike = completedAssessments.filter(a => /(midterm|final|exam)/i.test(a.name))
-  const avg = (arr: number[]) => arr.length ? Number((arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(2)) : 0
-  const quizAverage = avg(quizLike.map(a => a.score))
-  const examAverage = avg(examLike.map(a => a.score))
+  const quizLike = Array.filter(completedAssessments, (a) => a.name.toLowerCase().includes("quiz"))
+  const examLike = Array.filter(completedAssessments, (a) => {
+    const n = a.name.toLowerCase()
+    return n.includes("midterm") || n.includes("final") || n.includes("exam")
+  })
+  const quizScores = Array.map(quizLike, (a) => a.score)
+  const examScores = Array.map(examLike, (a) => a.score)
+  const quizAverage = quizScores.length ? Number(_.mean(quizScores).toFixed(2)) : 0
+  const examAverage = examScores.length ? Number(_.mean(examScores).toFixed(2)) : 0
 
   const performanceInsights = {
     quizAverage,
     examAverage,
     trending: projectedGrade >= currentGrade ? 'improving' : 'declining',
-    strongestComponent: componentsCtx.slice().sort((a, b) => b.averageScore - a.averageScore)[0]?.name || '',
-    weakestComponent: componentsCtx.slice().sort((a, b) => a.averageScore - b.averageScore)[0]?.name || ''
+    strongestComponent: Array.sort(
+      componentsCtx.slice(),
+      Order.reverse(Order.mapInput(Order.number, (c: { name: string; weight: number; progress: number; averageScore: number; targetScore: number; status: string }) => c.averageScore))
+    )[0]?.name || '',
+    weakestComponent: Array.sort(
+      componentsCtx.slice(),
+      Order.mapInput(Order.number, (c: { name: string; weight: number; progress: number; averageScore: number; targetScore: number; status: string }) => c.averageScore)
+    )[0]?.name || ''
   }
 
   return {
