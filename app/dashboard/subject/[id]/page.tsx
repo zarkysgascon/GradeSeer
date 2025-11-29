@@ -760,6 +760,10 @@ const handleFinishSubject = async () => {
       alert("Subject name is required.")
       return
     }
+    if (trimmedName.length > 30) {
+      alert("Subject name must be at most 30 characters.")
+      return
+    }
     if (trimmedName === subject.name) {
       setIsEditingName(false)
       return
@@ -1234,6 +1238,38 @@ const handleFinishSubject = async () => {
     setItemToDelete(null)
   }
 
+  // Component delete modal state and handlers
+  const [showDeleteComponentModal, setShowDeleteComponentModal] = useState(false)
+  const [componentToDelete, setComponentToDelete] = useState<string | null>(null)
+
+  const openDeleteComponentModal = (componentId: string) => {
+    setComponentToDelete(componentId)
+    setShowDeleteComponentModal(true)
+  }
+
+  const handleDeleteComponent = async (componentId: string) => {
+    if (!subject?.id) return
+    try {
+      const res = await fetch(`/api/components/${componentId}`, { method: "DELETE" })
+      if (res.ok) {
+        setSubject(prev => prev ? { ...prev, components: prev.components.filter(c => c.id !== componentId) } : prev)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert(data?.error || "Failed to delete component")
+      }
+    } catch (err) {
+      console.error("Error deleting component:", err)
+      alert("Network error: Failed to delete component. Please check your connection.")
+    }
+  }
+
+  const confirmDeleteComponent = async () => {
+    if (!componentToDelete) return
+    await handleDeleteComponent(componentToDelete)
+    setShowDeleteComponentModal(false)
+    setComponentToDelete(null)
+  }
+
   const calculateComponentProgress = (component: ComponentInput) => {
     const grade = computeRawComponentGrade(component.items || [])
     return {
@@ -1310,7 +1346,10 @@ const handleFinishSubject = async () => {
               <>
                 <input
                   value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value.slice(0, 30)
+                    setEditingName(value)
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleRenameSubject()
                     if (e.key === "Escape") {
@@ -1321,6 +1360,7 @@ const handleFinishSubject = async () => {
                   autoFocus
                   className="text-3xl font-bold px-3 py-1 rounded-lg bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
                   placeholder="Subject name"
+                  maxLength={30}
                 />
                 <button
                   type="button"
@@ -1701,6 +1741,27 @@ const handleFinishSubject = async () => {
                             >
                               <path d="M12 20h9" />
                               <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => openDeleteComponentModal(component.id)}
+                            className="p-1 text-gray-500 hover:text-red-600 transition"
+                            title="Delete component"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M3 6h18"></path>
+                              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                             </svg>
                           </button>
                         </div>
@@ -2454,6 +2515,33 @@ const handleFinishSubject = async () => {
               </button>
               <button
                 onClick={confirmDeleteItem}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE COMPONENT CONFIRMATION MODAL */}
+      {showDeleteComponentModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 z-50"
+          onClick={() => { setShowDeleteComponentModal(false); setComponentToDelete(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-2">Delete Component</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this component? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowDeleteComponentModal(false); setComponentToDelete(null); }}
+                className="px-4 py-2 bg-gray-200 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteComponent}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
               >
                 Delete
