@@ -100,7 +100,7 @@ GradeSeer/
 
 ## Team
 
-**Academic Project for:** Software Engineering Process, Functional Programming, Database Management, Web Development
+**Academic Project for:** Software Engineering Process, Functional Programming, Database Management, Web Development, and Software Engineering Tools & Practices
 
 **Team Members:**
 - Bryan Del Rosario - [@YusCML](https://github.com/YusCML) (Product Owner)
