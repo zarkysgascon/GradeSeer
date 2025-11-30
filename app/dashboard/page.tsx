@@ -9,6 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import DashboardSearch from "./search";
 import Backdrop from "../components/Backdrop";
+import { LayoutDashboard, Clock, History } from "lucide-react";
 
 
 /* ------------------------- Interfaces ------------------------- */
@@ -1154,20 +1155,75 @@ const handleAddOrUpdateComponent = () => {
       </nav>
 
       {isNavOpen && (
-        <div className="md:hidden fixed inset-0 bg-white z-50 p-6 flex flex-col" role="dialog" aria-modal="true">
-          <button onClick={() => setIsNavOpen(false)} className="self-end text-2xl" aria-label="Close">×</button>
-          <nav className="flex flex-col gap-4 mt-8">
-            {Array.map(["subjects", "pending", "history"], (tab) => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab as any); setIsNavOpen(false); }}
-                className={`text-xl text-left ${activeTab === tab ? "text-blue-600" : "text-gray-800"}`}
-              >
-                {tab}
-              </button>
-            ))}
-            <Link href="/profile" onClick={() => setIsNavOpen(false)} className="text-xl">Profile</Link>
+        <div className="md:hidden fixed inset-0 bg-white/95 backdrop-blur-sm z-50 p-6 flex flex-col animate-in slide-in-from-right-10 duration-200" role="dialog" aria-modal="true">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-xl font-bold text-gray-800">Menu</h2>
+            <button 
+              onClick={() => setIsNavOpen(false)} 
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors" 
+              aria-label="Close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Profile Section */}
+          <div 
+            className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100 active:scale-95 transition-transform cursor-pointer" 
+            onClick={() => { router.push("/profile"); setIsNavOpen(false); }}
+          >
+            <div className="flex items-center gap-4">
+              <Image
+                src={profileImage || user?.image || "/default.png"}
+                alt="Profile"
+                width={56}
+                height={56}
+                className="rounded-full border-2 border-white shadow-sm"
+              />
+              <div>
+                <p className="font-bold text-gray-900">{user?.name || "User"}</p>
+                <p className="text-sm text-gray-500 truncate max-w-[180px]">{user?.email}</p>
+              </div>
+            </div>
+          </div>
+          
+          <nav className="flex flex-col gap-2">
+            <button
+              onClick={() => { setActiveTab("subjects"); setIsNavOpen(false); }}
+              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                activeTab === "subjects" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <LayoutDashboard className="w-6 h-6" />
+              <span className="text-lg">Subjects</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("pending"); setIsNavOpen(false); }}
+              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                activeTab === "pending" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Clock className="w-6 h-6" />
+              <span className="text-lg">Pending Items</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("history"); setIsNavOpen(false); }}
+              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                activeTab === "history" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <History className="w-6 h-6" />
+              <span className="text-lg">History</span>
+            </button>
           </nav>
+          
+          <div className="mt-auto">
+            <p className="text-center text-sm text-gray-400">GradeSeer v0.1.0</p>
+          </div>
         </div>
       )}
 
