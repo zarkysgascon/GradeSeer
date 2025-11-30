@@ -1,15 +1,10 @@
 "use client";
 
 import { useEffect, useState, ChangeEvent, useCallback, useRef } from "react";
-import { Array } from "effect";
-import _ from "lodash";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import DashboardSearch from "./search";
-import Backdrop from "../components/Backdrop";
-import { LayoutDashboard, Clock, History } from "lucide-react";
 
 
 /* ------------------------- Interfaces ------------------------- */
@@ -69,29 +64,42 @@ interface ExtendedUser {
 
 function computeRawGrade(components: ComponentInput[]) {
   if (!components || components.length === 0) return 0;
-  const totals = _.reduce(components, (acc, component) => {
+  
+  let totalWeightedGrade = 0;
+  let totalWeight = 0;
+
+  components.forEach(component => {
     const componentGrade = computeComponentGrade(component);
     const weight = component.percentage / 100;
-    return {
-      totalWeightedGrade: acc.totalWeightedGrade + componentGrade * weight,
-      totalWeight: acc.totalWeight + weight,
-    };
-  }, { totalWeightedGrade: 0, totalWeight: 0 });
-  if (totals.totalWeight === 0) return 0;
-  return Number(totals.totalWeightedGrade.toFixed(2));
+    
+   
+    totalWeightedGrade += componentGrade * weight;
+    totalWeight += weight;
+  });
+
+  if (totalWeight === 0) return 0;
+  
+  return Number(totalWeightedGrade.toFixed(2));
 }
 
 function computeComponentGrade(component: ComponentInput): number {
   if (!component.items || component.items.length === 0) return 0;
-  const validItems = Array.filter(component.items, (item) => (
-    item.score !== null && item.score !== undefined &&
-    item.max !== null && item.max !== undefined &&
-    (item.max ?? 0) > 0
-  ));
+  
+  const validItems = component.items.filter(item => 
+    item.score !== null && 
+    item.score !== undefined && 
+    item.max !== null && 
+    item.max !== undefined && 
+    item.max > 0
+  );
+  
   if (validItems.length === 0) return 0;
-  const totalScore = _.sumBy(validItems, (item) => item.score ?? 0);
-  const totalMax = _.sumBy(validItems, (item) => item.max ?? 0);
+
+  const totalScore = validItems.reduce((sum, item) => sum + (item.score || 0), 0);
+  const totalMax = validItems.reduce((sum, item) => sum + (item.max || 0), 0);
+
   if (totalMax === 0) return 0;
+
   const percentage = (totalScore / totalMax) * 100;
   return Number(percentage.toFixed(2));
 }
@@ -259,13 +267,8 @@ const NumberInput = ({
     // If maxDigits is provided, enforce digit-length (trim extras) instead of clamping to max numeric value.
     if (typeof maxDigits === 'number') {
       // Keep only optional leading '-' and digits
-      const chars = newValue.split("");
-      const raw = Array.filter(chars, (ch, idx) => {
-        const isDigit = ch >= '0' && ch <= '9';
-        const isMinus = ch === '-';
-        const minusAllowed = isMinus && idx === 0;
-        return isDigit || minusAllowed;
-      }).join("");
+      const matched = newValue.match(/^-?\d*/);
+      const raw = matched ? matched[0] : '';
       // Remove leading '-' for digit counting
       const isNegative = raw.startsWith('-');
       const digits = isNegative ? raw.slice(1) : raw;
@@ -362,7 +365,7 @@ const GPACalculatorModal = ({
 }) => {
   if (!isOpen) return null;
 
-  const availableSubjects = Array.filter(subjects, (subject) => 
+  const availableSubjects = subjects.filter(subject => 
     !selectedSubjects.find(s => s.id === subject.id)
   );
 
@@ -415,7 +418,7 @@ const GPACalculatorModal = ({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {Array.map(availableSubjects, (subject) => {
+                    {availableSubjects.map(subject => {
                       const currentPercentage = computeRawGrade(subject.components);
                       const currentGrade = percentageToGradeScale(currentPercentage);
                       const gradeStatus = getGradeStatus(currentGrade);
@@ -479,7 +482,7 @@ const GPACalculatorModal = ({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {Array.map(selectedSubjects, (subject) => {
+                    {selectedSubjects.map(subject => {
                       const currentPercentage = computeRawGrade(subject.components);
                       const currentGrade = percentageToGradeScale(currentPercentage);
                       const gradeStatus = getGradeStatus(currentGrade);
@@ -628,7 +631,6 @@ export default function Dashboard() {
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isNavOpen, setIsNavOpen] = useState(false);
 
   useEffect(() => {
     if (assistantOpen) inputRef.current?.focus();
@@ -644,20 +646,24 @@ export default function Dashboard() {
 
   /* ---------------------- GWA Calculator Functions ---------------------- */
   const calculateGPA = (subjects: Subject[]) => {
-    const totals = _.reduce(subjects, (acc, subject) => {
+    let totalWeightedScore = 0;
+    let totalUnits = 0;
+    
+    subjects.forEach(subject => {
       const currentPercentage = computeRawGrade(subject.components);
       const currentGrade = percentageToGradeScale(currentPercentage);
       const units = subject.units || 3;
-      return {
-        totalWeightedScore: acc.totalWeightedScore + currentGrade * units,
-        totalUnits: acc.totalUnits + units,
-      };
-    }, { totalWeightedScore: 0, totalUnits: 0 });
-    const gpa = totals.totalUnits > 0 ? totals.totalWeightedScore / totals.totalUnits : 0;
+      
+      totalWeightedScore += currentGrade * units;
+      totalUnits += units;
+    });
+    
+    const gpa = totalUnits > 0 ? totalWeightedScore / totalUnits : 0;
+    
     return {
       gpa: Number(gpa.toFixed(2)),
-      totalWeightedScore: Number(totals.totalWeightedScore.toFixed(2)),
-      totalUnits: totals.totalUnits,
+      totalWeightedScore: Number(totalWeightedScore.toFixed(2)),
+      totalUnits
     };
   };
 
@@ -668,7 +674,7 @@ export default function Dashboard() {
   };
 
   const handleRemoveSubject = (subjectId: string) => {
-    setSelectedSubjects(prev => Array.filter(prev, (s) => s.id !== subjectId));
+    setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
   };
 
   const handleCalculateGPA = () => {
@@ -866,7 +872,7 @@ export default function Dashboard() {
         const res = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
         if (res.ok) {
           const data = await res.json();
-          const mapped: Subject[] = Array.map(data, (s: any) => ({
+          const mapped: Subject[] = data.map((s: any) => ({
             ...s,
             id: s.id || s._id,
             components: s.components || [],
@@ -982,7 +988,7 @@ const handleAddOrUpdateComponent = () => {
         const refreshRes = await fetch(`/api/subjects?email=${encodeURIComponent(user.email!)}`);
         if (refreshRes.ok) {
           const data = await refreshRes.json();
-          const mapped: Subject[] = Array.map(data, (s: any) => ({
+          const mapped: Subject[] = data.map((s: any) => ({
             ...s,
             id: s.id || s._id,
             components: s.components || [],
@@ -1021,7 +1027,7 @@ const handleAddOrUpdateComponent = () => {
       });
 
       if (res.ok) {
-        setSubjects(prev => Array.filter(prev, (s) => s.id !== subjectToDelete));
+        setSubjects(prev => prev.filter(s => s.id !== subjectToDelete));
         // Refresh upcoming items after deletion
         await fetchUpcomingItems();
         setShowDeleteModal(false);
@@ -1073,13 +1079,13 @@ const handleAddOrUpdateComponent = () => {
     try {
       const res = await fetch(`/api/history/${historyId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete history');
-      setHistory(prev => Array.filter(prev as any[], (h: any) => h.id !== historyId) as HistoryRecord[]);
+      setHistory(prev => prev.filter((h: any) => h.id !== historyId));
 
       // Also remove from localStorage cache so it doesn't reappear on refresh
       if (user?.email) {
         const key = `user_history_${user.email}`;
         const local = JSON.parse(localStorage.getItem(key) || '[]');
-        const updated = Array.isArray(local) ? Array.filter(local as any[], (h: any) => h.id !== historyId) : [];
+        const updated = Array.isArray(local) ? local.filter((h: any) => h.id !== historyId) : [];
         localStorage.setItem(key, JSON.stringify(updated));
       }
     } catch (err) {
@@ -1108,7 +1114,7 @@ const handleAddOrUpdateComponent = () => {
   }
 
   /* ---------------------- UI Return ---------------------- */
-  const displayedSubjects = Array.filter(subjects, (s) => {
+  const displayedSubjects = subjects.filter((s) => {
     if (!searchQuery || !searchQuery.trim()) return true;
     const first = searchQuery.trim()[0].toLowerCase();
     return s.name.toLowerCase().startsWith(first);
@@ -1135,106 +1141,15 @@ const handleAddOrUpdateComponent = () => {
         </div>
       )}
       
-      {/* MOBILE NAVBAR */}
-      <nav className="md:hidden bg-white/90 backdrop-blur-md shadow-md px-4 py-3 flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-2">
-          <Image src="/gslogo.png" alt="Logo" width={32} height={32} className="h-8 w-8 drop-shadow-sm" />
-        </div>
-        <button
-          onClick={() => setIsNavOpen((v) => !v)}
-          className="p-2 rounded-lg border border-gray-200"
-          aria-label="Open menu"
-        >
-          <div className="space-y-1">
-            <div className="w-6 h-0.5 bg-gray-800"></div>
-            <div className="w-6 h-0.5 bg-gray-800"></div>
-            <div className="w-6 h-0.5 bg-gray-800"></div>
-          </div>
-        </button>
-      </nav>
-
-      {isNavOpen && (
-        <div className="md:hidden fixed inset-0 bg-white/95 backdrop-blur-sm z-50 p-6 flex flex-col animate-in slide-in-from-right-10 duration-200" role="dialog" aria-modal="true">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-xl font-bold text-gray-800">Menu</h2>
-            <button 
-              onClick={() => setIsNavOpen(false)} 
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors" 
-              aria-label="Close"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Profile Section */}
-          <div 
-            className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100 active:scale-95 transition-transform cursor-pointer" 
-            onClick={() => { router.push("/profile"); setIsNavOpen(false); }}
-          >
-            <div className="flex items-center gap-4">
-              <Image
-                src={profileImage || user?.image || "/default.png"}
-                alt="Profile"
-                width={56}
-                height={56}
-                className="rounded-full border-2 border-white shadow-sm"
-              />
-              <div>
-                <p className="font-bold text-gray-900">{user?.name || "User"}</p>
-                <p className="text-sm text-gray-500 truncate max-w-[180px]">{user?.email}</p>
-              </div>
-            </div>
-          </div>
-          
-          <nav className="flex flex-col gap-2">
-            <button
-              onClick={() => { setActiveTab("subjects"); setIsNavOpen(false); }}
-              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                activeTab === "subjects" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <LayoutDashboard className="w-6 h-6" />
-              <span className="text-lg">Subjects</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveTab("pending"); setIsNavOpen(false); }}
-              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                activeTab === "pending" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <Clock className="w-6 h-6" />
-              <span className="text-lg">Pending Items</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveTab("history"); setIsNavOpen(false); }}
-              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                activeTab === "history" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <History className="w-6 h-6" />
-              <span className="text-lg">History</span>
-            </button>
-          </nav>
-          
-          <div className="mt-auto">
-            <p className="text-center text-sm text-gray-400">GradeSeer v0.1.0</p>
-          </div>
-        </div>
-      )}
-
       {/* NAVBAR */}
-      <nav className="hidden md:flex bg-white/90 backdrop-blur-md shadow-md px-10 py-4 items-center justify-between relative z-10">
+      <nav className="bg-white/90 backdrop-blur-md shadow-md px-10 py-4 flex items-center justify-between relative z-10">
         <div className="flex-1 flex justify-start">
           <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
         </div>
 
         <div className="flex-1 flex justify-center">
           <div className="flex gap-80">
-            {Array.map(["subjects", "pending", "history"], (tab) => (
+            {["subjects", "pending", "history"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -1251,7 +1166,7 @@ const handleAddOrUpdateComponent = () => {
         </div>
 
         <div className="flex-1 flex justify-end">
-          <Link href="/profile" className="group">
+          <button onClick={() => router.push("/profile")} className="group">
             <Image
               src={profileImage || user?.image || "/default.png"}
               alt="Profile"
@@ -1259,7 +1174,7 @@ const handleAddOrUpdateComponent = () => {
               height={50}
               className="rounded-full cursor-pointer border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-300 shadow-sm"
             />
-          </Link>
+          </button>
         </div>
       </nav>
 
@@ -1270,11 +1185,11 @@ const handleAddOrUpdateComponent = () => {
           <div className="max-w-7xl mx-auto">
             
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 px-4 md:px-0">
-                <div className="md:flex-1 md:flex md:justify-center">
-                  <div className="w-full md:w-96">
+            <div className="flex justify-between items-center mb-8">
+                <div className="flex-1 flex justify-center">
+                  <div className="w-96">
                     <DashboardSearch
-                      items={Array.map(subjects, (s) => s.name)}
+                      items={subjects.map((s) => s.name)}
                       maxResults={5}
                       placeholder="Search subjects..."
                       className="w-full"
@@ -1283,11 +1198,11 @@ const handleAddOrUpdateComponent = () => {
                   </div>
                 </div>
               
-              <div className="md:flex-1 md:flex md:justify-end">
-                <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
+              <div className="flex-1 flex justify-end">
+                <div className="flex gap-4">
                   <button
                     onClick={handleOpenGPAModal}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 min-h-[44px] rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
                   >
                     <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1298,7 +1213,7 @@ const handleAddOrUpdateComponent = () => {
                   </button>
                   <button
                     onClick={() => setShowModal(true)}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 min-h-[44px] rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
                   >
                     <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1333,7 +1248,7 @@ const handleAddOrUpdateComponent = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-800">
-                        {Array.filter(subjects, (subj) => {
+                        {subjects.filter(subj => {
                           const currentPercentage = computeRawGrade(subj.components);
                           const currentGrade = percentageToGradeScale(currentPercentage);
                           return currentGrade <= (subj.target_grade || 5.0);
@@ -1351,7 +1266,7 @@ const handleAddOrUpdateComponent = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-800">
-                        {Array.filter(subjects, (subj) => {
+                        {subjects.filter(subj => {
                           const currentPercentage = computeRawGrade(subj.components);
                           const currentGrade = percentageToGradeScale(currentPercentage);
                           return currentGrade > (subj.target_grade || 5.0);
@@ -1366,7 +1281,7 @@ const handleAddOrUpdateComponent = () => {
 
             {/* SUBJECT CARDS - 4 CARDS PER ROW */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {Array.map(displayedSubjects, (subj) => {
+              {displayedSubjects.map((subj) => {
                 const currentPercentage = computeRawGrade(subj.components);
                 const currentGrade = percentageToGradeScale(currentPercentage);
                 const targetGrade = subj.target_grade ? parseFloat(subj.target_grade.toString()) : 0;
@@ -1603,7 +1518,7 @@ const handleAddOrUpdateComponent = () => {
                 ) : (
                   // Pending Items List
                   <div className="space-y-4 max-h-[600px] overflow-y-auto p-4">
-                    {Array.map(upcomingItems, (item, index) => (
+                    {upcomingItems.map((item, index) => (
                       <div
                         key={item.id || index}
                         className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 bg-white/80 backdrop-blur-sm group"
@@ -1689,13 +1604,13 @@ const handleAddOrUpdateComponent = () => {
                   </div>
                   <div className="text-center p-6 bg-yellow-50/80 rounded-2xl backdrop-blur-sm">
                     <div className="text-3xl font-bold text-yellow-600">
-                      {Array.filter(upcomingItems, (item) => item.score === null || item.score === undefined).length}
+                      {upcomingItems.filter(item => item.score === null || item.score === undefined).length}
                     </div>
                     <div className="text-sm text-gray-600 font-medium">Pending</div>
                   </div>
                   <div className="text-center p-6 bg-green-50/80 rounded-2xl backdrop-blur-sm">
                     <div className="text-3xl font-bold text-green-600">
-                      {Array.filter(upcomingItems, (item) => item.score !== null && item.score !== undefined).length}
+                      {upcomingItems.filter(item => item.score !== null && item.score !== undefined).length}
                     </div>
                     <div className="text-sm text-gray-600 font-medium">Completed</div>
                   </div>
@@ -1749,7 +1664,7 @@ const handleAddOrUpdateComponent = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {Array.map(history, (record) => (
+                        {history.map((record) => (
                           <tr key={record.id} className="hover:bg-gray-50/50 transition-colors">
                             <td className="px-6 py-4 text-sm font-medium text-gray-900">{record.course_name}</td>
                             <td className="px-6 py-4 text-sm text-gray-600">{record.target_grade}</td>
@@ -1824,7 +1739,7 @@ const handleAddOrUpdateComponent = () => {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
-            {Array.map(assistantMessages, (m) => (
+            {assistantMessages.map(m => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {m.role === 'assistant' && (
                   <Image src="/gslogo.png" alt="Assistant" width={20} height={20} className="rounded-full mr-2 object-contain" />
@@ -1977,7 +1892,7 @@ const handleAddOrUpdateComponent = () => {
               </label>
               <p className="text-xs text-gray-600 mb-3">Choose a color to easily identify this subject</p>
               <div className="flex flex-wrap items-center gap-3">
-                {Array.map(predefinedColors, (c) => (
+                {predefinedColors.map((c) => (
                   <button
                     key={c}
                     type="button"
@@ -2006,15 +1921,7 @@ const handleAddOrUpdateComponent = () => {
                       type="text"
                       value={newSubject.color.replace('#','')}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        const rawInput = e.target.value;
-                        const hex = Array.filter(rawInput.split(''), (ch) => {
-                          const c = ch.charCodeAt(0);
-                          const isDigit = c >= 48 && c <= 57; // 0-9
-                          const isUpperAF = c >= 65 && c <= 70; // A-F
-                          const isLowerAF = c >= 97 && c <= 102; // a-f
-                          return isDigit || isUpperAF || isLowerAF;
-                        }).join('').slice(0, 6);
-                        const raw = hex;
+                        const raw = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
                         const color = `#${raw}`;
                         setNewSubject({ ...newSubject, color });
                       }}
