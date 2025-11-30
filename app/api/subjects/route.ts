@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server";
+import { Array } from "effect";
+import _ from "lodash";
 import { db } from "@/lib/db";
 import { subjects, components, items } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 
-// Simple UUID v4 generator
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+// Simple UUID v4 generator without regex
+function generateUUID(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+  const bytes: number[] = []
+  for (let i = 0; i < 16; i++) {
+    bytes.push(Math.floor(Math.random() * 256))
+  }
+  // Set version (4) and variant (RFC4122)
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.map(bytes, (b) => b.toString(16).padStart(2, '0'))
+  return `${hex[0]}${hex[1]}${hex[2]}${hex[3]}-${hex[4]}${hex[5]}-${hex[6]}${hex[7]}-${hex[8]}${hex[9]}-${hex[10]}${hex[11]}${hex[12]}${hex[13]}${hex[14]}${hex[15]}`
 }
 
 /* -----------------------------------------------------------
@@ -33,7 +42,7 @@ export async function GET(req: Request) {
 
     // For each subject, get its components and items
     const subjectsWithComponents = await Promise.all(
-      userSubjects.map(async (subject) => {
+      Array.map(userSubjects, async (subject) => {
         // Get components for this subject
         const subjectComponents = await db
           .select()
@@ -42,7 +51,7 @@ export async function GET(req: Request) {
 
         // For each component, get its items
         const componentsWithItems = await Promise.all(
-          subjectComponents.map(async (component) => {
+          Array.map(subjectComponents, async (component) => {
             const componentItems = await db
               .select()
               .from(items)

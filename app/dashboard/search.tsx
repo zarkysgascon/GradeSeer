@@ -1,7 +1,7 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { Array } from "effect";
 
 type Props = {
 	onSearch?: (q: string) => void;
@@ -39,12 +39,12 @@ export default function DashboardSearch({
 	}
 
 	// Use useMemo to avoid recomputing filter/map on every render unnecessarily
-	const results = useMemo(() => {
-		if (!items || items.length === 0 || query.trim() === "") return [] as string[];
-		const q = query.toLowerCase();
-		// .filter to include items containing the query (case-insensitive)
-		return items.filter((it) => it.toLowerCase().includes(q)).slice(0, maxResults);
-	}, [items, query, maxResults]);
+    const results = useMemo(() => {
+        if (!items || items.length === 0 || query.trim() === "") return [] as string[];
+        const q = query.toLowerCase();
+        const includesQuery = (it: string): boolean => it.toLowerCase().includes(q);
+        return Array.filter(items, includesQuery).slice(0, maxResults);
+    }, [items, query, maxResults]);
 
 	return (
     <div className={`relative ${className}`}>
