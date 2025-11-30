@@ -1283,13 +1283,13 @@ const handleFinishSubject = async () => {
     Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark // Adjust passing mark based on target grade
 
   return (
-    <div className="min-h-screen p-10 flex justify-center relative">
+    <div className="min-h-screen p-4 md:p-10 flex justify-center relative">
       <Backdrop />
       {/* FLOATING BACK BUTTON - TOP LEFT */}
-      <div className="fixed top-6 left-6 z-40">
+      <div className="fixed top-4 left-4 md:top-6 md:left-6 z-40">
         <button
           onClick={() => router.push("/dashboard")}
-          className="px-5 py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 border border-gray-200 flex items-center gap-2 transition-all duration-200 hover:shadow-xl"
+          className="px-3 py-2 md:px-5 md:py-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 border border-gray-200 flex items-center gap-2 transition-all duration-200 hover:shadow-xl text-sm md:text-base"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1308,10 +1308,10 @@ const handleFinishSubject = async () => {
       </div>
 
       {/* MAIN MODAL CARD */}
-      <div className="w-[1100px] rounded-3xl shadow-2xl p-8 bg-white">
+      <div className="w-full max-w-6xl rounded-3xl shadow-2xl p-4 md:p-8 bg-white mt-12 md:mt-0">
         {/* HEADER */}
         <div 
-          className="p-8 rounded-2xl text-white flex justify-between items-center shadow-lg relative overflow-hidden"
+          className="p-6 md:p-8 rounded-2xl text-white flex flex-col md:flex-row justify-between items-center shadow-lg relative overflow-hidden gap-6 md:gap-0"
           style={{ 
             background: subject?.color 
               ? `linear-gradient(135deg, ${subject.color} 0%, ${subject.color}dd 50%, ${subject.color}aa 100%)`
@@ -1333,7 +1333,7 @@ const handleFinishSubject = async () => {
                     }
                   }}
                   autoFocus
-                  className="text-3xl font-bold px-3 py-1 rounded-lg bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  className="text-3xl font-bold px-3 py-1 rounded-lg bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 max-w-[200px] md:max-w-md"
                   placeholder="Subject name"
                 />
                 <button
@@ -1386,9 +1386,9 @@ const handleFinishSubject = async () => {
           </div>
 
           {/* Grade Metrics */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 w-full md:w-auto justify-center">
             {/* Grade Metrics with Icons */}
-            <div className="flex gap-8 text-center">
+            <div className="flex flex-wrap justify-center gap-4 md:gap-8 text-center">
               {/* Target Grade */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
@@ -1653,13 +1653,13 @@ const handleFinishSubject = async () => {
               return (
                 <div key={component.id} className="bg-white rounded-xl border border-gray-300 p-6">
                   {/* Component Header */}
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-4 md:gap-0">
                     {editingComponentId === component.id ? (
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <input
                           value={editingComponentName}
                           onChange={(e) => setEditingComponentName(e.target.value)}
-                          className="text-xl font-semibold px-2 py-1 border rounded"
+                          className="text-xl font-semibold px-2 py-1 border rounded max-w-[140px] md:max-w-xs"
                           autoFocus
                         />
                         <input
@@ -1750,7 +1750,7 @@ const handleFinishSubject = async () => {
                       return (
                       <div
                         key={itemIndex}
-                        className="grid grid-cols-5 gap-4 py-2 border-b border-gray-200 last:border-b-0 items-start"
+                        className="grid grid-cols-2 md:grid-cols-5 gap-4 py-4 md:py-2 border-b border-gray-200 last:border-b-0 items-start"
                       >
                         {/* Item Name */}
                         <div>
@@ -2052,7 +2052,7 @@ const handleFinishSubject = async () => {
               aria-expanded={assistantOpen}
               aria-controls="subject-assistant"
               onClick={() => setAssistantOpen(v => !v)}
-              className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center z-50 hover:bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="fixed bottom-4 right-4 md:bottom-6 md:right-6 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center z-50 hover:bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
               <Image src="/gslogo.png" alt="GradeSeer" width={28} height={28} className="object-contain" />
             </button>
@@ -2060,7 +2060,7 @@ const handleFinishSubject = async () => {
             {assistantOpen && (
               <div
                 id="subject-assistant"
-                className="fixed bottom-24 right-6 w-96 max-w-[90vw] h-96 rounded-2xl shadow-2xl border border-gray-200 bg-white/95 backdrop-blur-sm z-50 flex flex-col"
+                className="fixed bottom-20 right-4 md:bottom-24 md:right-6 w-[calc(100vw-2rem)] md:w-96 max-w-[90vw] h-96 rounded-2xl shadow-2xl border border-gray-200 bg-white/95 backdrop-blur-sm z-50 flex flex-col"
                 role="dialog"
                 aria-modal="true"
               >
@@ -2209,7 +2209,7 @@ const handleFinishSubject = async () => {
           <button
             onClick={handleFinishSubject}
             disabled={finishLoading}
-            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-3 font-semibold disabled:bg-green-400 disabled:cursor-not-allowed"
+            className="w-full md:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center md:justify-start gap-3 font-semibold disabled:bg-green-400 disabled:cursor-not-allowed"
           >
             {finishLoading ? (
               <>
@@ -2239,9 +2239,9 @@ const handleFinishSubject = async () => {
 
       {/* ADD ITEM MODAL */}
       {showAddItemModal && (
-        <div className="fixed inset-0 flex justify-center items-center z-50">
+        <div className="fixed inset-0 flex justify-center items-center z-50 px-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="bg-white rounded-2xl shadow-2xl w-96 p-6 relative z-10 border border-gray-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative z-10 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Add New Item</h2>
               <button
@@ -2361,7 +2361,7 @@ const handleFinishSubject = async () => {
 
       {/* EDIT ITEM MODAL */}
       {showEditItemModal && editingItem && (
-        <div className="fixed inset-0 flex justify-center items-center z-50">
+        <div className="fixed inset-0 flex justify-center items-center z-50 px-4">
           <div 
             className="absolute inset-0"
             style={{
@@ -2371,7 +2371,7 @@ const handleFinishSubject = async () => {
             }}
           />
           
-          <div className="bg-white rounded-2xl shadow-2xl w-96 p-6 relative z-10 border border-gray-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative z-10 border border-gray-200">
             <h2 className="text-xl font-bold mb-4 text-center">Edit Item</h2>
 
             <div className="space-y-3">
@@ -2380,7 +2380,7 @@ const handleFinishSubject = async () => {
                 <input
                   type="text"
                   value={editingItem.name}
-                  onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                  onChange={(e) => setEditingItem({ ...editingItem!, name: e.target.value })}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -2392,7 +2392,7 @@ const handleFinishSubject = async () => {
                   type="text"
                   placeholder="Topic (optional)"
                   value={editingItem.topic || ""}
-                  onChange={(e) => setEditingItem({ ...editingItem, topic: e.target.value })}
+                  onChange={(e) => setEditingItem({ ...editingItem!, topic: e.target.value })}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -2405,7 +2405,7 @@ const handleFinishSubject = async () => {
                     placeholder="Score"
                     value={editingItem.score || ""}
                     onChange={(e) =>
-                      setEditingItem({ ...editingItem, score: e.target.value ? Number.parseInt(e.target.value) : null })
+                      setEditingItem({ ...editingItem!, score: e.target.value ? Number.parseInt(e.target.value) : null })
                     }
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     min="0"
@@ -2418,7 +2418,7 @@ const handleFinishSubject = async () => {
                     placeholder="Max Score"
                     value={editingItem.max || ""}
                     onChange={(e) =>
-                      setEditingItem({ ...editingItem, max: e.target.value ? Number.parseInt(e.target.value) : null })
+                      setEditingItem({ ...editingItem!, max: e.target.value ? Number.parseInt(e.target.value) : null })
                     }
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     min="1"
@@ -2430,7 +2430,7 @@ const handleFinishSubject = async () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <CustomDateInput
                   value={editingItem.date || ""}
-                  onChange={(date) => setEditingItem({ ...editingItem, date })}
+                  onChange={(date) => setEditingItem({ ...editingItem!, date })}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">Day must be 1-31, Year must be 4 digits</p>
@@ -2500,4 +2500,4 @@ const handleFinishSubject = async () => {
         />
     </div>
   )
-}2
+}
