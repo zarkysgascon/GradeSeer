@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleCredentialsLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,14 +104,65 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="border border-gray-300 p-3 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
-                required
-              />
+              <label className="block text-sm font-medium text-gray-700 mt-4" htmlFor="password">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="border border-gray-300 p-3 w-full rounded-md pr-11 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    className="w-5 h-5"
+                  >
+                    {showPassword ? (
+                      <>
+                        <path d="M3 3l18 18" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                          d="M10.58 10.58a2 2 0 002.84 2.84"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M16.88 16.88A10.05 10.05 0 0112 18.5c-4.5 0-8.27-2.94-9.9-6.5a10.52 10.52 0 012.86-3.73"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M9.88 5.12A9.91 9.91 0 0112 5.5c4.5 0 8.27 2.94 9.9 6.5a10.52 10.52 0 01-2.66 3.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <path
+                          d="M1.5 12c1.63-3.56 5.4-6.5 9.9-6.5s8.27 2.94 9.9 6.5c-1.63 3.56-5.4 6.5-9.9 6.5S3.13 15.56 1.5 12z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <circle cx="11.4" cy="12" r="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {error && <p className="text-red-500 text-sm mt-2 text-center sm:text-left">{error}</p>}
