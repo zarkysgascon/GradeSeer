@@ -159,7 +159,7 @@ useEffect(() => {
             </div>
 
             {/* Quick Stats Row */}
-            <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
               <div className="text-center p-3 bg-white/15 rounded-xl backdrop-blur-sm border border-white/50 shadow-none">
                 <div className="text-xl font-bold">{overallProgress.toFixed(1)}%</div>
                 <div className="text-white/80 text-xs">Overall Progress</div>
@@ -217,8 +217,9 @@ useEffect(() => {
                   Component Performance Overview
                 </h3>
                 
-                <div className="flex items-end justify-between gap-3 h-48 border-b border-l border-gray-300 pb-4 pl-6">
-                  {componentProgress.map((component, index) => (
+                <div className="overflow-x-auto pb-2">
+                  <div className="flex items-end justify-between gap-3 h-48 border-b border-l border-gray-300 pb-4 pl-6 min-w-[600px]">
+                    {componentProgress.map((component, index) => (
                     <div 
                       key={component.id} 
                       className="flex flex-col items-center gap-2 flex-1 animate-in fade-in"
@@ -284,6 +285,7 @@ useEffect(() => {
                       </div>
                     </div>
                   ))}
+                  </div>
                 </div>
               </div>
 
