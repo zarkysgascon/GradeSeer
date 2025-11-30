@@ -128,7 +128,7 @@ export default function SignUpPage() {
             </div>
             <div>
               <input
-                type="password"
+                type="text"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -138,7 +138,7 @@ export default function SignUpPage() {
             </div>
             <div>
               <input
-                type="password"
+                type="text"
                 placeholder="Confirm Password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
