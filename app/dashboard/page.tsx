@@ -6,6 +6,7 @@ import _ from "lodash";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import DashboardSearch from "./search";
 import Backdrop from "../components/Backdrop";
 
@@ -626,6 +627,7 @@ export default function Dashboard() {
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   useEffect(() => {
     if (assistantOpen) inputRef.current?.focus();
@@ -1133,8 +1135,44 @@ const handleAddOrUpdateComponent = () => {
         </div>
       )}
       
+      {/* MOBILE NAVBAR */}
+      <nav className="md:hidden bg-white/90 backdrop-blur-md shadow-md px-4 py-3 flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-2">
+          <Image src="/gslogo.png" alt="Logo" width={32} height={32} className="h-8 w-8 drop-shadow-sm" />
+        </div>
+        <button
+          onClick={() => setIsNavOpen((v) => !v)}
+          className="p-2 rounded-lg border border-gray-200"
+          aria-label="Open menu"
+        >
+          <div className="space-y-1">
+            <div className="w-6 h-0.5 bg-gray-800"></div>
+            <div className="w-6 h-0.5 bg-gray-800"></div>
+            <div className="w-6 h-0.5 bg-gray-800"></div>
+          </div>
+        </button>
+      </nav>
+
+      {isNavOpen && (
+        <div className="md:hidden fixed inset-0 bg-white z-50 p-6 flex flex-col" role="dialog" aria-modal="true">
+          <button onClick={() => setIsNavOpen(false)} className="self-end text-2xl" aria-label="Close">×</button>
+          <nav className="flex flex-col gap-4 mt-8">
+            {Array.map(["subjects", "pending", "history"], (tab) => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab as any); setIsNavOpen(false); }}
+                className={`text-xl text-left ${activeTab === tab ? "text-blue-600" : "text-gray-800"}`}
+              >
+                {tab}
+              </button>
+            ))}
+            <Link href="/profile" onClick={() => setIsNavOpen(false)} className="text-xl">Profile</Link>
+          </nav>
+        </div>
+      )}
+
       {/* NAVBAR */}
-      <nav className="bg-white/90 backdrop-blur-md shadow-md px-10 py-4 flex items-center justify-between relative z-10">
+      <nav className="hidden md:flex bg-white/90 backdrop-blur-md shadow-md px-10 py-4 items-center justify-between relative z-10">
         <div className="flex-1 flex justify-start">
           <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
         </div>
@@ -1158,7 +1196,7 @@ const handleAddOrUpdateComponent = () => {
         </div>
 
         <div className="flex-1 flex justify-end">
-          <button onClick={() => router.push("/profile")} className="group">
+          <Link href="/profile" className="group">
             <Image
               src={profileImage || user?.image || "/default.png"}
               alt="Profile"
@@ -1166,7 +1204,7 @@ const handleAddOrUpdateComponent = () => {
               height={50}
               className="rounded-full cursor-pointer border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-300 shadow-sm"
             />
-          </button>
+          </Link>
         </div>
       </nav>
 
@@ -1177,9 +1215,9 @@ const handleAddOrUpdateComponent = () => {
           <div className="max-w-7xl mx-auto">
             
             {/* Header Section */}
-            <div className="flex justify-between items-center mb-8">
-                <div className="flex-1 flex justify-center">
-                  <div className="w-96">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 px-4 md:px-0">
+                <div className="md:flex-1 md:flex md:justify-center">
+                  <div className="w-full md:w-96">
                     <DashboardSearch
                       items={Array.map(subjects, (s) => s.name)}
                       maxResults={5}
@@ -1190,11 +1228,11 @@ const handleAddOrUpdateComponent = () => {
                   </div>
                 </div>
               
-              <div className="flex-1 flex justify-end">
-                <div className="flex gap-4">
+              <div className="md:flex-1 md:flex md:justify-end">
+                <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
                   <button
                     onClick={handleOpenGPAModal}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 min-h-[44px] rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
                   >
                     <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1205,7 +1243,7 @@ const handleAddOrUpdateComponent = () => {
                   </button>
                   <button
                     onClick={() => setShowModal(true)}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 min-h-[44px] rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
                   >
                     <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
