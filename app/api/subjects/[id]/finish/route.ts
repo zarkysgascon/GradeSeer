@@ -1,6 +1,7 @@
-import { db } from "@/lib/db";
-import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { components, items, subjects, subject_history } from "@/lib/schema";
+import { eq, inArray } from "drizzle-orm";
 
 // Interfaces
 interface Item {
@@ -29,8 +30,8 @@ interface Subject {
   is_major: boolean;
   user_email: string;
   target_grade: string | null;
-  color: string;
-  units?: number; // ADDED: Units field
+  color: string | null;
+  units: number | null;
 }
 
 interface HistoryRecord {
@@ -41,10 +42,11 @@ interface HistoryRecord {
   target_grade: string;
   final_grade: string;
   status: string;
-  completed_at: string;
+  completed_at: Date | null;
+  units?: number | null;
 }
 
-// Grade calculation functions
+// Grade calculation functions (same as before)
 function computeRawComponentGrade(items: Item[]): number {
   if (!items || items.length === 0) return 0;
 
@@ -109,38 +111,40 @@ export async function POST(
       return NextResponse.json({ error: 'User email is required' }, { status: 400 });
     }
 
-    // 1. Get subject details with better error handling
+    // 1. Get subject details with proper query
     console.log('📋 Fetching subject details...');
-    const subjectResult = await db.execute(sql`
-      SELECT * FROM subjects WHERE id = ${id} AND user_email = ${user_email}
-    `);
+    const subjectResult = await db.query.subjects.findFirst({
+      where: (subjects, { eq, and }) => and(
+        eq(subjects.id, id),
+        eq(subjects.user_email, user_email)
+      ),
+    });
     
-    if (subjectResult.rows.length === 0) {
+    if (!subjectResult) {
       console.log('❌ Subject not found or access denied');
       return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
     }
 
-    // Fix: Use type assertion through unknown
-    const subject = subjectResult.rows[0] as unknown as Subject;
+    const subject: Subject = subjectResult;
     console.log('📚 Subject found:', subject.name);
 
-    // 2. Get components and items
+    // 2. Get components and items with proper queries
     console.log('🔧 Fetching components...');
-    const componentsResult = await db.execute(sql`
-      SELECT * FROM components WHERE subject_id = ${id}
-    `);
+    const componentsResult: Component[] = await db.query.components.findMany({
+      where: eq(components.subject_id, id),
+    });
 
-    console.log('📊 Components found:', componentsResult.rows.length);
+    console.log('📊 Components found:', componentsResult.length);
 
     // 3. Get items for each component
     const componentsWithItems: Component[] = await Promise.all(
-      (componentsResult.rows as unknown as Component[]).map(async (component) => {
-        const itemsResult = await db.execute(sql`
-          SELECT * FROM items WHERE component_id = ${component.id}
-        `);
+      componentsResult.map(async (component) => {
+        const itemsResult: Item[] = await db.query.items.findMany({
+          where: eq(items.component_id, component.id),
+        });
         return {
           ...component,
-          items: itemsResult.rows as unknown as Item[]
+          items: itemsResult
         };
       })
     );
@@ -162,39 +166,50 @@ export async function POST(
 
     // 5. Use transaction for everything
     console.log('💾 Starting database transaction...');
+    
+    // Initialize with a value to satisfy TypeScript
     let historyRecord: HistoryRecord | null = null;
     
     try {
-      // First, insert into history
-      console.log('📝 Inserting into subject_history...');
-      const historyResult = await db.execute(sql`
-        INSERT INTO subject_history 
-          (subject_id, user_email, course_name, target_grade, final_grade, status, completed_at)
-        VALUES 
-          (${id}, ${user_email}, ${subject.name}, ${targetGrade}, ${finalGrade.toFixed(2)}, ${status}, NOW())
-        RETURNING *
-      `);
+      // Use transaction to ensure all operations succeed or fail together
+      await db.transaction(async (tx) => {
+        // First, insert into history with units
+        console.log('📝 Inserting into subject_history...');
+        const historyInsertResult = await tx.insert(subject_history).values({
+          subject_id: id,
+          user_email: user_email,
+          course_name: subject.name,
+          target_grade: targetGrade,
+          final_grade: finalGrade.toFixed(2),
+          status: status,
+          completed_at: new Date(),
+          units: subject.units || 3,
+        }).returning();
 
-      // Fix: Use type assertion through unknown
-      historyRecord = historyResult.rows[0] as unknown as HistoryRecord;
-      console.log('✅ History record created:', historyRecord);
+        historyRecord = historyInsertResult[0] as HistoryRecord;
+        console.log('✅ History record created:', historyRecord);
 
-      // Then delete the original data
-      console.log('🗑️ Deleting items...');
-      await db.execute(sql`
-        DELETE FROM items 
-        WHERE component_id IN (SELECT id FROM components WHERE subject_id = ${id})
-      `);
-      
-      console.log('🗑️ Deleting components...');
-      await db.execute(sql`
-        DELETE FROM components WHERE subject_id = ${id}
-      `);
-      
-      console.log('🗑️ Deleting subject...');
-      await db.execute(sql`
-        DELETE FROM subjects WHERE id = ${id}
-      `);
+        // Get all component IDs for this subject
+        const componentIds = componentsResult.map(comp => comp.id);
+        
+        // Then delete items in batches if there are many
+        if (componentIds.length > 0) {
+          console.log('🗑️ Deleting items...');
+          await tx.delete(items).where(
+            inArray(items.component_id, componentIds)
+          );
+        }
+        
+        console.log('🗑️ Deleting components...');
+        await tx.delete(components).where(
+          eq(components.subject_id, id)
+        );
+        
+        console.log('🗑️ Deleting subject...');
+        await tx.delete(subjects).where(
+          eq(subjects.id, id)
+        );
+      });
 
       console.log('🎉 All operations completed successfully!');
 
@@ -203,7 +218,11 @@ export async function POST(
       throw transactionError;
     }
 
-    // 6. Return success response
+    // 6. Check if historyRecord was created and return success response
+    if (!historyRecord) {
+      throw new Error('Failed to create history record');
+    }
+
     return NextResponse.json({ 
       success: true, 
       final_grade: finalGrade.toFixed(2),
