@@ -125,7 +125,7 @@ function computeRawComponentGrade(items: ItemInput[]): number {
 function computeProjectedComponentGrade(items: ItemInput[]): number {
   if (!items || items.length === 0) return 0
 
-  const passingScorePercentage = 75
+  const passingScorePercentage = 50
 
   const totals = _.reduce(items, (acc, item) => {
     if (item.max !== null && item.max !== undefined && item.max > 0) {
@@ -168,15 +168,15 @@ function computeProjectedGrade(components: ComponentInput[]): number {
 }
 
 function percentageToGradeScale(percentage: number): number {
-  if (percentage >= 98) return 1.0
-  if (percentage >= 95) return 1.25
-  if (percentage >= 92) return 1.5
-  if (percentage >= 89) return 1.75
-  if (percentage >= 86) return 2.0
-  if (percentage >= 83) return 2.25
-  if (percentage >= 80) return 2.5
-  if (percentage >= 77) return 2.75
-  if (percentage >= 74) return 3.0
+  if (percentage >= 96) return 1.0
+  if (percentage >= 92) return 1.25
+  if (percentage >= 88) return 1.5
+  if (percentage >= 84) return 1.75
+  if (percentage >= 80) return 2.0
+  if (percentage >= 76) return 2.25
+  if (percentage >= 70) return 2.5
+  if (percentage >= 60) return 2.75
+  if (percentage >= 50) return 3.0  
   return 5.0
 }
 
@@ -1386,7 +1386,7 @@ const handleFinishSubject = async () => {
   const projectedGrade = percentageToGradeScale(projectedPercentage)
   
   const targetGrade = subject.target_grade ? Number.parseFloat(subject.target_grade.toString()) : 0
-  const passingMark = 75 // Default passing mark in Philippine system
+  const passingMark = 50
   const effectivePassingMark = targetGrade > 0 ? 
     Math.max(passingMark, (3.0 - targetGrade) * 25 + 50) : passingMark // Adjust passing mark based on target grade
 
@@ -1715,7 +1715,7 @@ const handleFinishSubject = async () => {
                   <div className="text-xs opacity-80 text-outline-dark">
                     {projectedPercentage.toFixed(1)}%
                     {projectedPercentage > 0 && (
-                      <span className="ml-1">(with 75% on missing scores)</span>
+                      <span className="ml-1">(with 50% on missing scores)</span>
                     )}
                   </div>
                 </div>
