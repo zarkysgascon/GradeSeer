@@ -10,6 +10,8 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -126,25 +128,44 @@ export default function SignUpPage() {
                 required
               />
             </div>
-            <div>
+            <div className="relative">
               <input
-                type="text"
+                type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="border border-gray-300 p-3 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
+                className="border border-gray-300 p-3 pr-16 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
                 required
               />
+              <button
+                type="button"
+                aria-pressed={showPassword}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600 text-sm font-medium px-2 py-1 rounded hover:bg-indigo-50"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
             </div>
-            <div>
+
+            <div className="relative">
               <input
-                type="text"
+                type={showConfirm ? "text" : "password"}
                 placeholder="Confirm Password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="border border-gray-300 p-3 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
+                className="border border-gray-300 p-3 pr-16 w-full rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
                 required
               />
+              <button
+                type="button"
+                aria-pressed={showConfirm}
+                aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                onClick={() => setShowConfirm((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600 text-sm font-medium px-2 py-1 rounded hover:bg-indigo-50"
+              >
+                {showConfirm ? "Hide" : "Show"}
+              </button>
             </div>
 
             {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
