@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { sql } from "drizzle-orm";
+import { subject_history } from "@/lib/schema";
+import { eq, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -13,14 +14,21 @@ export async function GET(request: Request) {
   }
   
   try {
-    const historyResult = await db.execute(sql`
-      SELECT * FROM subject_history 
-      WHERE user_email = ${email} 
-      ORDER BY completed_at DESC
-    `);
+    const history = await db
+      .select()
+      .from(subject_history)
+      .where(eq(subject_history.user_email, email))
+      .orderBy(desc(subject_history.completed_at));
     
-    console.log('📊 Records found:', historyResult.rows.length);
-    return NextResponse.json(historyResult.rows);
+    console.log('📊 Records found:', history.length);
+    
+    // Convert Date objects to ISO strings for API response
+    const serializedHistory = history.map(record => ({
+      ...record,
+      completed_at: record.completed_at ? record.completed_at.toISOString() : null
+    }));
+    
+    return NextResponse.json(serializedHistory);
     
   } catch (error) {
     console.error('❌ Error fetching history:', error);
