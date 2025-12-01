@@ -146,10 +146,6 @@ function percentageToGradeScale(percentage: number): number {
   if (percentage >= 80) return 2.5
   if (percentage >= 77) return 2.75
   if (percentage >= 74) return 3.0
-  if (percentage >= 71) return 3.25
-  if (percentage >= 68) return 3.5
-  if (percentage >= 65) return 3.75
-  if (percentage >= 60) return 4.0
   return 5.0
 }
 
