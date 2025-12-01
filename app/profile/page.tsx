@@ -22,6 +22,16 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [isEmailProvider, setIsEmailProvider] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -38,6 +48,9 @@ export default function ProfilePage() {
               image: data.image ?? session.user.image ?? "",
             });
             setPreviewImage(data.image ?? session.user.image ?? "");
+            
+            // Check if user logged in with email/password (not OAuth)
+            setIsEmailProvider(data.provider === "credentials" || !data.provider);
           } else {
             setUserInfo({
               name: session.user.name ?? "",
@@ -45,9 +58,13 @@ export default function ProfilePage() {
               image: session.user.image ?? "",
             });
             setPreviewImage(session.user.image ?? "");
+            
+            // For OAuth users, don't show reset password
+            setIsEmailProvider(false);
           }
         } catch (err) {
           console.error("Error fetching user:", err);
+          setIsEmailProvider(false);
         }
       }
     };
@@ -81,6 +98,106 @@ export default function ProfilePage() {
       console.error(err);
       alert("Error updating profile");
     }
+  };
+
+  const validatePassword = (password: string): string[] => {
+    const errors: string[] = [];
+    
+    if (password.length < 8 || password.length > 20) {
+      errors.push("Password must be between 8 and 20 characters long");
+    }
+    
+    if (!/\d/.test(password)) {
+      errors.push("Password must contain at least one number");
+    }
+    
+    return errors;
+  };
+
+  const handleResetPassword = async () => {
+    setPasswordErrors([]);
+    
+    // Validate required fields
+    if (!passwordData.currentPassword) {
+      setPasswordErrors(["Current password is required"]);
+      return;
+    }
+    
+    if (!passwordData.newPassword) {
+      setPasswordErrors(["New password is required"]);
+      return;
+    }
+    
+    if (!passwordData.confirmPassword) {
+      setPasswordErrors(["Confirm password is required"]);
+      return;
+    }
+    
+    // Validate new password requirements
+    const newPasswordErrors = validatePassword(passwordData.newPassword);
+    if (newPasswordErrors.length > 0) {
+      setPasswordErrors(newPasswordErrors);
+      return;
+    }
+    
+    // Check if passwords match
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordErrors(["New password and confirm password do not match"]);
+      return;
+    }
+    
+    // Check if new password is different from current
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      setPasswordErrors(["New password must be different from current password"]);
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userInfo.email,
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        setPasswordSuccess(true);
+        setTimeout(() => {
+          setShowResetPasswordModal(false);
+          setPasswordData({
+            currentPassword: "",
+            newPassword: "",
+            confirmPassword: "",
+          });
+          setPasswordSuccess(false);
+        }, 2000);
+      } else {
+        setPasswordErrors([data.error || "Failed to reset password"]);
+      }
+    } catch (err) {
+      setPasswordErrors(["An error occurred. Please try again."]);
+      console.error(err);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const closeResetPasswordModal = () => {
+    setShowResetPasswordModal(false);
+    setPasswordData({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
+    setPasswordErrors([]);
+    setPasswordSuccess(false);
   };
 
   if (status === "loading")
@@ -434,11 +551,23 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Logout button - Responsive */}
-              <div className="mt-6 pt-4 border-t border-gray-200">
+              {/* Action buttons - Responsive */}
+              <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3">
+                {isEmailProvider && (
+                  <button
+                    onClick={() => setShowResetPasswordModal(true)}
+                    className="bg-blue-500 text-white px-4 py-2.5 rounded-md font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    Reset Password
+                  </button>
+                )}
+                
                 <button
                   onClick={() => setShowLogoutModal(true)}
-                  className="w-full sm:w-auto bg-red-500 text-white px-4 py-2.5 rounded-md font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                  className={`${isEmailProvider ? 'bg-red-500' : 'bg-red-500 w-full sm:w-auto'} text-white px-4 py-2.5 rounded-md font-semibold hover:bg-red-600 transition-colors flex items-center justify-center gap-2`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -450,6 +579,127 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Reset Password</h2>
+              <button
+                onClick={closeResetPasswordModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={isChangingPassword}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {passwordSuccess ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Password Updated!</h3>
+                <p className="text-gray-600">Your password has been successfully changed.</p>
+              </div>
+            ) : (
+              <>
+                {passwordErrors.length > 0 && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <ul className="text-red-600 text-sm">
+                      {passwordErrors.map((error, index) => (
+                        <li key={index} className="flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {error}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter current password"
+                      disabled={isChangingPassword}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter new password (8-20 chars, at least one number)"
+                      disabled={isChangingPassword}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Must be 8-20 characters and contain at least one number</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Confirm new password"
+                      disabled={isChangingPassword}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={closeResetPasswordModal}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md font-medium hover:bg-gray-300 transition-colors"
+                    disabled={isChangingPassword}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleResetPassword}
+                    disabled={isChangingPassword}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isChangingPassword ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Changing...
+                      </>
+                    ) : (
+                      'Change Password'
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Logout Modal - Responsive */}
       {showLogoutModal && (
