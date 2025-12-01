@@ -632,6 +632,7 @@ export default function Dashboard() {
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   useEffect(() => {
     if (assistantOpen) inputRef.current?.focus();
@@ -1145,7 +1146,7 @@ const handleAddOrUpdateComponent = () => {
     setHistoryToDelete(null);
   };
 
-    /* ---------------------- Handle Subject Card Click ---------------------- */  // ← ADDED HERE
+  /* ---------------------- Handle Subject Card Click ---------------------- */
   const handleSubjectClick = (subjectId: string) => {
     // Navigate to subject page with showGraph parameter to auto-open the modal
     router.push(`dashboard/subject/${subjectId}?showGraph=true`)
@@ -1160,6 +1161,7 @@ const handleAddOrUpdateComponent = () => {
     })
     .slice()
     .sort(compareSubjectNames);
+    
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
       {/* Animated Background */}
@@ -1181,6 +1183,7 @@ const handleAddOrUpdateComponent = () => {
           </div>
         </div>
       )}
+      
       {/* Message Modal */}
       {messageModal.open && (
         <div
@@ -1225,113 +1228,269 @@ const handleAddOrUpdateComponent = () => {
         </div>
       )}
 
-      {/* NAVBAR */}
-      <nav className="bg-white/90 backdrop-blur-md shadow-md px-10 py-4 flex items-center justify-between relative z-10">
-        <div className="flex-1 flex justify-start">
-          <button
-            onClick={() => {
-              try {
-                // If user is on a different tab within dashboard (pending/history), switch to subjects
-                if (activeTab && activeTab !== 'subjects') {
-                  setActiveTab('subjects');
-                  return;
-                }
-
-                if (typeof window !== 'undefined' && window.location.pathname === '/dashboard') {
-                  // If already on dashboard subjects, refresh to reload data
-                  router.refresh();
-                } else {
-                  // Otherwise navigate to dashboard
-                  router.push('/dashboard');
-                }
-              } catch (e) {
-                // Fallback: navigate
-                router.push('/dashboard');
-              }
-            }}
-            aria-label="Go to Dashboard"
-            className="p-0 m-0 bg-transparent border-0 cursor-pointer"
-          >
-            <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
-          </button>
-        </div>
-
-        <div className="flex-1 flex justify-center">
-          <div className="flex gap-80">
-            {["subjects", "pending", "history"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={`capitalize font-medium transition-all relative ${
-                  activeTab === tab
-                    ? "text-blue-600 border-b-2 border-blue-600 pb-1"
-                    : "text-gray-700 hover:text-blue-600"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+      {/* RESPONSIVE NAVBAR */}
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-md">
+        {/* Mobile Navbar (visible on small screens) */}
+        <div className="md:hidden px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Image 
+              src="/gslogo.png" 
+              alt="Logo" 
+              width={32} 
+              height={32} 
+              className="h-8 w-8 drop-shadow-sm" 
+            />
+            <span className="font-bold text-lg text-gray-800">GradeSeer</span>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Profile Image on Mobile */}
+            <Link href="/profile" className="block md:hidden">
+              <Image
+                src={profileImage || user?.image || "/default.png"}
+                alt="Profile"
+                width={36}
+                height={36}
+                className="rounded-full border-2 border-gray-300"
+              />
+            </Link>
+            
+            {/* Hamburger Menu */}
+            <button
+              onClick={() => setIsNavOpen(!isNavOpen)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Toggle menu"
+              aria-expanded={isNavOpen}
+            >
+              <div className="w-6 h-6 flex flex-col justify-center items-center gap-1.5">
+                <div className={`w-6 h-0.5 bg-gray-800 transition-all duration-300 ${isNavOpen ? 'rotate-45 translate-y-2' : ''}`}></div>
+                <div className={`w-6 h-0.5 bg-gray-800 transition-all duration-300 ${isNavOpen ? 'opacity-0' : ''}`}></div>
+                <div className={`w-6 h-0.5 bg-gray-800 transition-all duration-300 ${isNavOpen ? '-rotate-45 -translate-y-2' : ''}`}></div>
+              </div>
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 flex justify-end">
-          <button onClick={() => router.push("/profile")} className="group">
-            <Image
-              src={profileImage || user?.image || "/default.png"}
-              alt="Profile"
-              width={50}
-              height={50}
-              className="rounded-full cursor-pointer border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-300 shadow-sm"
-            />
-          </button>
+        {/* Desktop Navbar (hidden on mobile) */}
+        <div className="hidden md:flex px-6 lg:px-10 py-4 items-center justify-between">
+          <div className="flex-1 flex justify-start">
+            <div className="flex items-center gap-3">
+              <Image 
+                src="/gslogo.png" 
+                alt="Logo" 
+                width={80} 
+                height={80} 
+                className="drop-shadow-sm" 
+              />
+              <span className="font-bold text-xl text-gray-800 hidden lg:block">GradeSeer</span>
+            </div>
+          </div>
+
+          <div className="flex-1 flex justify-center">
+            <div className="flex gap-6 lg:gap-12">
+              {["subjects", "pending", "history"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab as any)}
+                  className={`capitalize font-medium transition-all relative text-sm lg:text-base ${
+                    activeTab === tab
+                      ? "text-blue-600"
+                      : "text-gray-700 hover:text-blue-600"
+                  }`}
+                >
+                  {tab}
+                  {activeTab === tab && (
+                    <div className="absolute -bottom-3 left-0 right-0 h-0.5 bg-blue-600 rounded-full"></div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 flex justify-end">
+            <Link href="/profile" className="group">
+              <Image
+                src={profileImage || user?.image || "/default.png"}
+                alt="Profile"
+                width={48}
+                height={48}
+                className="rounded-full cursor-pointer border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-300 shadow-sm"
+              />
+            </Link>
+          </div>
         </div>
       </nav>
 
+      {/* Mobile Menu Overlay */}
+      {isNavOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40" onClick={() => setIsNavOpen(false)}>
+          <div 
+            className="absolute right-0 top-0 bottom-0 w-4/5 max-w-sm bg-white shadow-xl animate-in slide-in-from-right duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Menu Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Image 
+                    src="/gslogo.png" 
+                    alt="Logo" 
+                    width={40} 
+                    height={40} 
+                    className="drop-shadow-sm" 
+                  />
+                  <div>
+                    <h2 className="font-bold text-lg text-gray-800">GradeSeer</h2>
+                    <p className="text-xs text-gray-500">Dashboard</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsNavOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                  aria-label="Close menu"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* User Profile in Mobile Menu */}
+              <div 
+                className="p-4 bg-gray-50 rounded-xl border border-gray-100 active:scale-95 transition-transform cursor-pointer" 
+                onClick={() => { router.push("/profile"); setIsNavOpen(false); }}
+              >
+                <div className="flex items-center gap-4">
+                  <Image
+                    src={profileImage || user?.image || "/default.png"}
+                    alt="Profile"
+                    width={56}
+                    height={56}
+                    className="rounded-full border-2 border-white shadow-sm"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 truncate">{user?.name || "User"}</p>
+                    <p className="text-sm text-gray-500 truncate">{user?.email || "user@example.com"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Mobile Navigation Items */}
+            <div className="p-4">
+              <div className="space-y-2">
+                {[
+                  { tab: "subjects", icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  ), label: "Subjects" },
+                  { tab: "pending", icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ), label: "Pending Items" },
+                  { tab: "history", icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  ), label: "History" },
+                ].map((item) => (
+                  <button
+                    key={item.tab}
+                    onClick={() => { setActiveTab(item.tab as any); setIsNavOpen(false); }}
+                    className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${
+                      activeTab === item.tab 
+                        ? "bg-blue-50 text-blue-600 font-semibold border border-blue-100" 
+                        : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {item.icon}
+                    <span className="text-base">{item.label}</span>
+                    {activeTab === item.tab && (
+                      <div className="ml-auto w-2 h-2 bg-blue-600 rounded-full"></div>
+                    )}
+                  </button>
+                ))}
+                
+                {/* GWA Calculator in Mobile Menu */}
+                <button
+                  onClick={() => { handleOpenGPAModal(); setIsNavOpen(false); }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 text-blue-600 font-medium hover:from-blue-100 hover:to-purple-100 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span>GWA Calculator</span>
+                </button>
+                
+                {/* Add New Subject in Mobile Menu */}
+                <button
+                  onClick={() => { setShowModal(true); setIsNavOpen(false); }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Add New Subject</span>
+                </button>
+              </div>
+              
+              {/* Logout Option */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => router.push("/api/auth/signout")}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl text-red-600 hover:bg-red-50 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MAIN CONTENT */}
-      <main className="p-6 relative z-10 overflow-y-auto">
+      <main className="p-4 md:p-6 relative z-10 overflow-y-auto">
         {/* SUBJECTS TAB */}
         {activeTab === "subjects" && (
           <div className="max-w-7xl mx-auto">
-            
-            {/* Header Section */}
-            <div className="flex justify-between items-center mb-8">
-                <div className="flex-1 flex justify-center">
-                  <div className="w-96">
-                    <DashboardSearch
-                      items={subjects.map((s) => s.name)}
-                      maxResults={5}
-                      placeholder="Search subjects..."
-                      className="w-full"
-                      onSearch={(q) => setSearchQuery(q)}
-                    />
-                  </div>
-                </div>
+            {/* Header Section - Responsive */}
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8">
+              {/* Search Bar - Full width on mobile, centered on desktop */}
+              <div className="w-full md:w-96 md:mx-auto">
+                <DashboardSearch
+                  items={subjects.map((s) => s.name)}
+                  maxResults={5}
+                  placeholder="Search subjects..."
+                  className="w-full"
+                  onSearch={(q) => setSearchQuery(q)}
+                />
+              </div>
               
-              <div className="flex-1 flex justify-end">
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleOpenGPAModal}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
-                  >
-                    <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    Calculate GWA
-                  </button>
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
-                  >
-                    <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    Add New Subject
-                  </button>
-                </div>
+              {/* Action Buttons - Stack on mobile, row on desktop */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <button
+                  onClick={handleOpenGPAModal}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-sm md:text-base"
+                >
+                  <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span className="truncate">Calculate GWA</span>
+                </button>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-sm md:text-base"
+                >
+                  <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="truncate">Add New Subject</span>
+                </button>
               </div>
             </div>
 
@@ -2266,18 +2425,6 @@ const handleAddOrUpdateComponent = () => {
           </div>
         </div>
       )}
-
-      <GPACalculatorModal
-        isOpen={showGPAModal}
-        onClose={() => setShowGPAModal(false)}
-        subjects={subjects}
-        selectedSubjects={selectedSubjects}
-        onAddSubject={handleAddSubject}
-        onRemoveSubject={handleRemoveSubject}
-        onCalculate={handleCalculateGPA}
-        onReset={handleResetCalculator}
-        gpaResult={gpaResult}
-      />
 
       {/* Add custom styles for floating animation */}
       <style jsx global>{`
