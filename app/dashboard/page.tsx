@@ -644,6 +644,17 @@ export default function Dashboard() {
 
   const user = session?.user as ExtendedUser | undefined;
 
+  // Comparator: put names starting with digits first, then alphabetical
+  const compareSubjectNames = (a: { name: string }, b: { name: string }) => {
+    const na = (a.name || '').trim().toLowerCase();
+    const nb = (b.name || '').trim().toLowerCase();
+    const isDigitA = /^[0-9]/.test(na);
+    const isDigitB = /^[0-9]/.test(nb);
+    if (isDigitA && !isDigitB) return -1;
+    if (!isDigitA && isDigitB) return 1;
+    return na.localeCompare(nb);
+  };
+
   /* ---------------------- GWA Calculator Functions ---------------------- */
   const calculateGPA = (subjects: Subject[]) => {
     let totalWeightedScore = 0;
@@ -854,6 +865,12 @@ export default function Dashboard() {
   const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  // Percentage exceed modal state
+  const [percentErrorModal, setPercentErrorModal] = useState<{ open: boolean; currentTotal: number; attempted: number }>({ open: false, currentTotal: 0, attempted: 0 });
+
+  // Generic message modal state
+  const [messageModal, setMessageModal] = useState<{ open: boolean; title?: string; message: string }>({ open: false, title: '', message: '' });
+
   // History delete confirmation modal state
   const [historyToDelete, setHistoryToDelete] = useState<string | null>(null);
   const [showDeleteHistoryModal, setShowDeleteHistoryModal] = useState(false);
@@ -879,6 +896,7 @@ export default function Dashboard() {
             color: s.color || generateColor(),
             units: s.units || 3,
           }));
+          mapped.sort(compareSubjectNames);
           setSubjects(mapped);
         } else {
           console.error("Failed to fetch subjects:", res.statusText);
@@ -893,22 +911,40 @@ export default function Dashboard() {
 
   /* ---------------------- Add/Update Component ---------------------- */
 const handleAddOrUpdateComponent = () => {
-  // Check if adding would exceed 100%
+  // Calculate totals and check for duplicate priority
   const currentTotal = newSubject.components.reduce((sum, c) => sum + c.percentage, 0);
   const newTotal = currentTotal + newComponent.percentage;
-  
-  if (newTotal > 100) {
-    alert(`Cannot add component! Current total: ${currentTotal}%. Adding ${newComponent.percentage}% would exceed 100% limit.`);
-    return; 
-  }
-
-  // Existing validation checks
-  if (!newComponent.name.trim()) return alert("Component name required!");
 
   const duplicate = newSubject.components.some(
     (c) => c.priority === newComponent.priority && c.name !== newComponent.name
   );
-  if (duplicate) return alert("A component with that priority already exists.");
+
+  // If both exceed and duplicate occur, show a combined modal
+  if (newTotal > 100 && duplicate) {
+    setMessageModal({
+      open: true,
+      title: 'A component with that priority already exist and Duplicate priority',
+      message: `A component with that priority already exists. Current total: ${currentTotal}%. Adding ${newComponent.percentage}% would exceed 100% limit. Also Duplicate Priority`,
+    });
+    return;
+  }
+
+  // Check if adding would exceed 100%
+  if (newTotal > 100) {
+    setPercentErrorModal({ open: true, currentTotal, attempted: newComponent.percentage });
+    return;
+  }
+
+  // Existing validation checks
+  if (!newComponent.name.trim()) {
+    setMessageModal({ open: true, title: 'Component required', message: 'Component name required!' });
+    return;
+  }
+
+  if (duplicate) {
+    setMessageModal({ open: true, title: 'Duplicate priority', message: 'A component with that priority already exists.' });
+    return;
+  }
 
   // Add/Update component
   const updated = [...newSubject.components];
@@ -939,15 +975,15 @@ const handleAddOrUpdateComponent = () => {
     if (!user?.email || !newSubject.name.trim()) return;
     const totalPct = newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0);
     if (newSubject.components.length === 0) {
-      alert("Add at least one grading component.");
+      setMessageModal({ open: true, title: 'Components required', message: 'Add at least one grading component.' });
       return;
     }
     if (totalPct > 100) {
-      alert("Total component percentage must be 100% or less.");
+      setMessageModal({ open: true, title: 'Total exceeds 100%', message: 'Total component percentage must be 100% or less.' });
       return;
     }
     if (!newSubject.target_grade || newSubject.target_grade === 0) {
-      alert("Select a target grade.");
+      setMessageModal({ open: true, title: 'Target grade required', message: 'Select a target grade.' });
       return;
     }
 
@@ -995,17 +1031,18 @@ const handleAddOrUpdateComponent = () => {
             color: s.color || generateColor(),
             units: s.units || 3,
           }));
+          mapped.sort(compareSubjectNames);
           setSubjects(mapped);
         }
         
         await fetchUpcomingItems();
       } else {
         const errorData = await res.json();
-        alert(`Failed to save subject: ${errorData.error || "Unknown error"}`);
+        setMessageModal({ open: true, title: 'Save failed', message: `Failed to save subject: ${errorData.error || "Unknown error"}` });
       }
     } catch (err) {
       console.error(err);
-      alert("Error saving subject.");
+      setMessageModal({ open: true, title: 'Save error', message: 'Error saving subject.' });
     } finally {
       setLoading(false);
     }
@@ -1034,11 +1071,11 @@ const handleAddOrUpdateComponent = () => {
         setSubjectToDelete(null);
       } else {
         const errText = await res.text();
-        alert(`Failed to delete subject: ${errText || res.statusText}`);
+        setMessageModal({ open: true, title: 'Delete failed', message: `Failed to delete subject: ${errText || res.statusText}` });
       }
     } catch (err) {
       console.error("Error deleting subject:", err);
-      alert("Error deleting subject.");
+      setMessageModal({ open: true, title: 'Delete error', message: 'Error deleting subject.' });
     }
   };
 
@@ -1114,11 +1151,14 @@ const handleAddOrUpdateComponent = () => {
   }
 
   /* ---------------------- UI Return ---------------------- */
-  const displayedSubjects = subjects.filter((s) => {
-    if (!searchQuery || !searchQuery.trim()) return true;
-    const first = searchQuery.trim()[0].toLowerCase();
-    return s.name.toLowerCase().startsWith(first);
-  });
+  const displayedSubjects = subjects
+    .filter((s) => {
+      if (!searchQuery || !searchQuery.trim()) return true;
+      const first = searchQuery.trim()[0].toLowerCase();
+      return s.name.toLowerCase().startsWith(first);
+    })
+    .slice()
+    .sort(compareSubjectNames);
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
       {/* Animated Background */}
@@ -1140,11 +1180,79 @@ const handleAddOrUpdateComponent = () => {
           </div>
         </div>
       )}
+      {/* Message Modal */}
+      {messageModal.open && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 z-[9999]"
+          onClick={() => setMessageModal({ open: false, title: '', message: '' })}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true">
+            <h3 className="text-lg font-semibold mb-2">{messageModal.title || 'Notice'}</h3>
+            <p className="text-sm text-gray-600 mb-4">{messageModal.message}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setMessageModal({ open: false, title: '', message: '' })}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
+      {/* Percent Exceed Modal */}
+      {percentErrorModal.open && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 z-[9999]"
+          onClick={() => setPercentErrorModal({ open: false, currentTotal: 0, attempted: 0 })}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true">
+            <h3 className="text-lg font-semibold mb-2">Cannot add component</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {`Current total: ${percentErrorModal.currentTotal}%. Adding ${percentErrorModal.attempted}% would exceed 100% limit.`}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setPercentErrorModal({ open: false, currentTotal: 0, attempted: 0 })}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* NAVBAR */}
       <nav className="bg-white/90 backdrop-blur-md shadow-md px-10 py-4 flex items-center justify-between relative z-10">
         <div className="flex-1 flex justify-start">
-          <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
+          <button
+            onClick={() => {
+              try {
+                // If user is on a different tab within dashboard (pending/history), switch to subjects
+                if (activeTab && activeTab !== 'subjects') {
+                  setActiveTab('subjects');
+                  return;
+                }
+
+                if (typeof window !== 'undefined' && window.location.pathname === '/dashboard') {
+                  // If already on dashboard subjects, refresh to reload data
+                  router.refresh();
+                } else {
+                  // Otherwise navigate to dashboard
+                  router.push('/dashboard');
+                }
+              } catch (e) {
+                // Fallback: navigate
+                router.push('/dashboard');
+              }
+            }}
+            aria-label="Go to Dashboard"
+            className="p-0 m-0 bg-transparent border-0 cursor-pointer"
+          >
+            <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
+          </button>
         </div>
 
         <div className="flex-1 flex justify-center">

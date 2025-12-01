@@ -58,7 +58,25 @@ function validateDate(dateString: string): boolean {
   if (!dateString) return false
   const parts = dateString.split('-')
   if (parts.length !== 3) return false
-  const [yStr, mStr, dStr] = parts
+
+  // support both ISO (YYYY-MM-DD) and display (MM-DD-YYYY)
+  // detect ISO if first segment has length 4
+  if (parts[0].length === 4) {
+    const [yStr, mStr, dStr] = parts
+    if (yStr.length !== 4) return false
+    if (mStr.length < 1 || mStr.length > 2) return false
+    if (dStr.length < 1 || dStr.length > 2) return false
+    const year = Number(yStr)
+    const month = Number(mStr)
+    const day = Number(dStr)
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false
+    if (month < 1 || month > 12) return false
+    if (day < 1 || day > 31) return false
+    return true
+  }
+
+  // otherwise assume MM-DD-YYYY
+  const [mStr, dStr, yStr] = parts
   if (yStr.length !== 4) return false
   if (mStr.length < 1 || mStr.length > 2) return false
   if (dStr.length < 1 || dStr.length > 2) return false
@@ -69,6 +87,19 @@ function validateDate(dateString: string): boolean {
   if (month < 1 || month > 12) return false
   if (day < 1 || day > 31) return false
   return true
+}
+
+function normalizeDateToIso(dateString: string): string {
+  if (!dateString) return ""
+  const parts = dateString.split('-')
+  if (parts.length !== 3) return dateString
+  if (parts[0].length === 4) {
+    // already ISO
+    const [y, m, d] = parts
+    return `${y.padStart(4,'0')}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
+  }
+  const [m, d, y] = parts
+  return `${y.padStart(4,'0')}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
 }
 
 /* -------------------- Grade Computation -------------------- */
@@ -195,24 +226,33 @@ const CustomDateInput = ({
     let digitsOnly = raw.replace(/\D/g, "");
     digitsOnly = digitsOnly.slice(0, 8); // MMDDYYYY
 
-    const m = digitsOnly.slice(0, 2);
-    const d = digitsOnly.slice(2, 4);
+    let m = digitsOnly.slice(0, 2);
+    let d = digitsOnly.slice(2, 4);
     const y = digitsOnly.slice(4, 8);
+
+    // Clamp month to 01-12 and day to 01-31 when two digits are present
+    if (m.length === 2) {
+      const mn = Number(m);
+      if (isNaN(mn) || mn < 1) m = '01'
+      else if (mn > 12) m = '12'
+      else m = String(mn).padStart(2, '0')
+    }
+    if (d.length === 2) {
+      const dn = Number(d);
+      if (isNaN(dn) || dn < 1) d = '01'
+      else if (dn > 31) d = '31'
+      else d = String(dn).padStart(2, '0')
+    }
+
     const masked = [m, d, y].filter(Boolean).join("-").slice(0, 10);
 
     setDisplayValue(masked);
 
-    if (masked.length === 10) {
-      const month = Number(m);
-      const day = Number(d);
-      const year = Number(y);
-      if (String(year).length === 4 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        const iso = `${y}-${m}-${d}`;
-        onChange(iso);
-      }
-    } else if (masked === "") {
-      onChange("");
-    }
+    // Always report the masked display value back to the parent so caller
+    // can know when the user has started typing (partial values included).
+    // When fully filled we still send the MM-DD-YYYY string here; callers
+    // will normalize to ISO before sending to API.
+    onChange(masked);
   };
 
   const handleBlur = () => {
@@ -238,6 +278,7 @@ const CustomDateInput = ({
     <input
       type="text"
       value={displayValue}
+      placeholder="MM-DD-YYYY"
       onChange={handleChange}
       onBlur={handleBlur}
       className={className}
@@ -392,6 +433,7 @@ export default function SubjectDetail() {
     topic: "",
   })
   const [savingItem, setSavingItem] = useState(false)
+  const [addItemErrors, setAddItemErrors] = useState<{ name?: string; topic?: string; score?: string; max?: string; date?: string }>({})
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editScore, setEditScore] = useState<number | null>(null)
@@ -860,6 +902,12 @@ const handleFinishSubject = async () => {
       return
     }
 
+    // validate percentage is within 0-100
+    if (editingComponentPercentage < 0 || editingComponentPercentage > 100) {
+      alert("Component percentage must be between 0 and 100")
+      return
+    }
+
     setUpdatingComponent(true)
     try {
       const res = await fetch(`/api/components/${componentId}`, {
@@ -931,11 +979,13 @@ const handleFinishSubject = async () => {
 
     setSavingItem(true)
     try {
+      // normalize editingItem.date to ISO if valid
+      const dateForApi = editingItem.date && validateDate(editingItem.date) ? normalizeDateToIso(editingItem.date) : null
       const requestBody = {
         name: trimmedName,
         score: editingItem.score,
         max: editingItem.max,
-        date: editingItem.date,
+        date: dateForApi,
         target: editingItem.target,
         topic: editingItem.topic || null,
       }
@@ -1095,36 +1145,53 @@ const handleFinishSubject = async () => {
   }
 
   const handleAddItem = async (componentId: string) => {
-    if (!newItem.name.trim()) {
-      alert("Item name is required!")
-      return
+    // Collect all field errors so we can show multiple at once
+    const errors: { name?: string; topic?: string; score?: string; max?: string; date?: string } = {}
+
+    if (!newItem.name || !newItem.name.trim()) {
+      errors.name = 'You need to fill up Item Name'
     }
 
+    // Only `name` and `max` are required. `topic`, `score`, and `date` are optional.
+    // Validate required fields
+    if (newItem.max === null || newItem.max === undefined || String(newItem.max).trim() === "") {
+      errors.max = 'You need to fill up Max Score'
+    }
+
+    // If a date was provided, validate format
     if (newItem.date && !validateDate(newItem.date)) {
-      alert('Please enter a valid date. Day must be between 1-31 and year must be 4 digits.');
-      return;
+      errors.date = 'Please enter a valid date. Day must be between 1-31 and year must be 4 digits.'
     }
 
-    // Validation for score and max
-    if (newItem.score !== null && newItem.max !== null) {
+    // Numeric relationship checks when max is present
+    if (newItem.max !== null && newItem.max !== undefined) {
       if (newItem.max! <= 0) {
-        alert("Max must be greater than 0")
-        return
+        errors.max = 'Max must be greater than 0'
       }
-      if (newItem.score! > newItem.max!) {
-        alert("Score cannot exceed Max")
-        return
+      // If score is provided, ensure it does not exceed max
+      if (newItem.score !== null && newItem.score !== undefined) {
+        if (newItem.score! > newItem.max!) {
+          errors.score = 'Score cannot exceed Max'
+        }
       }
+    }
+
+    // If we collected any errors, set them all at once and abort
+    if (Object.keys(errors).length > 0) {
+      setAddItemErrors(errors)
+      return
     }
 
     setSavingItem(true)
     try {
+      // normalize date to ISO before sending (if present and valid)
+      const dateForApi = newItem.date && validateDate(newItem.date) ? normalizeDateToIso(newItem.date) : null
       const requestBody = {
         component_id: componentId,
         name: newItem.name,
         score: newItem.score,
         max: newItem.max,
-        date: newItem.date,
+        date: dateForApi,
         target: newItem.target,
         topic: newItem.topic || null,
       }
@@ -1162,14 +1229,15 @@ const handleFinishSubject = async () => {
         })
 
         setShowAddItemModal(false)
-        setNewItem({
-          name: "",
-          score: null,
-          max: null,
-          date: "",
-          target: null,
-          topic: "",
-        })
+          setNewItem({
+            name: "",
+            score: null,
+            max: null,
+            date: "",
+            target: null,
+            topic: "",
+          })
+        setAddItemErrors({})
         setSelectedComponent(null)
       } else {
         let errorMessage = "Failed to add item"
@@ -1363,7 +1431,7 @@ const handleFinishSubject = async () => {
           }}
         >
           {/* Content */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
             {isEditingName ? (
               <>
                 <input
@@ -1380,9 +1448,10 @@ const handleFinishSubject = async () => {
                     }
                   }}
                   autoFocus
-                  className="text-3xl font-bold px-3 py-1 rounded-lg bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 max-w-[200px] md:max-w-md"
+                  className="text-3xl font-bold px-3 py-1 rounded-lg bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 min-w-0 w-full max-w-[200px] md:max-w-md truncate overflow-hidden whitespace-nowrap"
                   placeholder="Subject name"
                   maxLength={30}
+                  title={editingName}
                 />
                 <button
                   type="button"
@@ -1405,7 +1474,7 @@ const handleFinishSubject = async () => {
               </>
             ) : (
               <>
-                <h1 className="text-3xl font-bold text-outline-dark">{subject.name}</h1>
+                <h1 className="text-3xl font-bold text-outline-dark truncate max-w-full md:max-w-2xl lg:max-w-4xl overflow-hidden text-ellipsis whitespace-nowrap" title={subject.name}>{subject.name}</h1>
                 <button
                   type="button"
                   aria-label="Rename subject"
@@ -1436,9 +1505,9 @@ const handleFinishSubject = async () => {
           {/* Grade Metrics */}
           <div className="flex items-center gap-4 w-full md:w-auto justify-center">
             {/* Grade Metrics with Icons */}
-            <div className="flex flex-wrap justify-center gap-4 md:gap-8 text-center">
+            <div className="flex flex-nowrap justify-center gap-4 md:gap-8 text-center min-w-0 overflow-x-auto">
               {/* Target Grade */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1535,7 +1604,7 @@ const handleFinishSubject = async () => {
               </div>
 
               {/* Units */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1628,7 +1697,7 @@ const handleFinishSubject = async () => {
               </div>
 
               {/* Projected Grade */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1657,7 +1726,7 @@ const handleFinishSubject = async () => {
               </div>
 
               {/* Raw Grade */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center border-2 border-white/30">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1713,7 +1782,15 @@ const handleFinishSubject = async () => {
                         <input
                           type="number"
                           value={editingComponentPercentage}
-                          onChange={(e) => setEditingComponentPercentage(Number(e.target.value))}
+                          onChange={(e) => {
+                            const raw = String(e.target.value || "")
+                            // keep digits only and limit length to 3 chars
+                            const digits = raw.replace(/\D/g, "").slice(0, 3)
+                            const num = digits === "" ? 0 : Number.parseInt(digits, 10)
+                            // clamp between 0 and 100
+                            const clamped = Math.max(0, Math.min(100, isNaN(num) ? 0 : num))
+                            setEditingComponentPercentage(clamped)
+                          }}
                           className="w-20 text-lg font-medium px-2 py-1 border rounded"
                           min="0"
                           max="100"
@@ -1853,9 +1930,14 @@ const handleFinishSubject = async () => {
                                   type="number"
                                   className="w-16 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                                   value={editScore ?? ""}
-                                  onChange={(e) =>
-                                    setEditScore(e.target.value === "" ? null : Number.parseInt(e.target.value))
-                                  }
+                                  onChange={(e) => {
+                                    const raw = e.target.value || '';
+                                    const parts = raw.split('.').map(p => p.replace(/[^0-9]/g, ''));
+                                    const intPart = (parts[0] || '').slice(0, 4);
+                                    const fracPart = parts[1] ? (parts[1] || '').slice(0, 2) : '';
+                                    const finalStr = fracPart ? `${intPart}.${fracPart}` : intPart;
+                                    setEditScore(finalStr ? Number.parseFloat(finalStr) : null);
+                                  }}
                                   placeholder="score"
                                   min={0}
                                 />
@@ -1864,9 +1946,14 @@ const handleFinishSubject = async () => {
                                   type="number"
                                   className="w-16 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                                   value={editMax ?? ""}
-                                  onChange={(e) =>
-                                    setEditMax(e.target.value === "" ? null : Number.parseInt(e.target.value))
-                                  }
+                                  onChange={(e) => {
+                                    const raw = e.target.value || '';
+                                    const parts = raw.split('.').map(p => p.replace(/[^0-9]/g, ''));
+                                    const intPart = (parts[0] || '').slice(0, 4);
+                                    const fracPart = parts[1] ? (parts[1] || '').slice(0, 2) : '';
+                                    const finalStr = fracPart ? `${intPart}.${fracPart}` : intPart;
+                                    setEditMax(finalStr ? Number.parseFloat(finalStr) : null);
+                                  }}
                                   placeholder="max"
                                   min={1}
                                 />
@@ -2318,6 +2405,7 @@ const handleFinishSubject = async () => {
                   setShowAddItemModal(false);
                   setSelectedComponent(null);
                   setNewItem({ name: "", score: null, max: null, date: "", target: null, topic: "" });
+                  setAddItemErrors({});
                 }}
                 className="p-2 rounded hover:bg-gray-100"
                 aria-label="Close"
@@ -2333,22 +2421,17 @@ const handleFinishSubject = async () => {
                   type="text"
                   placeholder="Item Name"
                   value={newItem.name}
-                  // allow letters and spaces only, limit to 50 characters
-                onChange={(e) => {
-                  const raw = e.target.value
-                  const chars = raw.split("")
-                  const sanitized = Array.filter(chars, (ch) => {
-                    const code = ch.charCodeAt(0)
-                    const isLetter = (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
-                    const isSpace = ch === " "
-                    return isLetter || isSpace
-                  }).join("").slice(0, 50)
-                  setNewItem({ ...newItem, name: sanitized })
-                }}
-                maxLength={50}
-                pattern="[A-Za-z ]*"
+                  // allow numbers and symbols too; limit to 50 characters
+                  onChange={(e) => {
+                    setAddItemErrors(prev => ({ ...prev, name: undefined }))
+                    setNewItem({ ...newItem, name: e.target.value.slice(0, 50) })
+                  }}
+                  maxLength={50}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                {addItemErrors.name && (
+                  <div className="text-red-600 text-sm mt-1">{addItemErrors.name}</div>
+                )}
               </div>
               
               {/* Topic Field */}
@@ -2358,9 +2441,16 @@ const handleFinishSubject = async () => {
                   type="text"
                   placeholder="Topic (optional)"
                   value={newItem.topic || ""}
-                  onChange={(e) => setNewItem({ ...newItem, topic: e.target.value })}
+                  onChange={(e) => {
+                      setAddItemErrors(prev => ({ ...prev, topic: undefined }))
+                      setNewItem({ ...newItem, topic: e.target.value.slice(0, 30) })
+                  }}
+                  maxLength={30}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                {addItemErrors.topic && (
+                  <div className="text-red-600 text-sm mt-1">{addItemErrors.topic}</div>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-2">
@@ -2371,9 +2461,13 @@ const handleFinishSubject = async () => {
                     placeholder="Score"
                     value={newItem.score ?? ""}
                     onChange={(e) => {
-                      const raw = e.target.value
-                      const digits = Array.filter(raw.split(""), (ch) => ch >= "0" && ch <= "9").join("").slice(0, 4)
-                      setNewItem({ ...newItem, score: digits ? Number.parseInt(digits) : null })
+                        setAddItemErrors(prev => ({ ...prev, score: undefined }))
+                      const raw = e.target.value || '';
+                      const parts = raw.split('.').map(p => p.replace(/[^0-9]/g, ''));
+                      const intPart = (parts[0] || '').slice(0, 4);
+                      const fracPart = parts[1] ? (parts[1] || '').slice(0, 2) : '';
+                      const finalStr = fracPart ? `${intPart}.${fracPart}` : intPart;
+                      setNewItem({ ...newItem, score: finalStr ? Number.parseFloat(finalStr) : null });
                     }}
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -2381,6 +2475,9 @@ const handleFinishSubject = async () => {
                   max={9999}
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
+                  {addItemErrors.score && (
+                    <div className="text-red-600 text-sm mt-1">{addItemErrors.score}</div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Score</label>
@@ -2388,11 +2485,15 @@ const handleFinishSubject = async () => {
                     type="number"
                     placeholder="Max Score"
                       value={newItem.max ?? ""}
-                      // Limit input to digits only and max 4 characters (0-9999) /
+                      // Limit input to digits only and max 4 characters (0-9999)
                     onChange={(e) => {
-                      const raw = e.target.value
-                      const digits = Array.filter(raw.split(""), (ch) => ch >= "0" && ch <= "9").join("").slice(0, 5)
-                      setNewItem({ ...newItem, max: digits ? Number.parseInt(digits) : null })
+                        setAddItemErrors(prev => ({ ...prev, max: undefined }))
+                      const raw = e.target.value || '';
+                      const parts = raw.split('.').map(p => p.replace(/[^0-9]/g, ''));
+                      const intPart = (parts[0] || '').slice(0, 4);
+                      const fracPart = parts[1] ? (parts[1] || '').slice(0, 2) : '';
+                      const finalStr = fracPart ? `${intPart}.${fracPart}` : intPart;
+                      setNewItem({ ...newItem, max: finalStr ? Number.parseFloat(finalStr) : null });
                     }}
                     inputMode="numeric"
                     pattern="[0-9]*"
@@ -2400,6 +2501,9 @@ const handleFinishSubject = async () => {
                     max={9999}
                       className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
+                  {addItemErrors.max && (
+                    <div className="text-red-600 text-sm mt-1">{addItemErrors.max}</div>
+                  )}
                 </div>
               </div>
               
@@ -2407,9 +2511,26 @@ const handleFinishSubject = async () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <CustomDateInput
                   value={newItem.date ?? ""}
-                  onChange={(date) => setNewItem({ ...newItem, date })}
+                  onChange={(date) => {
+                    // If date is empty, clear errors. If non-empty validate immediately.
+                    if (!date || !String(date).trim()) {
+                      setAddItemErrors(prev => ({ ...prev, date: undefined }))
+                      setNewItem({ ...newItem, date })
+                    } else {
+                      // show live feedback: either valid or prompt to finish/clear
+                      if (validateDate(date)) {
+                        setAddItemErrors(prev => ({ ...prev, date: undefined }))
+                      } else {
+                        setAddItemErrors(prev => ({ ...prev, date: 'Please complete the date (MM-DD-YYYY) or leave blank' }))
+                      }
+                      setNewItem({ ...newItem, date })
+                    }
+                  }}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                {addItemErrors.date && (
+                  <div className="text-red-600 text-sm mt-1">{addItemErrors.date}</div>
+                )}
               </div>
               
             </div>
@@ -2460,7 +2581,8 @@ const handleFinishSubject = async () => {
                   type="text"
                   placeholder="Topic (optional)"
                   value={editingItem.topic || ""}
-                  onChange={(e) => setEditingItem({ ...editingItem!, topic: e.target.value })}
+                  onChange={(e) => setEditingItem({ ...editingItem!, topic: e.target.value.slice(0, 30) })}
+                  maxLength={30}
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -2472,9 +2594,14 @@ const handleFinishSubject = async () => {
                     type="number"
                     placeholder="Score"
                     value={editingItem.score || ""}
-                    onChange={(e) =>
-                      setEditingItem({ ...editingItem!, score: e.target.value ? Number.parseInt(e.target.value) : null })
-                    }
+                    onChange={(e) => {
+                      const raw = e.target.value || '';
+                      const parts = raw.split('.').map(p => p.replace(/[^0-9]/g, ''));
+                      const intPart = (parts[0] || '').slice(0, 4);
+                      const fracPart = parts[1] ? (parts[1] || '').slice(0, 2) : '';
+                      const finalStr = fracPart ? `${intPart}.${fracPart}` : intPart;
+                      setEditingItem({ ...editingItem!, score: finalStr ? Number.parseFloat(finalStr) : null });
+                    }}
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     min="0"
                   />
@@ -2485,9 +2612,14 @@ const handleFinishSubject = async () => {
                     type="number"
                     placeholder="Max Score"
                     value={editingItem.max || ""}
-                    onChange={(e) =>
-                      setEditingItem({ ...editingItem!, max: e.target.value ? Number.parseInt(e.target.value) : null })
-                    }
+                    onChange={(e) => {
+                      const raw = e.target.value || '';
+                      const parts = raw.split('.').map(p => p.replace(/[^0-9]/g, ''));
+                      const intPart = (parts[0] || '').slice(0, 4);
+                      const fracPart = parts[1] ? (parts[1] || '').slice(0, 2) : '';
+                      const finalStr = fracPart ? `${intPart}.${fracPart}` : intPart;
+                      setEditingItem({ ...editingItem!, max: finalStr ? Number.parseFloat(finalStr) : null });
+                    }}
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     min="1"
                   />
