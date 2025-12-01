@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
 import { Array } from "effect";
 import _ from "lodash";
-import { sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { subjects, components, items, subject_history } from "@/lib/schema";
 
-// Interfaces
+// Interfaces updated to match Drizzle ORM types
 interface Item {
   id: string;
   component_id: string;
@@ -32,7 +33,7 @@ interface Subject {
   user_email: string;
   target_grade: string | null;
   color: string;
-  units?: number; // ADDED: Units field
+  units: number | null;
 }
 
 interface HistoryRecord {
@@ -43,7 +44,8 @@ interface HistoryRecord {
   target_grade: string;
   final_grade: string;
   status: string;
-  completed_at: string;
+  completed_at: Date | null;
+  units: number | null;
 }
 
 // Grade calculation functions
@@ -105,38 +107,40 @@ export async function POST(
       return NextResponse.json({ error: 'User email is required' }, { status: 400 });
     }
 
-    // 1. Get subject details with better error handling
+    // 1. Get subject details
     console.log('📋 Fetching subject details...');
-    const subjectResult = await db.execute(sql`
-      SELECT * FROM subjects WHERE id = ${id} AND user_email = ${user_email}
-    `);
+    const [subject] = await db
+      .select()
+      .from(subjects)
+      .where(sql`${subjects.id} = ${id} AND ${subjects.user_email} = ${user_email}`);
     
-    if (subjectResult.rows.length === 0) {
+    if (!subject) {
       console.log('❌ Subject not found or access denied');
       return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
     }
 
-    // Fix: Use type assertion through unknown
-    const subject = subjectResult.rows[0] as unknown as Subject;
     console.log('📚 Subject found:', subject.name);
 
-    // 2. Get components and items
+    // 2. Get components
     console.log('🔧 Fetching components...');
-    const componentsResult = await db.execute(sql`
-      SELECT * FROM components WHERE subject_id = ${id}
-    `);
+    const componentsData = await db
+      .select()
+      .from(components)
+      .where(eq(components.subject_id, id));
 
-    console.log('📊 Components found:', componentsResult.rows.length);
+    console.log('📊 Components found:', componentsData.length);
 
     // 3. Get items for each component
     const componentsWithItems: Component[] = await Promise.all(
-      (componentsResult.rows as unknown as Component[]).map(async (component) => {
-        const itemsResult = await db.execute(sql`
-          SELECT * FROM items WHERE component_id = ${component.id}
-        `);
+      componentsData.map(async (component) => {
+        const componentItems = await db
+          .select()
+          .from(items)
+          .where(eq(items.component_id, component.id));
+        
         return {
           ...component,
-          items: itemsResult.rows as unknown as Item[]
+          items: componentItems
         };
       })
     );
@@ -161,36 +165,44 @@ export async function POST(
     let historyRecord: HistoryRecord | null = null;
     
     try {
-      // First, insert into history
+      // First, insert into history (including units)
       console.log('📝 Inserting into subject_history...');
-      const historyResult = await db.execute(sql`
-        INSERT INTO subject_history 
-          (subject_id, user_email, course_name, target_grade, final_grade, status, completed_at)
-        VALUES 
-          (${id}, ${user_email}, ${subject.name}, ${targetGrade}, ${finalGrade.toFixed(2)}, ${status}, NOW())
-        RETURNING *
-      `);
+      const [insertedHistory] = await db
+        .insert(subject_history)
+        .values({
+          subject_id: id,
+          user_email: user_email,
+          course_name: subject.name,
+          target_grade: targetGrade,
+          final_grade: finalGrade.toFixed(2),
+          status: status,
+          units: subject.units || 3
+        })
+        .returning();
 
-      // Fix: Use type assertion through unknown
-      historyRecord = historyResult.rows[0] as unknown as HistoryRecord;
+      historyRecord = insertedHistory as HistoryRecord;
       console.log('✅ History record created:', historyRecord);
 
-      // Then delete the original data
-      console.log('🗑️ Deleting items...');
-      await db.execute(sql`
-        DELETE FROM items 
-        WHERE component_id IN (SELECT id FROM components WHERE subject_id = ${id})
-      `);
-      
+      // Get all component IDs for deletion
+      const componentIds = componentsData.map(comp => comp.id);
+
+      // Delete items in batches if there are many
+      if (componentIds.length > 0) {
+        console.log('🗑️ Deleting items...');
+        await db
+          .delete(items)
+          .where(inArray(items.component_id, componentIds));
+      }
+
       console.log('🗑️ Deleting components...');
-      await db.execute(sql`
-        DELETE FROM components WHERE subject_id = ${id}
-      `);
+      await db
+        .delete(components)
+        .where(eq(components.subject_id, id));
       
       console.log('🗑️ Deleting subject...');
-      await db.execute(sql`
-        DELETE FROM subjects WHERE id = ${id}
-      `);
+      await db
+        .delete(subjects)
+        .where(eq(subjects.id, id));
 
       console.log('🎉 All operations completed successfully!');
 
@@ -199,12 +211,15 @@ export async function POST(
       throw transactionError;
     }
 
-    // 6. Return success response
+    // 6. Return success response with serialized date
     return NextResponse.json({ 
       success: true, 
       final_grade: finalGrade.toFixed(2),
       status: status,
-      history_record: historyRecord,
+      history_record: historyRecord ? {
+        ...historyRecord,
+        completed_at: historyRecord.completed_at ? historyRecord.completed_at.toISOString() : null
+      } : null,
       message: 'Subject successfully completed and moved to history'
     });
 
