@@ -11,7 +11,6 @@ import DashboardSearch from "./search";
 import Backdrop from "../components/Backdrop";
 import { LayoutDashboard, Clock, History } from "lucide-react";
 
-
 /* ------------------------- Interfaces ------------------------- */
 interface ComponentInput {
   id?: string;
@@ -886,41 +885,40 @@ export default function Dashboard() {
   }, [status, user?.email]);
 
   /* ---------------------- Add/Update Component ---------------------- */
-  /* ---------------------- Add/Update Component ---------------------- */
-const handleAddOrUpdateComponent = () => {
-  // Check if adding would exceed 100%
-  const currentTotal = newSubject.components.reduce((sum, c) => sum + c.percentage, 0);
-  const newTotal = currentTotal + newComponent.percentage;
-  
-  if (newTotal > 100) {
-    alert(`Cannot add component! Current total: ${currentTotal}%. Adding ${newComponent.percentage}% would exceed 100% limit.`);
-    return; 
-  }
+  const handleAddOrUpdateComponent = () => {
+    // Check if adding would exceed 100%
+    const currentTotal = newSubject.components.reduce((sum, c) => sum + c.percentage, 0);
+    const newTotal = currentTotal + newComponent.percentage;
+    
+    if (newTotal > 100) {
+      alert(`Cannot add component! Current total: ${currentTotal}%. Adding ${newComponent.percentage}% would exceed 100% limit.`);
+      return; 
+    }
 
-  // Existing validation checks
-  if (!newComponent.name.trim()) return alert("Component name required!");
+    // Existing validation checks
+    if (!newComponent.name.trim()) return alert("Component name required!");
 
-  const duplicate = newSubject.components.some(
-    (c) => c.priority === newComponent.priority && c.name !== newComponent.name
-  );
-  if (duplicate) return alert("A component with that priority already exists.");
+    const duplicate = newSubject.components.some(
+      (c) => c.priority === newComponent.priority && c.name !== newComponent.name
+    );
+    if (duplicate) return alert("A component with that priority already exists.");
 
-  // Add/Update component
-  const updated = [...newSubject.components];
-  const idx = updated.findIndex((c) => c.name === newComponent.name);
+    // Add/Update component
+    const updated = [...newSubject.components];
+    const idx = updated.findIndex((c) => c.name === newComponent.name);
 
-  if (idx >= 0) updated[idx] = newComponent;
-  else updated.push(newComponent);
+    if (idx >= 0) updated[idx] = newComponent;
+    else updated.push(newComponent);
 
-  setNewSubject({ ...newSubject, components: updated });
+    setNewSubject({ ...newSubject, components: updated });
 
-  // Reset form
-  setNewComponent({
-    name: "",
-    percentage: 0,
-    priority: updated.length + 1,
-  });
-};
+    // Reset form
+    setNewComponent({
+      name: "",
+      percentage: 0,
+      priority: updated.length + 1,
+    });
+  };
 
   /* ---------------------- Remove Component ---------------------- */
   const handleRemoveComponent = (index: number) => {
@@ -1102,7 +1100,7 @@ const handleAddOrUpdateComponent = () => {
     setHistoryToDelete(null);
   };
 
-    /* ---------------------- Handle Subject Card Click ---------------------- */  // ← ADDED HERE
+  /* ---------------------- Handle Subject Card Click ---------------------- */
   const handleSubjectClick = (subjectId: string) => {
     // Navigate to subject page with showGraph parameter to auto-open the modal
     router.push(`dashboard/subject/${subjectId}?showGraph=true`)
@@ -1114,6 +1112,7 @@ const handleAddOrUpdateComponent = () => {
     const first = searchQuery.trim()[0].toLowerCase();
     return s.name.toLowerCase().startsWith(first);
   });
+  
   return (
     <div className="min-h-screen bg-transparent relative overflow-y-auto">
       {/* Animated Background */}
@@ -1136,179 +1135,268 @@ const handleAddOrUpdateComponent = () => {
         </div>
       )}
       
-      {/* MOBILE NAVBAR */}
-      <nav className="md:hidden bg-white/90 backdrop-blur-md shadow-md px-4 py-3 flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-2">
-          <Image src="/gslogo.png" alt="Logo" width={32} height={32} className="h-8 w-8 drop-shadow-sm" />
-        </div>
-        <button
-          onClick={() => setIsNavOpen((v) => !v)}
-          className="p-2 rounded-lg border border-gray-200"
-          aria-label="Open menu"
-        >
-          <div className="space-y-1">
-            <div className="w-6 h-0.5 bg-gray-800"></div>
-            <div className="w-6 h-0.5 bg-gray-800"></div>
-            <div className="w-6 h-0.5 bg-gray-800"></div>
+      {/* RESPONSIVE NAVBAR */}
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-md">
+        {/* Mobile Navbar (visible on small screens) */}
+        <div className="md:hidden px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Image 
+              src="/gslogo.png" 
+              alt="Logo" 
+              width={32} 
+              height={32} 
+              className="h-8 w-8 drop-shadow-sm" 
+            />
+            <span className="font-bold text-lg text-gray-800">GradeSeer</span>
           </div>
-        </button>
-      </nav>
-
-      {isNavOpen && (
-        <div className="md:hidden fixed inset-0 bg-white/95 backdrop-blur-sm z-50 p-6 flex flex-col animate-in slide-in-from-right-10 duration-200" role="dialog" aria-modal="true">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-xl font-bold text-gray-800">Menu</h2>
-            <button 
-              onClick={() => setIsNavOpen(false)} 
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors" 
-              aria-label="Close"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Profile Section */}
-          <div 
-            className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100 active:scale-95 transition-transform cursor-pointer" 
-            onClick={() => { router.push("/profile"); setIsNavOpen(false); }}
-          >
-            <div className="flex items-center gap-4">
+          
+          <div className="flex items-center gap-3">
+            {/* Profile Image on Mobile */}
+            <Link href="/profile" className="block md:hidden">
               <Image
                 src={profileImage || user?.image || "/default.png"}
                 alt="Profile"
-                width={56}
-                height={56}
-                className="rounded-full border-2 border-white shadow-sm"
+                width={36}
+                height={36}
+                className="rounded-full border-2 border-gray-300"
               />
-              <div>
-                <p className="font-bold text-gray-900">{user?.name || "User"}</p>
-                <p className="text-sm text-gray-500 truncate max-w-[180px]">{user?.email}</p>
+            </Link>
+            
+            {/* Hamburger Menu */}
+            <button
+              onClick={() => setIsNavOpen(!isNavOpen)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Toggle menu"
+              aria-expanded={isNavOpen}
+            >
+              <div className="w-6 h-6 flex flex-col justify-center items-center gap-1.5">
+                <div className={`w-6 h-0.5 bg-gray-800 transition-all duration-300 ${isNavOpen ? 'rotate-45 translate-y-2' : ''}`}></div>
+                <div className={`w-6 h-0.5 bg-gray-800 transition-all duration-300 ${isNavOpen ? 'opacity-0' : ''}`}></div>
+                <div className={`w-6 h-0.5 bg-gray-800 transition-all duration-300 ${isNavOpen ? '-rotate-45 -translate-y-2' : ''}`}></div>
               </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop Navbar (hidden on mobile) */}
+        <div className="hidden md:flex px-6 lg:px-10 py-4 items-center justify-between">
+          <div className="flex-1 flex justify-start">
+            <div className="flex items-center gap-3">
+              <Image 
+                src="/gslogo.png" 
+                alt="Logo" 
+                width={80} 
+                height={80} 
+                className="drop-shadow-sm" 
+              />
+              <span className="font-bold text-xl text-gray-800 hidden lg:block">GradeSeer</span>
             </div>
           </div>
-          
-          <nav className="flex flex-col gap-2">
-            <button
-              onClick={() => { setActiveTab("subjects"); setIsNavOpen(false); }}
-              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                activeTab === "subjects" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <LayoutDashboard className="w-6 h-6" />
-              <span className="text-lg">Subjects</span>
-            </button>
 
-            <button
-              onClick={() => { setActiveTab("pending"); setIsNavOpen(false); }}
-              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                activeTab === "pending" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <Clock className="w-6 h-6" />
-              <span className="text-lg">Pending Items</span>
-            </button>
+          <div className="flex-1 flex justify-center">
+            <div className="flex gap-6 lg:gap-12">
+              {["subjects", "pending", "history"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab as any)}
+                  className={`capitalize font-medium transition-all relative text-sm lg:text-base ${
+                    activeTab === tab
+                      ? "text-blue-600"
+                      : "text-gray-700 hover:text-blue-600"
+                  }`}
+                >
+                  {tab}
+                  {activeTab === tab && (
+                    <div className="absolute -bottom-3 left-0 right-0 h-0.5 bg-blue-600 rounded-full"></div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
 
+          <div className="flex-1 flex justify-end items-center gap-4">
+            {/* GWA Calculator Button in Navbar for Desktop */}
             <button
-              onClick={() => { setActiveTab("history"); setIsNavOpen(false); }}
-              className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                activeTab === "history" ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50"
-              }`}
+              onClick={handleOpenGPAModal}
+              className="hidden lg:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
             >
-              <History className="w-6 h-6" />
-              <span className="text-lg">History</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              GWA Calculator
             </button>
-          </nav>
-          
-          <div className="mt-auto">
-            <p className="text-center text-sm text-gray-400">GradeSeer v0.1.0</p>
+            
+            <Link href="/profile" className="group">
+              <Image
+                src={profileImage || user?.image || "/default.png"}
+                alt="Profile"
+                width={48}
+                height={48}
+                className="rounded-full cursor-pointer border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-300 shadow-sm"
+              />
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Menu Overlay */}
+      {isNavOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40" onClick={() => setIsNavOpen(false)}>
+          <div 
+            className="absolute right-0 top-0 bottom-0 w-4/5 max-w-sm bg-white shadow-xl animate-in slide-in-from-right duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Menu Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Image 
+                    src="/gslogo.png" 
+                    alt="Logo" 
+                    width={40} 
+                    height={40} 
+                    className="drop-shadow-sm" 
+                  />
+                  <div>
+                    <h2 className="font-bold text-lg text-gray-800">GradeSeer</h2>
+                    <p className="text-xs text-gray-500">v0.1.0</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsNavOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                  aria-label="Close menu"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* User Profile in Mobile Menu */}
+              <div 
+                className="p-4 bg-gray-50 rounded-xl border border-gray-100 active:scale-95 transition-transform cursor-pointer" 
+                onClick={() => { router.push("/profile"); setIsNavOpen(false); }}
+              >
+                <div className="flex items-center gap-4">
+                  <Image
+                    src={profileImage || user?.image || "/default.png"}
+                    alt="Profile"
+                    width={56}
+                    height={56}
+                    className="rounded-full border-2 border-white shadow-sm"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 truncate">{user?.name || "User"}</p>
+                    <p className="text-sm text-gray-500 truncate">{user?.email || "user@example.com"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Mobile Navigation Items */}
+            <div className="p-4">
+              <div className="space-y-2">
+                {[
+                  { tab: "subjects", icon: <LayoutDashboard className="w-5 h-5" />, label: "Subjects" },
+                  { tab: "pending", icon: <Clock className="w-5 h-5" />, label: "Pending Items" },
+                  { tab: "history", icon: <History className="w-5 h-5" />, label: "History" },
+                ].map((item) => (
+                  <button
+                    key={item.tab}
+                    onClick={() => { setActiveTab(item.tab as any); setIsNavOpen(false); }}
+                    className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${
+                      activeTab === item.tab 
+                        ? "bg-blue-50 text-blue-600 font-semibold border border-blue-100" 
+                        : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {item.icon}
+                    <span className="text-base">{item.label}</span>
+                    {activeTab === item.tab && (
+                      <div className="ml-auto w-2 h-2 bg-blue-600 rounded-full"></div>
+                    )}
+                  </button>
+                ))}
+                
+                {/* GWA Calculator in Mobile Menu */}
+                <button
+                  onClick={() => { handleOpenGPAModal(); setIsNavOpen(false); }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 text-blue-600 font-medium hover:from-blue-100 hover:to-purple-100 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span>GWA Calculator</span>
+                </button>
+                
+                {/* Add New Subject in Mobile Menu */}
+                <button
+                  onClick={() => { setShowModal(true); setIsNavOpen(false); }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Add New Subject</span>
+                </button>
+              </div>
+              
+              {/* Logout Option */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => router.push("/api/auth/signout")}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl text-red-600 hover:bg-red-50 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* NAVBAR */}
-      <nav className="hidden md:flex bg-white/90 backdrop-blur-md shadow-md px-10 py-4 items-center justify-between relative z-10">
-        <div className="flex-1 flex justify-start">
-          <Image src="/gslogo.png" alt="Logo" width={80} height={80} className="drop-shadow-sm" />
-        </div>
-
-        <div className="flex-1 flex justify-center">
-          <div className="flex gap-80">
-            {Array.map(["subjects", "pending", "history"], (tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={`capitalize font-medium transition-all relative ${
-                  activeTab === tab
-                    ? "text-blue-600 border-b-2 border-blue-600 pb-1"
-                    : "text-gray-700 hover:text-blue-600"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex-1 flex justify-end">
-          <Link href="/profile" className="group">
-            <Image
-              src={profileImage || user?.image || "/default.png"}
-              alt="Profile"
-              width={50}
-              height={50}
-              className="rounded-full cursor-pointer border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-300 shadow-sm"
-            />
-          </Link>
-        </div>
-      </nav>
-
       {/* MAIN CONTENT */}
-      <main className="p-6 relative z-10 overflow-y-auto">
+      <main className="p-4 md:p-6 relative z-10 overflow-y-auto">
         {/* SUBJECTS TAB */}
         {activeTab === "subjects" && (
           <div className="max-w-7xl mx-auto">
-            
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 px-4 md:px-0">
-                <div className="md:flex-1 md:flex md:justify-center">
-                  <div className="w-full md:w-96">
-                    <DashboardSearch
-                      items={Array.map(subjects, (s) => s.name)}
-                      maxResults={5}
-                      placeholder="Search subjects..."
-                      className="w-full"
-                      onSearch={(q) => setSearchQuery(q)}
-                    />
-                  </div>
-                </div>
+            {/* Header Section - Responsive */}
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8">
+              {/* Search Bar - Full width on mobile, centered on desktop */}
+              <div className="w-full md:w-96 md:mx-auto">
+                <DashboardSearch
+                  items={Array.map(subjects, (s) => s.name)}
+                  maxResults={5}
+                  placeholder="Search subjects..."
+                  className="w-full"
+                  onSearch={(q) => setSearchQuery(q)}
+                />
+              </div>
               
-              <div className="md:flex-1 md:flex md:justify-end">
-                <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
-                  <button
-                    onClick={handleOpenGPAModal}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 min-h-[44px] rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
-                  >
-                    <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    Calculate GWA
-                  </button>
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 min-h-[44px] rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold flex items-center gap-2 group"
-                  >
-                    <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    Add New Subject
-                  </button>
-                </div>
+              {/* Action Buttons - Stack on mobile, row on desktop */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <button
+                  onClick={handleOpenGPAModal}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-sm md:text-base"
+                >
+                  <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span className="truncate">Calculate GWA</span>
+                </button>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-sm md:text-base"
+                >
+                  <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="truncate">Add New Subject</span>
+                </button>
               </div>
             </div>
 
@@ -1366,7 +1454,7 @@ const handleAddOrUpdateComponent = () => {
             )}
 
             {/* SUBJECT CARDS - 4 CARDS PER ROW */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {Array.map(displayedSubjects, (subj) => {
                 const currentPercentage = computeRawGrade(subj.components);
                 const currentGrade = percentageToGradeScale(currentPercentage);
@@ -1533,7 +1621,7 @@ const handleAddOrUpdateComponent = () => {
               {/* No matches for current search */}
               {subjects.length > 0 && displayedSubjects.length === 0 && (
                 <div className="col-span-full text-center py-12 bg-white/80 backdrop-blur-sm rounded-3xl shadow-lg border border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">No subjects start with “{searchQuery.trim()[0]}”</h3>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">No subjects start with "{searchQuery.trim()[0]}"</h3>
                   <p className="text-sm text-gray-600">Try a different letter or clear the search.</p>
                 </div>
               )}
@@ -1864,351 +1952,351 @@ const handleAddOrUpdateComponent = () => {
       )}
 
       {/* ADD SUBJECT MODAL */}
-{showModal && (
-  <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-          <h2 className="text-white text-lg font-semibold">Add New Subject</h2>
-        </div>
-        <p className="text-blue-100 text-sm mt-1">Fill in the subject details and grading components</p>
-      </div>
-
-      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto max-h-[calc(85vh-64px-60px)]">
-        {/* LEFT COLUMN - Basic Information */}
-        <div>
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Basic Information
-            </h3>
-            
-            {/* Subject Name */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Subject Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g., Mathematics, Physics, English"
-                value={newSubject.name}
-                onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
-                maxLength={50}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              />
-              <p className="text-xs text-gray-500 mt-1">Required • Max 50 characters</p>
-            </div>
-
-            {/* Type and Units in one row */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Subject Type
-                </label>
-                <select
-                  value={newSubject.is_major ? "major" : "minor"}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="major">Major</option>
-                  <option value="minor">Minor</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Core subject or elective</p>
+      {showModal && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black/40 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <h2 className="text-white text-lg font-semibold">Add New Subject</h2>
               </div>
-              
+              <p className="text-blue-100 text-sm mt-1">Fill in the subject details and grading components</p>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto max-h-[calc(85vh-64px-60px)]">
+              {/* LEFT COLUMN - Basic Information */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Units <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={newSubject.units}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
-                  }
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value={1}>1 Unit</option>
-                  <option value={2}>2 Units</option>
-                  <option value={3}>3 Units</option>
-                  <option value={4}>4 Units</option>
-                  <option value={5}>5 Units</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Credit weight</p>
-              </div>
-            </div>
-
-            {/* Target Grade */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Target Grade <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={newSubject.target_grade}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                  setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
-                }
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              >
-                <option value={0}>Select your target grade</option>
-                <option value={1.00}>1.00 - Excellent</option>
-                <option value={1.25}>1.25 - Very Good</option>
-                <option value={1.50}>1.50 - Good</option>
-                <option value={1.75}>1.75 - Very Satisfactory</option>
-                <option value={2.00}>2.00 - Satisfactory</option>
-                <option value={2.25}>2.25 - Fairly Satisfactory</option>
-                <option value={2.50}>2.50 - Fair</option>
-                <option value={2.75}>2.75 - Passed</option>
-                <option value={3.00}>3.00 - Conditional</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">Your goal for this subject</p>
-            </div>
-
-            {/* Subject Color */}
-            <div className="mt-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Subject Color
-              </label>
-              <p className="text-xs text-gray-600 mb-3">Choose a color to easily identify this subject</p>
-              <div className="flex flex-wrap items-center gap-3">
-                {Array.map(predefinedColors, (c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setNewSubject({ ...newSubject, color: c })}
-                    className={`w-8 h-8 rounded-lg border-2 ${newSubject.color === c ? 'border-blue-600 ring-2 ring-blue-300 scale-110' : 'border-gray-300'} hover:scale-105 transition-all duration-200`}
-                    style={{ backgroundColor: c }}
-                    aria-label={`Choose color ${c}`}
-                  />
-                ))}
-                
-                {/* Custom color card */}
-                <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-700">Custom:</span>
-                    <input
-                      type="color"
-                      value={newSubject.color}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setNewSubject({ ...newSubject, color: e.target.value })}
-                      className="w-6 h-6 rounded border border-gray-300 cursor-pointer"
-                      aria-label="Custom color picker"
-                    />
-                  </div>
-                  <div className="flex items-center">
-                    <span className="px-2 py-1 bg-white border border-gray-300 rounded-l text-xs text-gray-600">#</span>
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Basic Information
+                  </h3>
+                  
+                  {/* Subject Name */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Subject Name <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
-                      value={newSubject.color.replace('#','')}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        const rawInput = e.target.value;
-                        const hex = Array.filter(rawInput.split(''), (ch) => {
-                          const c = ch.charCodeAt(0);
-                          const isDigit = c >= 48 && c <= 57; // 0-9
-                          const isUpperAF = c >= 65 && c <= 70; // A-F
-                          const isLowerAF = c >= 97 && c <= 102; // a-f
-                          return isDigit || isUpperAF || isLowerAF;
-                        }).join('').slice(0, 6);
-                        const raw = hex;
-                        const color = `#${raw}`;
-                        setNewSubject({ ...newSubject, color });
-                      }}
-                      placeholder="Hex code"
-                      className="w-20 p-1 border border-gray-300 rounded-r text-xs"
-                      aria-label="Custom color hex"
+                      placeholder="e.g., Mathematics, Physics, English"
+                      value={newSubject.name}
+                      onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value.slice(0, 50) })}
+                      maxLength={50}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Required • Max 50 characters</p>
+                  </div>
+
+                  {/* Type and Units in one row */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Subject Type
+                      </label>
+                      <select
+                        value={newSubject.is_major ? "major" : "minor"}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                          setNewSubject({ ...newSubject, is_major: e.target.value === "major" })
+                        }
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      >
+                        <option value="major">Major</option>
+                        <option value="minor">Minor</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Core subject or elective</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Units <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={newSubject.units}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                          setNewSubject({ ...newSubject, units: parseInt(e.target.value) })
+                        }
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      >
+                        <option value={1}>1 Unit</option>
+                        <option value={2}>2 Units</option>
+                        <option value={3}>3 Units</option>
+                        <option value={4}>4 Units</option>
+                        <option value={5}>5 Units</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Credit weight</p>
+                    </div>
+                  </div>
+
+                  {/* Target Grade */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Target Grade <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={newSubject.target_grade}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                        setNewSubject({ ...newSubject, target_grade: parseFloat(e.target.value) })
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value={0}>Select your target grade</option>
+                      <option value={1.00}>1.00 - Excellent</option>
+                      <option value={1.25}>1.25 - Very Good</option>
+                      <option value={1.50}>1.50 - Good</option>
+                      <option value={1.75}>1.75 - Very Satisfactory</option>
+                      <option value={2.00}>2.00 - Satisfactory</option>
+                      <option value={2.25}>2.25 - Fairly Satisfactory</option>
+                      <option value={2.50}>2.50 - Fair</option>
+                      <option value={2.75}>2.75 - Passed</option>
+                      <option value={3.00}>3.00 - Conditional</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Your goal for this subject</p>
+                  </div>
+
+                  {/* Subject Color */}
+                  <div className="mt-6">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Subject Color
+                    </label>
+                    <p className="text-xs text-gray-600 mb-3">Choose a color to easily identify this subject</p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {Array.map(predefinedColors, (c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setNewSubject({ ...newSubject, color: c })}
+                          className={`w-8 h-8 rounded-lg border-2 ${newSubject.color === c ? 'border-blue-600 ring-2 ring-blue-300 scale-110' : 'border-gray-300'} hover:scale-105 transition-all duration-200`}
+                          style={{ backgroundColor: c }}
+                          aria-label={`Choose color ${c}`}
+                        />
+                      ))}
+                      
+                      {/* Custom color card */}
+                      <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-gray-50">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-700">Custom:</span>
+                          <input
+                            type="color"
+                            value={newSubject.color}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setNewSubject({ ...newSubject, color: e.target.value })}
+                            className="w-6 h-6 rounded border border-gray-300 cursor-pointer"
+                            aria-label="Custom color picker"
+                          />
+                        </div>
+                        <div className="flex items-center">
+                          <span className="px-2 py-1 bg-white border border-gray-300 rounded-l text-xs text-gray-600">#</span>
+                          <input
+                            type="text"
+                            value={newSubject.color.replace('#','')}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                              const rawInput = e.target.value;
+                              const hex = Array.filter(rawInput.split(''), (ch) => {
+                                const c = ch.charCodeAt(0);
+                                const isDigit = c >= 48 && c <= 57; // 0-9
+                                const isUpperAF = c >= 65 && c <= 70; // A-F
+                                const isLowerAF = c >= 97 && c <= 102; // a-f
+                                return isDigit || isUpperAF || isLowerAF;
+                              }).join('').slice(0, 6);
+                              const raw = hex;
+                              const color = `#${raw}`;
+                              setNewSubject({ ...newSubject, color });
+                            }}
+                            placeholder="Hex code"
+                            className="w-20 p-1 border border-gray-300 rounded-r text-xs"
+                            aria-label="Custom color hex"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* RIGHT COLUMN - Grading Components */}
-        <div>
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Grading Components
-              <span className="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                {newSubject.components.length} added
-              </span>
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Add the different parts that make up your final grade (exams, assignments, etc.)
-            </p>
-          </div>
+              {/* RIGHT COLUMN - Grading Components */}
+              <div>
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Grading Components
+                    <span className="text-xs font-normal bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                      {newSubject.components.length} added
+                    </span>
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Add the different parts that make up your final grade (exams, assignments, etc.)
+                  </p>
+                </div>
 
-          {/* Components List */}
-          <div className="border border-gray-200 rounded-lg p-4 max-h-48 overflow-y-auto mb-4 bg-gray-50">
-            {newSubject.components.length === 0 ? (
-              <div className="text-center py-6 text-gray-400">
-                <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-sm font-medium">No components added yet</p>
-                <p className="text-xs mt-1">Add your first component below</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {newSubject.components.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-gray-800">{c.name}</span>
-                        <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          {c.percentage}%
-                        </span>
-                        {c.priority > 0 && (
-                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                            Priority: {c.priority}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveComponent(i)}
-                      className="text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors"
-                      title="Remove component"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                {/* Components List */}
+                <div className="border border-gray-200 rounded-lg p-4 max-h-48 overflow-y-auto mb-4 bg-gray-50">
+                  {newSubject.components.length === 0 ? (
+                    <div className="text-center py-6 text-gray-400">
+                      <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                      <p className="text-sm font-medium">No components added yet</p>
+                      <p className="text-xs mt-1">Add your first component below</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {newSubject.components.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-gray-800">{c.name}</span>
+                              <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                {c.percentage}%
+                              </span>
+                              {c.priority > 0 && (
+                                <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                                  Priority: {c.priority}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveComponent(i)}
+                            className="text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                            title="Remove component"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-          {/* Add Component Form */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <h4 className="text-sm font-semibold text-blue-800 mb-3">Add New Component</h4>
-            
-            <div className="grid grid-cols-[1fr_6rem_4.5rem] gap-2 mb-3">
-              <div>
-                <input
-                  type="text"
-                  placeholder="e.g., Final Exam"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
-                  maxLength={80}
-                  value={newComponent.name}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
-                  }
-                />
-                <p className="text-xs text-gray-500 mt-1">Component name</p>
-              </div>
-              
-              <div>
-                <NumberInput
-                  placeholder="%"
-                  value={newComponent.percentage}
-                  onChange={(value: number) =>
-                    setNewComponent({ ...newComponent, percentage: value })
-                  }
-                  min={0}
-                  max={100}
-                  className="w-full p-3 border border-gray-300 rounded-lg text-sm"
-                />
-                <p className="text-xs text-gray-500 mt-1">Weight %</p>
-              </div>
-              
-              <div>
-                <NumberInput
-                  placeholder="P"
-                  value={newComponent.priority}
-                  onChange={(value: number) =>
-                    setNewComponent({ ...newComponent, priority: value })
-                  }
-                  min={0}
-                  maxDigits={4}
-                  className="w-full p-3 border border-gray-300 rounded-lg text-sm"
-                />
-                <p className="text-xs text-gray-500 mt-1">Priority</p>
+                {/* Add Component Form */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <h4 className="text-sm font-semibold text-blue-800 mb-3">Add New Component</h4>
+                  
+                  <div className="grid grid-cols-[1fr_6rem_4.5rem] gap-2 mb-3">
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="e.g., Final Exam"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                        maxLength={80}
+                        value={newComponent.name}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                          setNewComponent({ ...newComponent, name: e.target.value.slice(0, 80) })
+                        }
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Component name</p>
+                    </div>
+                    
+                    <div>
+                      <NumberInput
+                        placeholder="%"
+                        value={newComponent.percentage}
+                        onChange={(value: number) =>
+                          setNewComponent({ ...newComponent, percentage: value })
+                        }
+                        min={0}
+                        max={100}
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Weight %</p>
+                    </div>
+                    
+                    <div>
+                      <NumberInput
+                        placeholder="P"
+                        value={newComponent.priority}
+                        onChange={(value: number) =>
+                          setNewComponent({ ...newComponent, priority: value })
+                        }
+                        min={0}
+                        maxDigits={4}
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Priority</p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={handleAddOrUpdateComponent}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Component
+                  </button>
+                  
+                  {/* Total Percentage Indicator */}
+                  {newSubject.components.length > 0 && (
+                    <div className={`mt-3 text-xs font-medium px-2 py-1 rounded text-center ${
+                      newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) === 100 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      Total: {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0)}% / 100%
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            
-            <button
-              onClick={handleAddOrUpdateComponent}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Component
-            </button>
-            
-            {/* Total Percentage Indicator */}
-            {newSubject.components.length > 0 && (
-              <div className={`mt-3 text-xs font-medium px-2 py-1 rounded text-center ${
-                newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) === 100 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-yellow-100 text-yellow-800'
-              }`}>
-                Total: {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0)}% / 100%
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Footer */}
-      <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 bg-gray-50">
-        <button
-          onClick={handleModalClose}
-          className="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Cancel
-        </button>
-        
-        <div className="flex items-center gap-3">
-          {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) !== 100 && 
-           newSubject.components.length > 0 && (
-            <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded">
-              Components total should be 100%
-            </span>
-          )}
-          
-          <button
-            onClick={handleSaveSubject}
-            disabled={
-              loading ||
-              !newSubject.name.trim() ||
-              newSubject.components.length === 0 ||
-              (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
-              !newSubject.target_grade || newSubject.target_grade === 0
-            }
-            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm shadow-lg"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating Subject...
-              </>
-            ) : (
-              <>
+            {/* Footer */}
+            <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={handleModalClose}
+                className="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Create Subject
-              </>
-            )}
-          </button>
+                Cancel
+              </button>
+              
+              <div className="flex items-center gap-3">
+                {newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) !== 100 && 
+                newSubject.components.length > 0 && (
+                  <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded">
+                    Components total should be 100%
+                  </span>
+                )}
+                
+                <button
+                  onClick={handleSaveSubject}
+                  disabled={
+                    loading ||
+                    !newSubject.name.trim() ||
+                    newSubject.components.length === 0 ||
+                    (newSubject.components.reduce((sum, c) => sum + (c.percentage || 0), 0) > 100) ||
+                    !newSubject.target_grade || newSubject.target_grade === 0
+                  }
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm shadow-lg"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating Subject...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Create Subject
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
